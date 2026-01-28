@@ -10,7 +10,7 @@ import {
 } from "@/components/studio/studio-frame";
 import { StudioSidebar } from "@/components/studio/studio-sidebar";
 import { StudioMainContent } from "@/components/studio/studio-views";
-import { StudioChatAssistant, StudioChatToggle } from "@/components/studio/studio-chat";
+// import { StudioChatAssistant, StudioChatToggle } from "@/components/studio/studio-chat";
 import { StudioSettingsSidebar } from "@/components/studio/studio-settings-sidebar";
 
 /**
@@ -40,8 +40,8 @@ function StudioPageContent() {
           <StudioSettingsSidebar />
         </StudioSettingsPanel>
       </StudioLayout>
-      <StudioChatAssistant />
-      <StudioChatToggle />
+      {/* <StudioChatAssistant />
+      <StudioChatToggle /> */}
     </StudioFrame>
   );
 }
