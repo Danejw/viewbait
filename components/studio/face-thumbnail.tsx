@@ -9,12 +9,14 @@
  * - If user owns the face: edit and delete icon buttons
  * - Click opens modal with larger view (ImageModal via onView)
  * - Optional compact variant for generator strip; optional onSelect for selection
+ * - Drag-and-drop support for dropping into sidebar settings
  *
  * @see thumbnail-card.tsx for styling reference
  * @see style-thumbnail-card.tsx for ownership/action pattern
  */
 
 import React, { memo, useCallback, useState } from "react";
+import { useDraggable } from "@dnd-kit/core";
 import { Pencil, Trash2, User, Expand } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,6 +28,7 @@ import {
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import type { DbFace } from "@/lib/types/database";
+import type { DragData } from "./studio-dnd-context";
 
 /**
  * Skeleton for face thumbnail - card style (matches ThumbnailCard skeleton)
@@ -61,6 +64,8 @@ export interface FaceThumbnailProps {
   /** For generator: toggle selection; show check button when provided */
   onSelect?: (faceId: string) => void;
   isSelected?: boolean;
+  /** Whether drag-and-drop is enabled (default: true for card variant) */
+  draggable?: boolean;
 }
 
 /**
@@ -114,10 +119,25 @@ export const FaceThumbnail = memo(function FaceThumbnail({
   onDelete,
   onSelect,
   isSelected = false,
+  draggable = true,
 }: FaceThumbnailProps) {
   const [imageLoaded, setImageLoaded] = useState(false);
   const firstImage = face.image_urls?.[0];
   const isOwner = Boolean(currentUserId && face.user_id && currentUserId === face.user_id);
+
+  // Setup draggable - pass face data for drop handling
+  // Only enable drag for card variant (not compact which is used in sidebar)
+  const dragData: DragData = {
+    type: "face",
+    id: face.id,
+    item: face,
+  };
+  
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: `face-${face.id}`,
+    data: dragData,
+    disabled: !draggable || variant === "compact",
+  });
 
   const handleClick = useCallback(() => {
     onView?.(face);
@@ -225,11 +245,16 @@ export const FaceThumbnail = memo(function FaceThumbnail({
   // Card variant (faces tab grid)
   return (
     <Card
+      ref={setNodeRef}
       className={cn(
         "group relative aspect-video w-full cursor-pointer overflow-hidden p-0 transition-all",
-        "hover:ring-2 hover:ring-primary/50 hover:shadow-lg"
+        "hover:ring-2 hover:ring-primary/50 hover:shadow-lg",
+        isDragging && "opacity-50 ring-2 ring-primary cursor-grabbing",
+        draggable && !isDragging && "cursor-grab"
       )}
       onClick={handleClick}
+      {...listeners}
+      {...attributes}
     >
       <div className="relative h-full w-full overflow-hidden bg-muted">
         <div className="h-full w-full transition-transform duration-300 group-hover:scale-105">

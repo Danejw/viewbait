@@ -44,7 +44,7 @@ export default function SubscriptionModal({
   if (tiersLoading || Object.keys(tiersData).length === 0) {
     return (
       <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-        <DialogContent className="max-w-4xl">
+        <DialogContent className="w-[95vw] max-w-4xl sm:max-w-4xl md:max-w-5xl lg:max-w-6xl">
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
@@ -147,15 +147,18 @@ export default function SubscriptionModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader className="text-center">
-          <DialogTitle className="text-2xl font-bold">Choose Your Plan</DialogTitle>
-          <DialogDescription>
+      <DialogContent className="flex h-auto max-h-[90vh] w-[95vw] max-w-4xl flex-col overflow-hidden p-6 sm:max-w-4xl md:max-w-5xl lg:max-w-6xl">
+        <DialogHeader className="flex-shrink-0 space-y-1.5 pb-4 text-center">
+          <DialogTitle className="text-2xl font-bold tracking-tight sm:text-3xl">
+            Choose Your Plan
+          </DialogTitle>
+          <DialogDescription className="text-base">
             Select a subscription tier that fits your needs
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 py-4">
+        <div className="hide-scrollbar min-h-0 flex-1 overflow-y-auto overflow-x-hidden py-2">
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
           {tiers.map((tierName) => {
             const tierConfig = tiersData[tierName];
             if (!tierConfig) return null;
@@ -166,7 +169,7 @@ export default function SubscriptionModal({
             return (
               <Card
                 key={tierName}
-                className={`relative flex flex-col transition-all ${
+                className={`relative flex min-w-0 flex-col transition-all ${
                   isCurrentTier
                     ? "ring-2 ring-primary shadow-lg"
                     : "hover:shadow-md"
@@ -180,15 +183,17 @@ export default function SubscriptionModal({
                   </div>
                 )}
 
-                <CardHeader className="pb-2">
-                  <div className="flex items-center gap-2">
+                <CardHeader className="space-y-2 pb-3 pt-5">
+                  <div className="flex items-center gap-2 min-w-0">
                     {tierName !== "free" && (
-                      <Crown className="h-5 w-5 text-primary flex-shrink-0" />
+                      <Crown className="h-5 w-5 shrink-0 text-primary" />
                     )}
-                    <CardTitle className="text-lg">{tierConfig.name}</CardTitle>
+                    <CardTitle className="text-lg font-semibold break-words">
+                      {tierConfig.name}
+                    </CardTitle>
                   </div>
-                  <div className="flex items-baseline gap-1 flex-wrap">
-                    <span className="text-2xl font-bold">
+                  <div className="flex items-baseline gap-1.5 flex-wrap">
+                    <span className="text-2xl font-bold tabular-nums">
                       {formatPrice(tierConfig.price)}
                     </span>
                     {tierConfig.price > 0 && (
@@ -197,8 +202,8 @@ export default function SubscriptionModal({
                   </div>
                 </CardHeader>
 
-                <CardContent className="flex-1 flex flex-col">
-                  <ul className="mb-4 flex-1 space-y-2 text-sm text-muted-foreground">
+                <CardContent className="flex flex-1 flex-col gap-4 pb-5">
+                  <ul className="flex-1 space-y-2.5 text-sm text-muted-foreground">
                     {getFeatureList(tierConfig).map((feature, index) => (
                       <li key={index} className="flex items-start gap-2">
                         <Check className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
@@ -231,9 +236,10 @@ export default function SubscriptionModal({
               </Card>
             );
           })}
+          </div>
         </div>
 
-        <div className="text-center text-xs text-muted-foreground pt-2">
+        <div className="flex-shrink-0 border-t border-border/50 pt-4 text-center text-xs text-muted-foreground">
           <p>
             All plans include access to our thumbnail generation tools. Upgrade or
             downgrade at any time.

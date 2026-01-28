@@ -10,12 +10,14 @@
  * - Hover effects: scale animation (105%), action buttons overlay
  * - Ownership-aware actions (edit/delete for owned styles)
  * - Click to view modal (larger image display)
+ * - Drag-and-drop support for dropping into sidebar settings
  * 
  * @see thumbnail-card.tsx for the pattern this follows
  * @see vercel-react-best-practices for optimization patterns
  */
 
 import React, { memo, useCallback, useState } from "react";
+import { useDraggable } from "@dnd-kit/core";
 import { Sparkles, Pencil, Trash2, Heart } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -27,6 +29,7 @@ import {
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import type { PublicStyle, DbStyle } from "@/lib/types/database";
+import type { DragData } from "./studio-dnd-context";
 
 /**
  * Type guard to check if style is DbStyle
@@ -87,6 +90,8 @@ export interface StyleThumbnailCardProps {
   onDelete?: (id: string) => void;
   /** Callback when toggle favorite is clicked */
   onToggleFavorite?: (id: string) => void;
+  /** Whether drag-and-drop is enabled (default: true) */
+  draggable?: boolean;
 }
 
 /**
@@ -142,10 +147,24 @@ export const StyleThumbnailCard = memo(function StyleThumbnailCard({
   onEdit,
   onDelete,
   onToggleFavorite,
+  draggable = true,
 }: StyleThumbnailCardProps) {
   const { id, name, preview_thumbnail_url } = style;
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
+
+  // Setup draggable - pass style data for drop handling
+  const dragData: DragData = {
+    type: "style",
+    id,
+    item: style,
+  };
+  
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: `style-${id}`,
+    data: dragData,
+    disabled: !draggable,
+  });
 
   // Check if current user owns this style
   const userId = isDbStyle(style) ? style.user_id : null;
@@ -200,11 +219,16 @@ export const StyleThumbnailCard = memo(function StyleThumbnailCard({
 
   return (
     <Card
+      ref={setNodeRef}
       className={cn(
         "group relative aspect-video w-full cursor-pointer overflow-hidden p-0 transition-all",
-        "hover:ring-2 hover:ring-primary/50 hover:shadow-lg"
+        "hover:ring-2 hover:ring-primary/50 hover:shadow-lg",
+        isDragging && "opacity-50 ring-2 ring-primary cursor-grabbing",
+        draggable && !isDragging && "cursor-grab"
       )}
       onClick={handleView}
+      {...listeners}
+      {...attributes}
     >
       <div className="relative h-full w-full overflow-hidden bg-muted">
         {/* Image with scale animation on hover */}

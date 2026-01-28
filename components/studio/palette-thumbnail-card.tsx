@@ -8,6 +8,7 @@
  * - Hover: scale 105%, ring, shadow; icon buttons overlay
  * - If user owns palette: also show Edit and Delete icon buttons
  * - Click opens view modal (larger palette display)
+ * - Drag-and-drop support for dropping into sidebar settings
  *
  * Used in: Browse palettes tab, My Palettes view, and anywhere palette thumbnails are shown.
  *
@@ -15,6 +16,7 @@
  */
 
 import React, { memo, useCallback } from "react";
+import { useDraggable } from "@dnd-kit/core";
 import { Heart, Palette, Pencil, Trash2, Globe, Lock } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -25,6 +27,7 @@ import {
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import type { PublicPalette, DbPalette } from "@/lib/types/database";
+import type { DragData } from "./studio-dnd-context";
 
 /** Type that includes ownership for display logic */
 type PaletteForCard = (PublicPalette | DbPalette) & { user_id?: string | null };
@@ -150,6 +153,8 @@ export interface PaletteThumbnailCardProps {
   topLeftBadges?: React.ReactNode;
   /** Optional icon to render top-right on hover (e.g. Globe for public, Lock for private) */
   topRightIcon?: React.ReactNode;
+  /** Whether drag-and-drop is enabled (default: true) */
+  draggable?: boolean;
 }
 
 /**
@@ -168,6 +173,7 @@ export const PaletteThumbnailCard = memo(function PaletteThumbnailCard({
   isPublic = false,
   topLeftBadges,
   topRightIcon,
+  draggable = true,
 }: PaletteThumbnailCardProps) {
   const { id, name, colors } = palette;
   const p = palette as PaletteForCard;
@@ -180,6 +186,19 @@ export const PaletteThumbnailCard = memo(function PaletteThumbnailCard({
     "like_count" in palette && typeof palette.like_count === "number"
       ? palette.like_count
       : undefined;
+
+  // Setup draggable - pass palette data for drop handling
+  const dragData: DragData = {
+    type: "palette",
+    id,
+    item: palette,
+  };
+  
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: `palette-${id}`,
+    data: dragData,
+    disabled: !draggable,
+  });
 
   const handleClick = useCallback(() => {
     onView?.(palette);
@@ -227,11 +246,16 @@ export const PaletteThumbnailCard = memo(function PaletteThumbnailCard({
 
   return (
     <Card
+      ref={setNodeRef}
       className={cn(
         "group relative aspect-video w-full cursor-pointer overflow-hidden p-0 transition-all",
-        "hover:ring-2 hover:ring-primary/50 hover:shadow-lg"
+        "hover:ring-2 hover:ring-primary/50 hover:shadow-lg",
+        isDragging && "opacity-50 ring-2 ring-primary cursor-grabbing",
+        draggable && !isDragging && "cursor-grab"
       )}
       onClick={handleClick}
+      {...listeners}
+      {...attributes}
     >
       {/* Full-thumbnail area: colors fill the entire card */}
       <div className="relative h-full w-full overflow-hidden bg-muted">

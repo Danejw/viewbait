@@ -11,16 +11,14 @@ import {
   User,
   Youtube,
   Lock,
-  Bell,
-  ShoppingCart,
-  RefreshCw,
+  Gift,
   LogOut,
   Download,
   PanelLeftClose,
   PanelLeftOpen,
   Settings,
 } from "lucide-react";
-import { ThemeToggle } from "@/components/theme-toggle";
+import { ThemeToggleSimple } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -35,6 +33,7 @@ import { useStudio, type StudioView } from "./studio-provider";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useSubscription } from "@/lib/hooks/useSubscription";
 import SubscriptionModal from "@/components/subscription-modal";
+import { NotificationBell } from "@/components/notifications";
 
 interface NavItem {
   label: string;
@@ -128,7 +127,7 @@ export function StudioSidebarNav() {
                   ? "justify-center p-2"
                   : "gap-3 px-3 py-2",
                 isActive
-                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                  ? "bg-sidebar-primary text-sidebar-primary-foreground"
                   : "text-sidebar-foreground hover:bg-sidebar-accent/50",
                 item.locked && "opacity-50 cursor-not-allowed"
               )}
@@ -303,15 +302,23 @@ export function StudioSidebarUser() {
       <TooltipProvider delayDuration={0}>
         <div className="mt-auto border-t border-sidebar-border p-2">
           <div className="flex flex-col items-center gap-2">
+            <NotificationBell size="icon-sm" />
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="inline-flex">
+                  <ThemeToggleSimple size="icon-sm" />
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="right">Theme</TooltipContent>
+            </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button variant="ghost" size="icon-sm">
-                  <Bell className="h-4 w-4" />
+                  <Gift className="h-4 w-4" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent side="right">Notifications</TooltipContent>
+              <TooltipContent side="right">Referral code</TooltipContent>
             </Tooltip>
-            <ThemeToggle showTooltip size="icon-sm" />
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button variant="ghost" size="icon-sm" onClick={handleSignOut}>
@@ -327,19 +334,35 @@ export function StudioSidebarUser() {
   }
 
   return (
-    <div className="mt-auto border-t border-sidebar-border p-4">
-      <div className="mb-4 flex items-center gap-2">
-        <Button variant="ghost" size="icon-sm">
-          <Bell className="h-4 w-4" />
-        </Button>
-        <ThemeToggle size="icon-sm" />
-        <Button variant="ghost" size="icon-sm">
-          <ShoppingCart className="h-4 w-4" />
-        </Button>
-        <Button variant="ghost" size="icon-sm">
-          <RefreshCw className="h-4 w-4" />
-        </Button>
-      </div>
+    <TooltipProvider delayDuration={0}>
+      <div className="mt-auto border-t border-sidebar-border p-4">
+        <div className="mb-4 flex items-center gap-2">
+          <NotificationBell size="icon-sm" />
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="inline-flex">
+                <ThemeToggleSimple size="icon-sm" />
+              </span>
+            </TooltipTrigger>
+            <TooltipContent side="right">Theme</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon-sm">
+                <Gift className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right">Referral code</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon-sm" onClick={handleSignOut}>
+                <LogOut className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right">Log out</TooltipContent>
+          </Tooltip>
+        </div>
       <div className="mb-4 flex items-center gap-3">
         <Avatar size="sm">
           {avatarUrl && <AvatarImage src={avatarUrl} alt={displayName} />}
@@ -363,16 +386,12 @@ export function StudioSidebarUser() {
           )}
         </div>
       </div>
-      <div className="mb-4 flex items-center gap-2">
-        <Button variant="ghost" size="icon-sm" onClick={handleSignOut}>
-          <LogOut className="h-4 w-4" />
-        </Button>
-      </div>
       <Button variant="outline" size="sm" className="w-full">
         <Download className="mr-2 h-4 w-4" />
         Export All Data
       </Button>
     </div>
+    </TooltipProvider>
   );
 }
 
@@ -429,10 +448,7 @@ export function StudioSidebar() {
   return (
     <div className="flex h-full flex-col">
       {/* Logo / collapse toggle */}
-      <div className={cn(leftSidebarCollapsed ? "p-2" : "p-4")}>
-        <TooltipProvider delayDuration={0}>
-          <Tooltip>
-            <TooltipTrigger asChild>
+      <div className={cn(leftSidebarCollapsed ? "p-2" : "p-2")}>
               <button
                 type="button"
                 onClick={toggleLeftSidebar}
@@ -443,20 +459,14 @@ export function StudioSidebar() {
                   <ViewBaitLogo className="h-4 w-4" />
                 </div>
                 {!leftSidebarCollapsed && (
-                  <span className="text-lg font-semibold text-sidebar-foreground">ViewBait</span>
+                  <span className="text-lg font-semibold text-sidebar-foreground">View<span className="text-primary">Bait</span></span>
                 )}
               </button>
-            </TooltipTrigger>
-            <TooltipContent side="right">
-              {leftSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
       </div>
       <StudioSidebarCredits />
       <StudioSidebarNav />
       <StudioSidebarUser />
-      <StudioSidebarToggle />
+      {/* <StudioSidebarToggle /> */}
     </div>
   );
 }

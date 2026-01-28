@@ -1,6 +1,7 @@
 "use client";
 
 import { StudioProvider, useStudio } from "@/components/studio/studio-provider";
+import { StudioDndContext } from "@/components/studio/studio-dnd-context";
 import {
   StudioFrame,
   StudioLayout,
@@ -54,11 +55,14 @@ function StudioPageContent() {
  * - Chat assistant can be opened/closed within the page
  * - Assistant can pull up information and surface components dynamically
  * - All state managed through StudioProvider
+ * - Drag-and-drop enabled via StudioDndContext for styles/palettes/faces
  */
 export default function StudioPage() {
   return (
     <StudioProvider>
-      <StudioPageContent />
+      <StudioDndContext>
+        <StudioPageContent />
+      </StudioDndContext>
     </StudioProvider>
   );
 }

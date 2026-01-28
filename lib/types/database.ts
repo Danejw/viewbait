@@ -27,6 +27,7 @@ export interface Profile {
   full_name: string | null
   avatar_url: string | null
   created_at: string
+  is_admin: boolean
 }
 
 export interface UserSubscription {
@@ -244,6 +245,7 @@ export interface ProfileInsert {
   full_name?: string | null
   avatar_url?: string | null
   created_at?: string
+  is_admin?: boolean
 }
 
 export interface UserSubscriptionInsert {
@@ -427,6 +429,7 @@ export interface ProfileUpdate {
   email?: string | null
   full_name?: string | null
   avatar_url?: string | null
+  is_admin?: boolean
 }
 
 export interface UserSubscriptionUpdate {

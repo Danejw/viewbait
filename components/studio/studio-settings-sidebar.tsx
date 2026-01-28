@@ -30,7 +30,7 @@ export function StudioSettingsSidebarHeader() {
 
   return (
     <TooltipProvider delayDuration={0}>
-      <div className="p-4">
+      <div className="p-2">
         <Tooltip>
           <TooltipTrigger asChild>
             <button
@@ -137,7 +137,7 @@ export function StudioSettingsSidebarCollapsed() {
  */
 export function StudioSettingsSidebarContent() {
   return (
-    <div className="p-4">
+    <div className="p-2">
       <StudioGenerator />
     </div>
   );

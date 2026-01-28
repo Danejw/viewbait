@@ -348,7 +348,7 @@ export function StudioChatPanel() {
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-border pb-3 mb-3">
+      <div className="flex items-center justify-between border-b border-border p-2 mb-3">
         <div className="flex items-center gap-2">
           <MessageSquare className="h-4 w-4 text-muted-foreground" />
           <h3 className="text-sm font-semibold">Chat</h3>

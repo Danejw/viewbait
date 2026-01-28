@@ -10,11 +10,13 @@
  * - Progressive image loading (400w -> 800w -> full)
  * - Hover effects: scale animation, title/resolution overlay, action bar
  * - Auto-wired actions via useThumbnailActions hook (no prop drilling)
+ * - Drag-and-drop support for dropping into style references
  * 
  * @see vercel-react-best-practices for optimization patterns
  */
 
 import React, { memo, useCallback, useMemo, useState } from "react";
+import { useDraggable } from "@dnd-kit/core";
 import { Heart, Download, Share2, Copy, Pencil, Trash2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -28,6 +30,7 @@ import { cn } from "@/lib/utils";
 import { useIntersectionObserver } from "@/lib/hooks/useIntersectionObserver";
 import { useThumbnailActions } from "@/components/studio/studio-provider";
 import type { Thumbnail } from "@/lib/types/database";
+import type { DragData } from "./studio-dnd-context";
 
 /**
  * Resolution badge display - positioned top-right, shown on hover
@@ -95,6 +98,8 @@ export function ThumbnailCardEmpty() {
 export interface ThumbnailCardProps {
   thumbnail: Thumbnail;
   priority?: boolean;
+  /** Whether drag-and-drop is enabled (default: true) */
+  draggable?: boolean;
 }
 
 /**
@@ -213,6 +218,7 @@ function ActionButton({
 export const ThumbnailCard = memo(function ThumbnailCard({
   thumbnail,
   priority = false,
+  draggable = true,
 }: ThumbnailCardProps) {
   // Get all actions and currentUserId from context
   const {
@@ -237,6 +243,20 @@ export const ThumbnailCard = memo(function ThumbnailCard({
     resolution,
     authorId,
   } = thumbnail;
+
+  // Setup draggable - pass thumbnail data for drop handling
+  const dragData: DragData = {
+    type: "thumbnail",
+    id,
+    item: thumbnail,
+    imageUrl, // Include imageUrl for style references
+  };
+  
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: `thumbnail-${id}`,
+    data: dragData,
+    disabled: !draggable || generating,
+  });
 
   // Check if current user owns this thumbnail
   const isOwner = currentUserId && authorId && currentUserId === authorId;
@@ -301,11 +321,16 @@ export const ThumbnailCard = memo(function ThumbnailCard({
 
   return (
     <Card
+      ref={setNodeRef}
       className={cn(
         "group relative aspect-video w-full cursor-pointer overflow-hidden p-0 transition-all",
-        "hover:ring-2 hover:ring-primary/50 hover:shadow-lg"
+        "hover:ring-2 hover:ring-primary/50 hover:shadow-lg",
+        isDragging && "opacity-50 ring-2 ring-primary cursor-grabbing",
+        draggable && !isDragging && "cursor-grab"
       )}
       onClick={handleClick}
+      {...listeners}
+      {...attributes}
     >
       <div className="relative h-full w-full overflow-hidden bg-muted">
         {/* Image with scale animation on hover */}

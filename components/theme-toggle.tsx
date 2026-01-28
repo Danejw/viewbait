@@ -129,3 +129,65 @@ export function ThemeToggle({
 
   return button;
 }
+
+/**
+ * ThemeToggleSimple
+ *
+ * A single button that toggles between light and dark only (no system, no dropdown).
+ * Shows moon in light mode (click to switch to dark), sun in dark mode (click to switch to light).
+ */
+interface ThemeToggleSimpleProps {
+  /** Show tooltip on hover */
+  showTooltip?: boolean;
+  /** Button size variant */
+  size?: "icon-sm" | "icon" | "icon-lg";
+  /** Additional class names */
+  className?: string;
+}
+
+export function ThemeToggleSimple({
+  showTooltip = false,
+  size = "icon-sm",
+  className,
+}: ThemeToggleSimpleProps) {
+  const { setTheme, resolvedTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const isDark = mounted && resolvedTheme === "dark";
+  const handleToggle = () => setTheme(isDark ? "light" : "dark");
+  const label = !mounted ? "Toggle theme" : isDark ? "Switch to light mode" : "Switch to dark mode";
+
+  const button = (
+    <Button
+      variant="ghost"
+      size={size}
+      className={cn("transition-colors", className)}
+      onClick={handleToggle}
+      aria-label={label}
+    >
+      {!mounted ? (
+        <Sun className="h-4 w-4" />
+      ) : isDark ? (
+        <Sun className="h-4 w-4" />
+      ) : (
+        <Moon className="h-4 w-4" />
+      )}
+      <span className="sr-only">{label}</span>
+    </Button>
+  );
+
+  if (showTooltip) {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>{button}</TooltipTrigger>
+        <TooltipContent side="right">{label}</TooltipContent>
+      </Tooltip>
+    );
+  }
+
+  return button;
+}

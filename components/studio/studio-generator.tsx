@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useState, useMemo, useRef } from "react";
+import { useDroppable, useDndContext } from "@dnd-kit/core";
 import {
   Settings,
   MessageSquare,
@@ -11,6 +12,7 @@ import {
   Plus,
   Loader2,
   Sparkles,
+  SlidersHorizontal,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,6 +35,7 @@ import { usePalettes } from "@/lib/hooks/usePalettes";
 import { StyleEditor } from "./style-editor";
 import { PaletteColorStrip } from "./palette-thumbnail-card";
 import { cn } from "@/lib/utils";
+import { DROP_ZONE_IDS, type DragData } from "./studio-dnd-context";
 import type { StyleInsert, StyleUpdate, DbStyle } from "@/lib/types/database";
 
 const MAX_STYLE_REFERENCES = 10;
@@ -51,7 +54,7 @@ export function StudioGeneratorTabs() {
   } = useStudio();
 
   return (
-    <div className="mb-6 flex gap-2 border-b border-border">
+    <div className="flex gap-2 border-b border-border">
       <button
         onClick={() => setMode("manual")}
         className={cn(
@@ -61,7 +64,7 @@ export function StudioGeneratorTabs() {
             : "border-transparent text-muted-foreground hover:text-foreground"
         )}
       >
-        <Settings className="h-4 w-4" />
+        <SlidersHorizontal className="h-4 w-4" />
         Manual
       </button>
       <button
@@ -142,16 +145,28 @@ export function StudioGeneratorCustomInstructions() {
 /**
  * StudioGeneratorStyleReferences
  * Drop/paste area for style reference images (max 10). Uploads to storage and stores URLs.
+ * 
+ * Drop Zone: Accepts thumbnails dragged from Generator/Gallery/Browse tabs.
+ * Visual feedback: Highlights when a thumbnail is being dragged over.
  */
 export function StudioGeneratorStyleReferences() {
   const {
     state: { styleReferences },
     actions: { addStyleReference, removeStyleReference },
   } = useStudio();
-  const [isDragging, setIsDragging] = useState(false);
+  const [isDraggingFile, setIsDraggingFile] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Setup drop zone for thumbnail items
+  const { active } = useDndContext();
+  const activeData = active?.data.current as DragData | undefined;
+  const isThumbnailBeingDragged = activeData?.type === "thumbnail";
+  
+  const { setNodeRef, isOver } = useDroppable({
+    id: DROP_ZONE_IDS.STYLE_REFERENCES,
+  });
 
   const getUserId = useCallback(async (): Promise<string | null> => {
     const res = await fetch("/api/profiles");
@@ -211,10 +226,10 @@ export function StudioGeneratorStyleReferences() {
     [styleReferences.length, uploadImage, addStyleReference]
   );
 
-  const handleDrop = useCallback(
+  const handleFileDrop = useCallback(
     (e: React.DragEvent) => {
       e.preventDefault();
-      setIsDragging(false);
+      setIsDraggingFile(false);
       addFiles(e.dataTransfer.files);
     },
     [addFiles]
@@ -254,11 +269,36 @@ export function StudioGeneratorStyleReferences() {
     [addFiles]
   );
 
+  // Determine if any drag is happening (file or thumbnail)
+  const isDragging = isDraggingFile || isThumbnailBeingDragged;
+  const isDropTarget = isOver && isThumbnailBeingDragged;
+  const hasRoom = styleReferences.length < MAX_STYLE_REFERENCES;
+
   return (
-    <div className="mb-6">
+    <div
+      ref={setNodeRef}
+      className={cn(
+        "mb-6 rounded-lg p-3 -mx-3 transition-all duration-200",
+        // Drop zone visual feedback for thumbnail dragging
+        isThumbnailBeingDragged && hasRoom && "border-2 border-dashed",
+        isThumbnailBeingDragged && hasRoom && !isOver && "border-primary/30 bg-primary/5",
+        isThumbnailBeingDragged && hasRoom && isOver && "border-primary bg-primary/10 drop-zone-active"
+      )}
+    >
       <div className="mb-2 flex items-baseline gap-1.5">
         <label className="text-sm font-medium">Style References</label>
         <span className="text-xs text-muted-foreground">(max {MAX_STYLE_REFERENCES})</span>
+        {/* Drop hint when dragging thumbnail */}
+        {isThumbnailBeingDragged && hasRoom && (
+          <span className="ml-auto text-xs text-primary animate-pulse">
+            {isOver ? "Release to add" : "Drop thumbnail here"}
+          </span>
+        )}
+        {isThumbnailBeingDragged && !hasRoom && (
+          <span className="ml-auto text-xs text-muted-foreground">
+            Max references reached
+          </span>
+        )}
       </div>
       <input
         ref={fileInputRef}
@@ -271,16 +311,17 @@ export function StudioGeneratorStyleReferences() {
       <div
         tabIndex={0}
         role="button"
-        onDrop={handleDrop}
+        onDrop={handleFileDrop}
         onDragOver={(e) => {
           e.preventDefault();
-          setIsDragging(true);
+          setIsDraggingFile(true);
         }}
-        onDragLeave={() => setIsDragging(false)}
+        onDragLeave={() => setIsDraggingFile(false)}
         onPaste={handlePaste}
         className={cn(
           "grid grid-cols-3 gap-1 rounded-md border-2 border-dashed p-2 transition-colors",
-          isDragging ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"
+          isDraggingFile ? "border-primary bg-primary/5" : "border-border hover:border-primary/50",
+          isDropTarget && "border-primary bg-primary/10"
         )}
       >
         {styleReferences.map((url, index) => (
@@ -302,12 +343,15 @@ export function StudioGeneratorStyleReferences() {
             </button>
           </div>
         ))}
-        {styleReferences.length < MAX_STYLE_REFERENCES && (
+        {hasRoom && (
           <button
             type="button"
             onClick={handleAddCellClick}
             disabled={isUploading}
-            className="flex aspect-square items-center justify-center rounded-md border-2 border-dashed border-border text-muted-foreground transition-colors hover:border-primary hover:text-primary disabled:opacity-50"
+            className={cn(
+              "flex aspect-square items-center justify-center rounded-md border-2 border-dashed border-border text-muted-foreground transition-colors hover:border-primary hover:text-primary disabled:opacity-50",
+              isDropTarget && "border-primary text-primary"
+            )}
           >
             {isUploading ? (
               <span className="text-xs">...</span>
@@ -326,12 +370,24 @@ export function StudioGeneratorStyleReferences() {
  * StudioGeneratorStyleSelection
  * Opt-in toggle to use a saved style; list of styles + create new.
  * Uses useStyles hook for proper caching and React Query integration.
+ * 
+ * Drop Zone: Accepts style items dragged from Styles/Browse tabs.
+ * Visual feedback: Highlights when a style is being dragged over.
  */
 export function StudioGeneratorStyleSelection() {
   const {
     state: { includeStyles, selectedStyle },
     actions: { setIncludeStyles, setSelectedStyle, setView },
   } = useStudio();
+
+  // Setup drop zone for style items
+  const { active } = useDndContext();
+  const activeData = active?.data.current as DragData | undefined;
+  const isStyleBeingDragged = activeData?.type === "style";
+  
+  const { setNodeRef, isOver } = useDroppable({
+    id: DROP_ZONE_IDS.STYLE,
+  });
 
   // Use the styles hook for proper caching
   const {
@@ -439,9 +495,26 @@ export function StudioGeneratorStyleSelection() {
   );
 
   return (
-    <div className="mb-6">
+    <div
+      ref={setNodeRef}
+      className={cn(
+        "mb-6 rounded-lg p-3 -mx-3 transition-all duration-200",
+        // Drop zone visual feedback
+        isStyleBeingDragged && "border-2 border-dashed",
+        isStyleBeingDragged && !isOver && "border-primary/30 bg-primary/5",
+        isStyleBeingDragged && isOver && "border-primary bg-primary/10 drop-zone-active"
+      )}
+    >
       <div className="mb-4 flex items-center justify-between">
-        <label className="text-sm font-medium">Style Selection</label>
+        <div className="flex items-center gap-2">
+          <label className="text-sm font-medium">Style Selection</label>
+          {/* Drop hint when dragging */}
+          {isStyleBeingDragged && (
+            <span className="text-xs text-primary animate-pulse">
+              {isOver ? "Release to apply" : "Drop style here"}
+            </span>
+          )}
+        </div>
         <Switch checked={includeStyles} onCheckedChange={setIncludeStyles} />
       </div>
 
@@ -553,6 +626,9 @@ export function StudioGeneratorStyleSelection() {
  * StudioGeneratorPalette
  * Color palette selector for manual form and chat DynamicUIRenderer.
  * Toggle on/off like Style Selection and Include Faces.
+ * 
+ * Drop Zone: Accepts palette items dragged from Palettes/Browse tabs.
+ * Visual feedback: Highlights when a palette is being dragged over.
  */
 export function StudioGeneratorPalette() {
   const {
@@ -565,6 +641,15 @@ export function StudioGeneratorPalette() {
     autoFetch: includePalettes,
   });
 
+  // Setup drop zone for palette items
+  const { active } = useDndContext();
+  const activeData = active?.data.current as DragData | undefined;
+  const isPaletteBeingDragged = activeData?.type === "palette";
+  
+  const { setNodeRef, isOver } = useDroppable({
+    id: DROP_ZONE_IDS.PALETTE,
+  });
+
   const effectivePalettes = useMemo(() => {
     const defaults = defaultPalettes ?? [];
     const user = (palettes ?? []).filter((p) => !p.is_default);
@@ -572,9 +657,26 @@ export function StudioGeneratorPalette() {
   }, [palettes, defaultPalettes]);
 
   return (
-    <div className="mb-6">
+    <div
+      ref={setNodeRef}
+      className={cn(
+        "mb-6 rounded-lg p-3 -mx-3 transition-all duration-200",
+        // Drop zone visual feedback
+        isPaletteBeingDragged && "border-2 border-dashed",
+        isPaletteBeingDragged && !isOver && "border-primary/30 bg-primary/5",
+        isPaletteBeingDragged && isOver && "border-primary bg-primary/10 drop-zone-active"
+      )}
+    >
       <div className="mb-4 flex items-center justify-between">
-        <label className="text-sm font-medium">Color Palette</label>
+        <div className="flex items-center gap-2">
+          <label className="text-sm font-medium">Color Palette</label>
+          {/* Drop hint when dragging */}
+          {isPaletteBeingDragged && (
+            <span className="text-xs text-primary animate-pulse">
+              {isOver ? "Release to apply" : "Drop palette here"}
+            </span>
+          )}
+        </div>
         <Switch checked={includePalettes} onCheckedChange={setIncludePalettes} />
       </div>
 
@@ -740,6 +842,10 @@ export function StudioGeneratorVariations() {
 /**
  * StudioGeneratorFaces
  * Face selection section - uses real faces from database via useFaces hook
+ * 
+ * Drop Zone: Accepts face items dragged from Faces tab.
+ * Visual feedback: Highlights when a face is being dragged over.
+ * Multi-select: Dropped faces are added to the selection.
  */
 export function StudioGeneratorFaces() {
   const {
@@ -750,15 +856,41 @@ export function StudioGeneratorFaces() {
   // Use real faces from database
   const { faces, isLoading } = useFaces();
 
+  // Setup drop zone for face items
+  const { active } = useDndContext();
+  const activeData = active?.data.current as DragData | undefined;
+  const isFaceBeingDragged = activeData?.type === "face";
+  
+  const { setNodeRef, isOver } = useDroppable({
+    id: DROP_ZONE_IDS.FACES,
+  });
+
   // Navigate to faces management view to add new face
   const handleAddFace = useCallback(() => {
     setView("faces");
   }, [setView]);
 
   return (
-    <div className="mb-6">
+    <div
+      ref={setNodeRef}
+      className={cn(
+        "mb-6 rounded-lg p-3 -mx-3 transition-all duration-200",
+        // Drop zone visual feedback
+        isFaceBeingDragged && "border-2 border-dashed",
+        isFaceBeingDragged && !isOver && "border-primary/30 bg-primary/5",
+        isFaceBeingDragged && isOver && "border-primary bg-primary/10 drop-zone-active"
+      )}
+    >
       <div className="mb-4 flex items-center justify-between">
-        <label className="text-sm font-medium">Include Faces</label>
+        <div className="flex items-center gap-2">
+          <label className="text-sm font-medium">Include Faces</label>
+          {/* Drop hint when dragging */}
+          {isFaceBeingDragged && (
+            <span className="text-xs text-primary animate-pulse">
+              {isOver ? "Release to add" : "Drop face here"}
+            </span>
+          )}
+        </div>
         <Switch checked={includeFaces} onCheckedChange={setIncludeFaces} />
       </div>
 

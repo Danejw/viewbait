@@ -1,0 +1,187 @@
+"use client";
+
+/**
+ * Studio DnD Context
+ * 
+ * Wraps the studio layout with @dnd-kit DndContext to enable
+ * drag-and-drop from style/palette/face/thumbnail cards to the sidebar drop zones.
+ * 
+ * Features:
+ * - Custom drag overlay for smooth visual feedback
+ * - Auto-enables toggles when dropping items
+ * - Supports styles, palettes, faces, and thumbnails (as style references)
+ * 
+ * @see https://docs.dndkit.com/ for @dnd-kit documentation
+ */
+
+import React, { useState, useCallback } from "react";
+import {
+  DndContext,
+  DragOverlay,
+  DragStartEvent,
+  DragEndEvent,
+  useSensor,
+  useSensors,
+  PointerSensor,
+  KeyboardSensor,
+  TouchSensor,
+} from "@dnd-kit/core";
+import { useStudio } from "./studio-provider";
+import { DragOverlayPreview } from "./drag-overlay-preview";
+import type { DbStyle, DbPalette, DbFace, PublicStyle, PublicPalette, Thumbnail } from "@/lib/types/database";
+
+/**
+ * Drag item types for type-safe drag data
+ */
+export type DragItemType = "style" | "palette" | "face" | "thumbnail";
+
+/**
+ * Drag data structure passed via useDraggable
+ */
+export interface DragData {
+  type: DragItemType;
+  id: string;
+  item: DbStyle | DbPalette | DbFace | PublicStyle | PublicPalette | Thumbnail;
+  /** Image URL for thumbnails - used when adding to style references */
+  imageUrl?: string;
+}
+
+/**
+ * Drop zone IDs - used by useDroppable in sidebar sections
+ */
+export const DROP_ZONE_IDS = {
+  STYLE: "style-drop-zone",
+  PALETTE: "palette-drop-zone",
+  FACES: "faces-drop-zone",
+  STYLE_REFERENCES: "style-references-drop-zone",
+} as const;
+
+interface StudioDndContextProps {
+  children: React.ReactNode;
+}
+
+/**
+ * StudioDndContext
+ * 
+ * Provides drag-and-drop context for the entire studio.
+ * Handles drag events and coordinates with StudioProvider state.
+ */
+export function StudioDndContext({ children }: StudioDndContextProps) {
+  const { actions } = useStudio();
+  const [activeData, setActiveData] = useState<DragData | null>(null);
+
+  // Configure sensors for mouse, touch, and keyboard
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      // Require slight movement before starting drag
+      // This allows click events to still work
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(TouchSensor, {
+      // Long press to activate on touch devices
+      activationConstraint: {
+        delay: 200,
+        tolerance: 5,
+      },
+    }),
+    useSensor(KeyboardSensor)
+  );
+
+  /**
+   * Handle drag start - store active item data for overlay
+   */
+  const handleDragStart = useCallback((event: DragStartEvent) => {
+    const data = event.active.data.current as DragData | undefined;
+    if (data) {
+      setActiveData(data);
+    }
+  }, []);
+
+  /**
+   * Handle drag end - apply state updates based on where item was dropped
+   */
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveData(null);
+
+    // If not dropped on a valid target, do nothing
+    if (!over) return;
+
+    const data = active.data.current as DragData | undefined;
+    if (!data) return;
+
+    const overId = over.id as string;
+
+    // Handle style drop
+    if (overId === DROP_ZONE_IDS.STYLE && data.type === "style") {
+      // Auto-enable styles if not already enabled
+      actions.setIncludeStyles(true);
+      // Set the selected style
+      actions.setSelectedStyle(data.id);
+      return;
+    }
+
+    // Handle palette drop
+    if (overId === DROP_ZONE_IDS.PALETTE && data.type === "palette") {
+      // Auto-enable palettes if not already enabled
+      actions.setIncludePalettes(true);
+      // Set the selected palette
+      actions.setSelectedPalette(data.id);
+      return;
+    }
+
+    // Handle face drop
+    if (overId === DROP_ZONE_IDS.FACES && data.type === "face") {
+      // Auto-enable faces if not already enabled
+      actions.setIncludeFaces(true);
+      // Toggle the face selection (add if not selected)
+      actions.toggleFace(data.id);
+      return;
+    }
+
+    // Handle thumbnail drop to style references
+    if (overId === DROP_ZONE_IDS.STYLE_REFERENCES && data.type === "thumbnail") {
+      // Add the thumbnail's image URL as a style reference
+      if (data.imageUrl) {
+        actions.addStyleReference(data.imageUrl);
+      }
+      return;
+    }
+  }, [actions]);
+
+  /**
+   * Handle drag cancel - clear active data
+   */
+  const handleDragCancel = useCallback(() => {
+    setActiveData(null);
+  }, []);
+
+  return (
+    <DndContext
+      sensors={sensors}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+      onDragCancel={handleDragCancel}
+    >
+      {children}
+      
+      {/* Drag overlay renders above everything */}
+      <DragOverlay dropAnimation={{
+        duration: 200,
+        easing: "cubic-bezier(0.18, 0.67, 0.6, 1.22)",
+      }}>
+        {activeData ? (
+          <DragOverlayPreview 
+            type={activeData.type} 
+            item={activeData.item} 
+            imageUrl={activeData.imageUrl}
+          />
+        ) : null}
+      </DragOverlay>
+    </DndContext>
+  );
+}
+
+export default StudioDndContext;
