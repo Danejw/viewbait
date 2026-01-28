@@ -42,8 +42,12 @@ export const BrowsePalettes = memo(function BrowsePalettes({
   const [orderDirection, setOrderDirection] = useState<SortDirection>("desc");
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Try to get studio context for applying palettes (optional)
-  let studioActions: { setSelectedPalette?: (id: string | null) => void; setView?: (view: string) => void } | null = null;
+  // Try to get studio context for applying palettes and opening view modal (optional)
+  let studioActions: {
+    setSelectedPalette?: (id: string | null) => void;
+    setView?: (view: string) => void;
+    onViewPalette?: (palette: PublicPalette) => void;
+  } | null = null;
   try {
     const studio = useStudio();
     studioActions = studio.actions;
@@ -80,12 +84,13 @@ export const BrowsePalettes = memo(function BrowsePalettes({
     setSearchQuery(query);
   }, []);
 
-  // Handle palette click
+  // Handle palette click – open view modal (studio) and optional custom callback
   const handlePaletteClick = useCallback(
     (palette: PublicPalette) => {
+      studioActions?.onViewPalette?.(palette);
       onPaletteClick?.(palette);
     },
-    [onPaletteClick]
+    [onPaletteClick, studioActions]
   );
 
   // Handle use palette

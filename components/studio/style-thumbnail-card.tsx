@@ -16,7 +16,7 @@
  */
 
 import React, { memo, useCallback, useState } from "react";
-import { Sparkles, Pencil, Trash2, Loader2, Heart } from "lucide-react";
+import { Sparkles, Pencil, Trash2, Heart } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -45,7 +45,6 @@ export function StyleThumbnailCardSkeleton({ text }: { text?: string }) {
         <Skeleton className="h-full w-full" />
         {text && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             <p className="max-w-[80%] truncate text-xs text-muted-foreground">
               {text}
             </p>

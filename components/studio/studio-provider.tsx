@@ -5,10 +5,10 @@ import { useThumbnailGeneration } from "@/lib/hooks/useThumbnailGeneration";
 import { useThumbnails, useDeleteThumbnail, useToggleFavorite } from "@/lib/hooks/useThumbnails";
 import { useFaces } from "@/lib/hooks/useFaces";
 import { useAuth } from "@/lib/hooks/useAuth";
-import type { Thumbnail, PublicStyle, DbStyle } from "@/lib/types/database";
+import type { Thumbnail, PublicStyle, DbStyle, PublicPalette, DbPalette, DbFace } from "@/lib/types/database";
 import { DeleteConfirmationModal } from "@/components/studio/delete-confirmation-modal";
 import { ThumbnailEditModal, type ThumbnailEditData } from "@/components/studio/thumbnail-edit-modal";
-import { ImageModal } from "@/components/ui/modal";
+import { ImageModal, PaletteViewModal } from "@/components/ui/modal";
 
 /**
  * Studio View Types
@@ -80,6 +80,9 @@ export interface StudioState {
   // Style modal state
   styleImageModalOpen: boolean;
   styleToView: PublicStyle | DbStyle | null;
+  // Palette view modal state
+  paletteViewModalOpen: boolean;
+  paletteToView: PublicPalette | DbPalette | null;
 }
 
 /**
@@ -133,6 +136,12 @@ export interface StudioActions {
   // Style actions
   onViewStyle: (style: PublicStyle | DbStyle) => void;
   closeStyleImageModal: () => void;
+  // Palette view actions
+  onViewPalette: (palette: PublicPalette | DbPalette) => void;
+  closePaletteViewModal: () => void;
+  // Face view actions
+  onViewFace: (face: DbFace) => void;
+  closeFaceImageModal: () => void;
   // Clear error
   clearError: () => void;
   // Apply form state updates from assistant
@@ -226,6 +235,17 @@ export function useStyleActions() {
 }
 
 /**
+ * Hook for palette-specific actions (view modal, etc.)
+ */
+export function usePaletteActions() {
+  const { actions, data } = useStudio();
+  return {
+    currentUserId: data.currentUserId,
+    onViewPalette: actions.onViewPalette,
+  };
+}
+
+/**
  * StudioProvider
  * Lifts state management into a provider component.
  * UI components consume the context interface, not the implementation.
@@ -311,6 +331,12 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
     // Style modal state
     styleImageModalOpen: false,
     styleToView: null,
+    // Palette view modal state
+    paletteViewModalOpen: false,
+    paletteToView: null,
+    // Face view modal state
+    faceImageModalOpen: false,
+    faceToView: null,
   });
 
   // Sync generation state
@@ -554,6 +580,44 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
     }, 300);
   }, []);
 
+  // Palette view modal handlers
+  const onViewPalette = useCallback((palette: PublicPalette | DbPalette) => {
+    setState((s) => ({
+      ...s,
+      paletteViewModalOpen: true,
+      paletteToView: palette,
+    }));
+  }, []);
+
+  const closePaletteViewModal = useCallback(() => {
+    setState((s) => ({
+      ...s,
+      paletteViewModalOpen: false,
+    }));
+    setTimeout(() => {
+      setState((s) => ({ ...s, paletteToView: null }));
+    }, 300);
+  }, []);
+
+  // Face view modal handlers
+  const onViewFace = useCallback((face: DbFace) => {
+    setState((s) => ({
+      ...s,
+      faceImageModalOpen: true,
+      faceToView: face,
+    }));
+  }, []);
+
+  const closeFaceImageModal = useCallback(() => {
+    setState((s) => ({
+      ...s,
+      faceImageModalOpen: false,
+    }));
+    setTimeout(() => {
+      setState((s) => ({ ...s, faceToView: null }));
+    }, 300);
+  }, []);
+
   const clearError = useCallback(() => {
     setState((s) => ({ ...s, generationError: null }));
     clearGenerationError();
@@ -711,6 +775,10 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
     closeImageModal,
     onViewStyle,
     closeStyleImageModal,
+    onViewPalette,
+    closePaletteViewModal,
+    onViewFace,
+    closeFaceImageModal,
     clearError,
     applyFormStateUpdates: (updates) => {
       setState((s) => {
@@ -801,6 +869,31 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
           src={state.styleToView.preview_thumbnail_url}
           alt={state.styleToView.name}
           title={state.styleToView.name}
+        />
+      )}
+
+      {/* Palette View Modal */}
+      {state.paletteToView && (
+        <PaletteViewModal
+          open={state.paletteViewModalOpen}
+          onOpenChange={(open) => {
+            if (!open) closePaletteViewModal();
+          }}
+          name={state.paletteToView.name}
+          colors={state.paletteToView.colors}
+        />
+      )}
+
+      {/* Face Image View Modal */}
+      {state.faceToView && state.faceToView.image_urls?.[0] && (
+        <ImageModal
+          open={state.faceImageModalOpen}
+          onOpenChange={(open) => {
+            if (!open) closeFaceImageModal();
+          }}
+          src={state.faceToView.image_urls[0]}
+          alt={state.faceToView.name}
+          title={state.faceToView.name}
         />
       )}
     </StudioContext.Provider>

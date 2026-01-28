@@ -4,6 +4,7 @@ export {
   useStudio,
   useThumbnailActions,
   useStyleActions,
+  usePaletteActions,
   type StudioState,
   type StudioActions,
   type StudioMeta,
@@ -133,7 +134,12 @@ export {
   type StyleGridProps,
 } from "./style-grid";
 
-// Palette Components (for browse view)
+// Palette Components (for browse and manage views)
+export {
+  PaletteThumbnailCard,
+  PaletteColorStrip,
+  type PaletteThumbnailCardProps,
+} from "./palette-thumbnail-card";
 export {
   PaletteCard,
   PaletteCardSkeleton,

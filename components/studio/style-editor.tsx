@@ -208,8 +208,8 @@ function DropZone({
       )}
     >
       <Upload className="h-5 w-5 text-muted-foreground" />
-      <span className="px-1 text-center text-[10px] text-muted-foreground">
-        Add Image
+      <span className="px-1 text-center text-[10px] leading-tight text-muted-foreground">
+        Add or Paste
       </span>
       <input
         ref={inputRef}
@@ -237,9 +237,9 @@ function PreviewThumbnail({
 
   if (isGenerating) {
     return (
-      <div className="flex aspect-video w-full items-center justify-center rounded-lg border border-border bg-muted">
-        <div className="flex flex-col items-center gap-2">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="relative aspect-video w-full overflow-hidden rounded-lg border border-border bg-muted">
+        <Skeleton className="h-full w-full" />
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
           <span className="text-sm text-muted-foreground">
             Generating preview...
           </span>
@@ -497,6 +497,39 @@ export function StyleEditor({
   const canSave = name.trim().length > 0 && !isSaving && !isLoading && !isAnalyzing && !isGeneratingPreview;
   const isProcessing = isAnalyzing || isGeneratingPreview || isSaving || isLoading;
 
+  // Ref for paste handler to access latest remaining slots without re-registering
+  const remainingSlotsRef = useRef(remainingSlots);
+  remainingSlotsRef.current = remainingSlots;
+
+  // Paste listener for clipboard images
+  useEffect(() => {
+    if (!open) return;
+
+    const handlePaste = (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+
+      const imageFiles: File[] = [];
+      for (const item of Array.from(items)) {
+        if (item.kind === "file" && item.type.startsWith("image/")) {
+          const file = item.getAsFile();
+          if (file && file.size <= MAX_FILE_SIZE) {
+            imageFiles.push(file);
+          }
+        }
+      }
+
+      // Only handle paste if we have image files and slots available
+      if (imageFiles.length > 0 && remainingSlotsRef.current > 0) {
+        e.preventDefault();
+        handleFilesAdded(imageFiles.slice(0, remainingSlotsRef.current));
+      }
+    };
+
+    document.addEventListener("paste", handlePaste);
+    return () => document.removeEventListener("paste", handlePaste);
+  }, [open, handleFilesAdded]);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
@@ -519,7 +552,7 @@ export function StyleEditor({
               Reference Images ({images.length}/{MAX_REFERENCE_IMAGES})
             </Label>
             <p className="text-xs text-muted-foreground">
-              Add images that represent this visual style. AI will analyze them to extract style characteristics.
+              Add images that represent this visual style. Drag, click, or paste (Ctrl+V). AI will analyze them to extract style characteristics.
             </p>
             <div className="flex flex-wrap gap-3 pt-2">
               {images.map((preview) => (

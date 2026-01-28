@@ -15,7 +15,7 @@
  */
 
 import React, { memo, useCallback, useMemo, useState } from "react";
-import { Heart, Download, Share2, Copy, Pencil, Trash2, Loader2 } from "lucide-react";
+import { Heart, Download, Share2, Copy, Pencil, Trash2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -61,21 +61,19 @@ function ResolutionBadge({
 }
 
 /**
- * Skeleton card for generating state
+ * Skeleton card for loading/generating state
+ * Uses shimmer animation from Skeleton component - no spinner needed
  */
 export function ThumbnailCardSkeleton({ text }: { text?: string }) {
   return (
-    <Card className="group relative overflow-hidden">
-      <div className="relative aspect-video w-full bg-muted">
-        <Skeleton className="h-full w-full" />
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-          {text && (
-            <p className="max-w-[80%] truncate text-xs text-muted-foreground">
-              {text}
-            </p>
-          )}
-        </div>
+    <Card className="group relative overflow-hidden p-0">
+      <div className="relative aspect-video w-full">
+        <Skeleton className="h-full w-full rounded-lg" />
+        {text && (
+          <div className="absolute inset-x-0 bottom-0 p-2">
+            <Skeleton className="h-4 w-3/4" />
+          </div>
+        )}
       </div>
     </Card>
   );

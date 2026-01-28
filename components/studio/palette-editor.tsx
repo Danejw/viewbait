@@ -382,7 +382,7 @@ function ImageUploadZone({
       <ImageIcon className="h-8 w-8 text-muted-foreground" />
       <div className="text-center">
         <p className="text-sm font-medium">Drop an image here</p>
-        <p className="text-xs text-muted-foreground">or click to browse</p>
+        <p className="text-xs text-muted-foreground">or click to browse, or paste (Ctrl+V)</p>
       </div>
       <input
         ref={inputRef}
@@ -566,6 +566,31 @@ export function PaletteEditor({
   const canSave = name.trim().length > 0 && colors.length >= MIN_COLORS && !isSaving && !isLoading && !isAnalyzing;
   const isProcessing = isAnalyzing || isSaving || isLoading;
 
+  // Paste listener for clipboard images
+  useEffect(() => {
+    if (!open) return;
+
+    const handlePaste = (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+
+      // Find the first valid image file in the clipboard
+      for (const item of Array.from(items)) {
+        if (item.kind === "file" && item.type.startsWith("image/")) {
+          const file = item.getAsFile();
+          if (file && file.size <= MAX_FILE_SIZE) {
+            e.preventDefault();
+            handleImageSelected(file);
+            return;
+          }
+        }
+      }
+    };
+
+    document.addEventListener("paste", handlePaste);
+    return () => document.removeEventListener("paste", handlePaste);
+  }, [open, handleImageSelected]);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
@@ -586,7 +611,7 @@ export function PaletteEditor({
           <div className="space-y-3">
             <Label>Extract Colors from Image</Label>
             <p className="text-xs text-muted-foreground">
-              Upload an image and let AI extract a color palette from it.
+              Upload an image and let AI extract a color palette from it. Drag, click, or paste (Ctrl+V).
             </p>
             <div className="flex flex-wrap items-start gap-4">
               <ImageUploadZone

@@ -6,7 +6,7 @@ import { StudioGenerator } from "./studio-generator";
 import { StudioResults } from "./studio-results";
 import { ThumbnailGrid } from "./thumbnail-grid";
 import { GalleryControls } from "./gallery-controls";
-import { FaceCard, FaceCardSkeleton } from "./face-card";
+import { FaceThumbnail, FaceThumbnailSkeleton } from "./face-thumbnail";
 import { FaceEditor } from "./face-editor";
 import { StyleThumbnailCard, StyleThumbnailCardSkeleton } from "./style-thumbnail-card";
 import { StyleEditor } from "./style-editor";
@@ -38,7 +38,7 @@ import { BrowseThumbnails } from "./browse-thumbnails";
 import { BrowseStyles } from "./browse-styles";
 import { BrowsePalettes } from "./browse-palettes";
 import { usePrefetchPublicContent } from "@/lib/hooks/usePublicContent";
-import { useThumbnails, useDeleteThumbnail, useToggleFavorite } from "@/lib/hooks/useThumbnails";
+import { useThumbnails } from "@/lib/hooks/useThumbnails";
 import { useFaces } from "@/lib/hooks/useFaces";
 import { useStyles } from "@/lib/hooks/useStyles";
 import { usePalettes } from "@/lib/hooks/usePalettes";
@@ -123,10 +123,6 @@ export const StudioViewGallery = memo(function StudioViewGallery() {
     );
   }, [allThumbnails, searchQuery]);
 
-  // Mutation hooks
-  const deleteMutation = useDeleteThumbnail();
-  const favoriteMutation = useToggleFavorite();
-
   // Handle sort change
   const handleSortChange = useCallback((value: string) => {
     setSortValue(value);
@@ -140,50 +136,6 @@ export const StudioViewGallery = memo(function StudioViewGallery() {
   // Handle search change
   const handleSearchChange = useCallback((query: string) => {
     setSearchQuery(query);
-  }, []);
-
-  // Thumbnail action handlers
-  const handleFavoriteToggle = useCallback(
-    (id: string) => {
-      favoriteMutation.mutate(id);
-    },
-    [favoriteMutation]
-  );
-
-  const handleDelete = useCallback(
-    (id: string) => {
-      deleteMutation.mutate(id);
-    },
-    [deleteMutation]
-  );
-
-  const handleDownload = useCallback(
-    (id: string) => {
-      const thumbnail = thumbnails.find((t) => t.id === id);
-      if (thumbnail?.imageUrl) {
-        const link = document.createElement("a");
-        link.href = thumbnail.imageUrl;
-        link.download = `${thumbnail.name || "thumbnail"}.png`;
-        link.click();
-      }
-    },
-    [thumbnails]
-  );
-
-  const handleShare = useCallback(
-    (id: string) => {
-      const thumbnail = thumbnails.find((t) => t.id === id);
-      if (thumbnail?.imageUrl) {
-        navigator.clipboard.writeText(thumbnail.imageUrl);
-        // Could add toast notification here
-      }
-    },
-    [thumbnails]
-  );
-
-  const handleClick = useCallback((thumbnail: Thumbnail) => {
-    // TODO: Open thumbnail detail modal
-    console.log("Thumbnail clicked:", thumbnail.id);
   }, []);
 
   const handleRefresh = useCallback(() => {
@@ -258,17 +210,12 @@ export const StudioViewGallery = memo(function StudioViewGallery() {
         </Card>
       ) : (
         <>
-          {/* Thumbnail grid */}
+          {/* Thumbnail grid - ThumbnailCard handles all actions via context */}
           <ThumbnailGrid
             thumbnails={thumbnails}
             isLoading={isLoading}
             minSlots={12}
             showEmptySlots={false}
-            onFavoriteToggle={handleFavoriteToggle}
-            onDownload={handleDownload}
-            onShare={handleShare}
-            onDelete={handleDelete}
-            onClick={handleClick}
           />
 
           {/* Load more */}
@@ -928,6 +875,7 @@ const PALETTE_SORT_OPTIONS: SortOption[] = [
 
 export const StudioViewPalettes = memo(function StudioViewPalettes() {
   const { user } = useAuth();
+  const { actions } = useStudio();
   const {
     palettes,
     publicPalettes,
@@ -1192,7 +1140,8 @@ export const StudioViewPalettes = memo(function StudioViewPalettes() {
               palette={palette}
               isFavorite={favoriteIds.has(palette.id)}
               showActions={true}
-              onSelect={() => handleEdit(palette)}
+              currentUserId={user?.id}
+              onView={actions.onViewPalette}
               onEdit={handleEdit}
               onDelete={handleDeleteClick}
               onTogglePublic={handleTogglePublic}
@@ -1292,6 +1241,7 @@ const FACE_SORT_OPTIONS: SortOption[] = [
 
 export const StudioViewFaces = memo(function StudioViewFaces() {
   const { user } = useAuth();
+  const { actions } = useStudio();
   const {
     faces: allFaces,
     isLoading,
@@ -1495,10 +1445,10 @@ export const StudioViewFaces = memo(function StudioViewFaces() {
 
       {/* Content */}
       {isLoading ? (
-        // Loading state
+        // Loading state – skeletons matching thumbnail-card style
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 6 }).map((_, i) => (
-            <FaceCardSkeleton key={i} />
+            <FaceThumbnailSkeleton key={i} />
           ))}
         </div>
       ) : faces.length === 0 ? (
@@ -1523,16 +1473,17 @@ export const StudioViewFaces = memo(function StudioViewFaces() {
           </CardContent>
         </Card>
       ) : (
-        // Faces grid
+        // Faces grid – FaceThumbnail with thumbnail-card styling and view modal
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {faces.map((face) => (
-            <FaceCard
+            <FaceThumbnail
               key={face.id}
               face={face}
+              currentUserId={user?.id}
+              variant="card"
+              onView={actions.onViewFace}
               onEdit={handleEdit}
               onDelete={handleDeleteClick}
-              onAddImage={handleAddImage}
-              showActions
             />
           ))}
         </div>

@@ -212,6 +212,51 @@ function ImageModal({ open, onOpenChange, src, alt, title }: ImageModalProps) {
   )
 }
 
+/**
+ * PaletteViewModal - Modal for displaying a larger view of a color palette (reuses same pattern as ImageModal)
+ */
+export interface PaletteViewModalProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  name: string
+  colors: string[]
+}
+
+function PaletteViewModal({ open, onOpenChange, name, colors }: PaletteViewModalProps) {
+  return (
+    <Modal open={open} onOpenChange={onOpenChange}>
+      <ModalContent
+        size="2xl"
+        className="p-0 overflow-hidden"
+        showCloseButton={true}
+      >
+        <ModalHeader className="p-4 pb-0">
+          <ModalTitle>{name}</ModalTitle>
+          <ModalDescription>{colors.length} colors</ModalDescription>
+        </ModalHeader>
+        <div className="p-4">
+          {colors.length > 0 ? (
+            <div className="flex w-full overflow-hidden rounded-lg ring-1 ring-border">
+              {colors.map((color, index) => (
+                <div
+                  key={`${color}-${index}`}
+                  className="flex-1 min-h-[80px] transition-opacity hover:opacity-90"
+                  style={{ backgroundColor: color }}
+                  title={color}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="flex h-20 items-center justify-center rounded-lg bg-muted text-muted-foreground text-sm">
+              No colors
+            </div>
+          )}
+        </div>
+      </ModalContent>
+    </Modal>
+  )
+}
+
 export {
   Modal,
   ModalBody,
@@ -225,5 +270,6 @@ export {
   ModalTitle,
   ModalTrigger,
   ImageModal,
+  PaletteViewModal,
   modalContentVariants,
 }

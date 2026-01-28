@@ -9,7 +9,6 @@ import {
   X,
   Palette,
   Plus,
-  User,
   Loader2,
   Sparkles,
 } from "lucide-react";
@@ -27,6 +26,7 @@ import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useStudio } from "./studio-provider";
 import { useFaces } from "@/lib/hooks/useFaces";
+import { FaceThumbnail, FaceThumbnailSkeleton } from "./face-thumbnail";
 import { useStyles } from "@/lib/hooks/useStyles";
 import { StyleEditor } from "./style-editor";
 import { cn } from "@/lib/utils";
@@ -623,7 +623,7 @@ export function StudioGeneratorVariations() {
 export function StudioGeneratorFaces() {
   const {
     state: { includeFaces, selectedFaces, faceExpression, facePose },
-    actions: { setIncludeFaces, toggleFace, setFaceExpression, setFacePose, setView },
+    actions: { setIncludeFaces, toggleFace, setFaceExpression, setFacePose, setView, onViewFace },
   } = useStudio();
 
   // Use real faces from database
@@ -649,13 +649,10 @@ export function StudioGeneratorFaces() {
             </p>
             <div className="flex flex-wrap gap-2">
               {isLoading ? (
-                // Loading state
+                // Loading state – face thumbnail skeletons (compact)
                 <>
                   {Array.from({ length: 3 }).map((_, i) => (
-                    <div key={i} className="flex flex-col items-center gap-1">
-                      <Skeleton className="h-12 w-12 rounded-full" />
-                      <Skeleton className="h-3 w-10" />
-                    </div>
+                    <FaceThumbnailSkeleton key={i} compact />
                   ))}
                 </>
               ) : faces.length === 0 ? (
@@ -671,48 +668,17 @@ export function StudioGeneratorFaces() {
                   </button>
                 </p>
               ) : (
-                // Show saved faces
-                faces.map((face) => {
-                  const firstImage = face.image_urls?.[0];
-                  const isSelected = selectedFaces.includes(face.id);
-
-                  return (
-                    <button
-                      key={face.id}
-                      type="button"
-                      onClick={() => toggleFace(face.id)}
-                      className={cn(
-                        "flex flex-col items-center gap-1 rounded-md p-1 transition-all",
-                        "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
-                        isSelected && "ring-2 ring-primary ring-offset-2"
-                      )}
-                    >
-                      <div
-                        className={cn(
-                          "h-12 w-12 overflow-hidden rounded-full border-2 transition-all",
-                          isSelected
-                            ? "border-primary"
-                            : "border-border hover:border-primary/50"
-                        )}
-                      >
-                        {firstImage ? (
-                          <img
-                            src={firstImage}
-                            alt={face.name}
-                            className="h-full w-full object-cover"
-                          />
-                        ) : (
-                          <div className="flex h-full w-full items-center justify-center bg-muted">
-                            <User className="h-5 w-5 text-muted-foreground" />
-                          </div>
-                        )}
-                      </div>
-                      <span className="max-w-14 truncate text-xs text-muted-foreground">
-                        {face.name}
-                      </span>
-                    </button>
-                  );
-                })
+                // Show saved faces – FaceThumbnail compact with view modal and select
+                faces.map((face) => (
+                  <FaceThumbnail
+                    key={face.id}
+                    face={face}
+                    variant="compact"
+                    onView={onViewFace}
+                    onSelect={toggleFace}
+                    isSelected={selectedFaces.includes(face.id)}
+                  />
+                ))
               )}
               {/* Add new face button */}
               <button
