@@ -8,6 +8,7 @@ import { useAuth } from "@/lib/hooks/useAuth";
 import type { Thumbnail } from "@/lib/types/database";
 import { DeleteConfirmationModal } from "@/components/studio/delete-confirmation-modal";
 import { ThumbnailEditModal, type ThumbnailEditData } from "@/components/studio/thumbnail-edit-modal";
+import { ImageModal } from "@/components/ui/modal";
 
 /**
  * Studio View Types
@@ -70,8 +71,10 @@ export interface StudioState {
   // Modal state
   deleteModalOpen: boolean;
   editModalOpen: boolean;
+  imageModalOpen: boolean;
   thumbnailToDelete: Thumbnail | null;
   thumbnailToEdit: Thumbnail | null;
+  thumbnailToView: Thumbnail | null;
   isDeleting: boolean;
   isRegenerating: boolean;
 }
@@ -122,6 +125,8 @@ export interface StudioActions {
   confirmDelete: () => Promise<void>;
   closeEditModal: () => void;
   onRegenerateThumbnail: (data: ThumbnailEditData) => Promise<void>;
+  onViewThumbnail: (thumbnail: Thumbnail) => void;
+  closeImageModal: () => void;
   // Clear error
   clearError: () => void;
   // Apply form state updates from assistant
@@ -181,6 +186,24 @@ export function useStudio() {
     throw new Error("useStudio must be used within StudioProvider");
   }
   return context;
+}
+
+/**
+ * Hook for thumbnail-specific actions
+ * Provides all actions needed by ThumbnailCard without prop drilling
+ */
+export function useThumbnailActions() {
+  const { actions, data } = useStudio();
+  return {
+    currentUserId: data.currentUserId,
+    onFavoriteToggle: actions.onFavoriteToggle,
+    onDownload: actions.onDownloadThumbnail,
+    onShare: actions.onShareThumbnail,
+    onCopy: actions.onCopyThumbnail,
+    onEdit: actions.onEditThumbnail,
+    onDelete: actions.onDeleteThumbnail,
+    onView: actions.onViewThumbnail,
+  };
 }
 
 /**
@@ -260,8 +283,10 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
     // Modal state
     deleteModalOpen: false,
     editModalOpen: false,
+    imageModalOpen: false,
     thumbnailToDelete: null,
     thumbnailToEdit: null,
+    thumbnailToView: null,
     isDeleting: false,
     isRegenerating: false,
   });
@@ -467,6 +492,26 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
     }
   }, [state.thumbnailToEdit, state.customInstructions, state.includeStyles, state.selectedStyle, state.selectedPalette, state.selectedAspectRatio, state.selectedResolution, generate, refreshThumbnails]);
 
+  // Image modal handlers
+  const onViewThumbnail = useCallback((thumbnail: Thumbnail) => {
+    setState((s) => ({
+      ...s,
+      imageModalOpen: true,
+      thumbnailToView: thumbnail,
+    }));
+  }, []);
+
+  const closeImageModal = useCallback(() => {
+    setState((s) => ({
+      ...s,
+      imageModalOpen: false,
+    }));
+    // Delay clearing thumbnail to allow exit animation
+    setTimeout(() => {
+      setState((s) => ({ ...s, thumbnailToView: null }));
+    }, 300);
+  }, []);
+
   const clearError = useCallback(() => {
     setState((s) => ({ ...s, generationError: null }));
     clearGenerationError();
@@ -620,6 +665,8 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
     confirmDelete,
     closeEditModal,
     onRegenerateThumbnail,
+    onViewThumbnail,
+    closeImageModal,
     clearError,
     applyFormStateUpdates: (updates) => {
       setState((s) => {
@@ -686,6 +733,19 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
         onRegenerate={onRegenerateThumbnail}
         isRegenerating={state.isRegenerating}
       />
+      
+      {/* Image View Modal */}
+      {state.thumbnailToView && (
+        <ImageModal
+          open={state.imageModalOpen}
+          onOpenChange={(open) => {
+            if (!open) closeImageModal();
+          }}
+          src={state.thumbnailToView.imageUrl}
+          alt={state.thumbnailToView.name}
+          title={state.thumbnailToView.name}
+        />
+      )}
     </StudioContext.Provider>
   );
 }

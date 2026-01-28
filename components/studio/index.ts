@@ -139,7 +139,7 @@ export {
 } from "./palette-grid";
 
 // Browse Tab Components
-export { BrowseThumbnails, type BrowseThumbnailsProps } from "./browse-thumbnails";
+export { BrowseThumbnails } from "./browse-thumbnails";
 export { BrowseStyles, type BrowseStylesProps } from "./browse-styles";
 export { BrowsePalettes, type BrowsePalettesProps } from "./browse-palettes";
 

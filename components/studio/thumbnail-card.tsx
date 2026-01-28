@@ -9,6 +9,7 @@
  * - Skeleton state for generating items
  * - Progressive image loading (400w -> 800w -> full)
  * - Hover effects: scale animation, title/resolution overlay, action bar
+ * - Auto-wired actions via useThumbnailActions hook (no prop drilling)
  * 
  * @see vercel-react-best-practices for optimization patterns
  */
@@ -25,6 +26,7 @@ import {
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { useIntersectionObserver } from "@/lib/hooks/useIntersectionObserver";
+import { useThumbnailActions } from "@/components/studio/studio-provider";
 import type { Thumbnail } from "@/lib/types/database";
 
 /**
@@ -94,14 +96,6 @@ export function ThumbnailCardEmpty() {
 
 export interface ThumbnailCardProps {
   thumbnail: Thumbnail;
-  currentUserId?: string;
-  onFavoriteToggle?: (id: string) => void;
-  onDownload?: (id: string) => void;
-  onShare?: (id: string) => void;
-  onCopy?: (id: string) => void;
-  onEdit?: (thumbnail: Thumbnail) => void;
-  onDelete?: (id: string) => void;
-  onClick?: (thumbnail: Thumbnail) => void;
   priority?: boolean;
 }
 
@@ -215,20 +209,25 @@ function ActionButton({
 
 /**
  * Memoized ThumbnailCard component
- * Only re-renders when thumbnail data or callbacks change
+ * Uses useThumbnailActions hook to get all actions from context
+ * Only re-renders when thumbnail data changes
  */
 export const ThumbnailCard = memo(function ThumbnailCard({
   thumbnail,
-  currentUserId,
-  onFavoriteToggle,
-  onDownload,
-  onShare,
-  onCopy,
-  onEdit,
-  onDelete,
-  onClick,
   priority = false,
 }: ThumbnailCardProps) {
+  // Get all actions and currentUserId from context
+  const {
+    currentUserId,
+    onFavoriteToggle,
+    onDownload,
+    onShare,
+    onCopy,
+    onEdit,
+    onDelete,
+    onView,
+  } = useThumbnailActions();
+
   const {
     id,
     name,
@@ -253,7 +252,7 @@ export const ThumbnailCard = memo(function ThumbnailCard({
   const handleFavorite = useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation();
-      onFavoriteToggle?.(id);
+      onFavoriteToggle(id);
     },
     [id, onFavoriteToggle]
   );
@@ -261,7 +260,7 @@ export const ThumbnailCard = memo(function ThumbnailCard({
   const handleDownload = useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation();
-      onDownload?.(id);
+      onDownload(id);
     },
     [id, onDownload]
   );
@@ -269,7 +268,7 @@ export const ThumbnailCard = memo(function ThumbnailCard({
   const handleShare = useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation();
-      onShare?.(id);
+      onShare(id);
     },
     [id, onShare]
   );
@@ -277,7 +276,7 @@ export const ThumbnailCard = memo(function ThumbnailCard({
   const handleCopy = useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation();
-      onCopy?.(id);
+      onCopy(id);
     },
     [id, onCopy]
   );
@@ -285,7 +284,7 @@ export const ThumbnailCard = memo(function ThumbnailCard({
   const handleEdit = useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation();
-      onEdit?.(thumbnail);
+      onEdit(thumbnail);
     },
     [thumbnail, onEdit]
   );
@@ -293,14 +292,14 @@ export const ThumbnailCard = memo(function ThumbnailCard({
   const handleDelete = useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation();
-      onDelete?.(id);
+      onDelete(id);
     },
     [id, onDelete]
   );
 
   const handleClick = useCallback(() => {
-    onClick?.(thumbnail);
-  }, [thumbnail, onClick]);
+    onView(thumbnail);
+  }, [thumbnail, onView]);
 
   return (
     <Card
@@ -347,41 +346,33 @@ export const ThumbnailCard = memo(function ThumbnailCard({
             "opacity-0 transition-opacity duration-200 group-hover:opacity-100"
           )}
         >
-          {onFavoriteToggle && (
-            <ActionButton
-              icon={Heart}
-              label={isFavorite ? "Remove from favorites" : "Add to favorites"}
-              onClick={handleFavorite}
-              active={isFavorite}
-            />
-          )}
+          <ActionButton
+            icon={Heart}
+            label={isFavorite ? "Remove from favorites" : "Add to favorites"}
+            onClick={handleFavorite}
+            active={isFavorite}
+          />
           
-          {onDownload && (
-            <ActionButton
-              icon={Download}
-              label="Download"
-              onClick={handleDownload}
-            />
-          )}
+          <ActionButton
+            icon={Download}
+            label="Download"
+            onClick={handleDownload}
+          />
           
-          {onShare && (
-            <ActionButton
-              icon={Share2}
-              label="Share"
-              onClick={handleShare}
-            />
-          )}
+          <ActionButton
+            icon={Share2}
+            label="Share"
+            onClick={handleShare}
+          />
           
-          {onCopy && (
-            <ActionButton
-              icon={Copy}
-              label="Copy link"
-              onClick={handleCopy}
-            />
-          )}
+          <ActionButton
+            icon={Copy}
+            label="Copy link"
+            onClick={handleCopy}
+          />
           
           {/* Edit button - only shown if user owns the thumbnail */}
-          {isOwner && onEdit && (
+          {isOwner && (
             <ActionButton
               icon={Pencil}
               label="Edit"
@@ -390,7 +381,7 @@ export const ThumbnailCard = memo(function ThumbnailCard({
           )}
           
           {/* Delete button - only shown if user owns the thumbnail */}
-          {isOwner && onDelete && (
+          {isOwner && (
             <ActionButton
               icon={Trash2}
               label="Delete"

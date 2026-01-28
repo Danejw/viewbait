@@ -9,6 +9,9 @@
  * - Load more pagination
  * - Empty states
  * 
+ * ThumbnailCard handles its own actions via useThumbnailActions hook,
+ * so no action callbacks need to be passed through this component.
+ * 
  * @see vercel-react-best-practices for optimization patterns
  */
 
@@ -20,19 +23,12 @@ import { BrowseControls } from "./browse-controls";
 import { ThumbnailGrid } from "./thumbnail-grid";
 import { usePublicThumbnails } from "@/lib/hooks/usePublicContent";
 import type { PublicSortOption, SortDirection } from "@/lib/hooks/usePublicContent";
-import type { Thumbnail } from "@/lib/types/database";
-
-export interface BrowseThumbnailsProps {
-  /** Callback when thumbnail is clicked */
-  onThumbnailClick?: (thumbnail: Thumbnail) => void;
-}
 
 /**
  * BrowseThumbnails - memoized for performance
+ * ThumbnailCard handles its own actions (click, edit, delete, etc.) via context
  */
-export const BrowseThumbnails = memo(function BrowseThumbnails({
-  onThumbnailClick,
-}: BrowseThumbnailsProps) {
+export const BrowseThumbnails = memo(function BrowseThumbnails() {
   // Local state for sorting and filtering
   const [orderBy, setOrderBy] = useState<PublicSortOption>("created_at");
   const [orderDirection, setOrderDirection] = useState<SortDirection>("desc");
@@ -70,14 +66,6 @@ export const BrowseThumbnails = memo(function BrowseThumbnails({
   const handleSearchChange = useCallback((query: string) => {
     setSearchQuery(query);
   }, []);
-
-  // Handle thumbnail click
-  const handleThumbnailClick = useCallback(
-    (thumbnail: Thumbnail) => {
-      onThumbnailClick?.(thumbnail);
-    },
-    [onThumbnailClick]
-  );
 
   // Handle refresh
   const handleRefresh = useCallback(() => {
@@ -139,13 +127,12 @@ export const BrowseThumbnails = memo(function BrowseThumbnails({
         </Card>
       ) : (
         <>
-          {/* Thumbnail grid */}
+          {/* Thumbnail grid - ThumbnailCard handles all actions via context */}
           <ThumbnailGrid
             thumbnails={thumbnails}
             isLoading={isLoading}
             minSlots={12}
             showEmptySlots={false}
-            onClick={handleThumbnailClick}
           />
 
           {/* Load more */}

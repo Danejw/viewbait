@@ -9,10 +9,13 @@
  * - Intersection observer for lazy loading
  * - Skeleton placeholders for empty slots
  * 
+ * ThumbnailCard components handle their own actions via useThumbnailActions hook,
+ * so no action callbacks need to be passed through this component.
+ * 
  * @see vercel-react-best-practices for optimization patterns
  */
 
-import React, { memo, useMemo, useCallback } from "react";
+import React, { memo, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { ThumbnailCard, ThumbnailCardEmpty, ThumbnailCardSkeleton } from "./thumbnail-card";
 import type { Thumbnail } from "@/lib/types/database";
@@ -41,12 +44,6 @@ export interface ThumbnailGridProps {
   gridClassName?: string;
   /** Loading state for initial fetch */
   isLoading?: boolean;
-  /** Callbacks */
-  onFavoriteToggle?: (id: string) => void;
-  onDownload?: (id: string) => void;
-  onShare?: (id: string) => void;
-  onDelete?: (id: string) => void;
-  onClick?: (thumbnail: Thumbnail) => void;
 }
 
 /**
@@ -96,6 +93,7 @@ export function ThumbnailGridSkeleton({ count = 6 }: { count?: number }) {
 
 /**
  * Optimized ThumbnailGrid component
+ * ThumbnailCard handles its own actions via useThumbnailActions hook
  */
 export const ThumbnailGrid = memo(function ThumbnailGrid({
   thumbnails,
@@ -104,14 +102,6 @@ export const ThumbnailGrid = memo(function ThumbnailGrid({
   showEmptySlots = true,
   gridClassName,
   isLoading = false,
-  currentUserId,
-  onFavoriteToggle,
-  onDownload,
-  onShare,
-  onCopy,
-  onEdit,
-  onDelete,
-  onClick,
 }: ThumbnailGridProps) {
   // Combine generating items and db thumbnails
   // Generating items appear first (newest at top)
@@ -132,42 +122,6 @@ export const ThumbnailGrid = memo(function ThumbnailGrid({
     return Math.max(0, minSlots - combinedItems.length);
   }, [showEmptySlots, minSlots, combinedItems.length]);
 
-  // Memoize callbacks for stability (rerender-functional-setstate)
-  const handleFavoriteToggle = useCallback(
-    (id: string) => onFavoriteToggle?.(id),
-    [onFavoriteToggle]
-  );
-
-  const handleDownload = useCallback(
-    (id: string) => onDownload?.(id),
-    [onDownload]
-  );
-
-  const handleShare = useCallback(
-    (id: string) => onShare?.(id),
-    [onShare]
-  );
-
-  const handleCopy = useCallback(
-    (id: string) => onCopy?.(id),
-    [onCopy]
-  );
-
-  const handleEdit = useCallback(
-    (thumbnail: Thumbnail) => onEdit?.(thumbnail),
-    [onEdit]
-  );
-
-  const handleDelete = useCallback(
-    (id: string) => onDelete?.(id),
-    [onDelete]
-  );
-
-  const handleClick = useCallback(
-    (thumbnail: Thumbnail) => onClick?.(thumbnail),
-    [onClick]
-  );
-
   // Show loading skeleton
   if (isLoading) {
     return <ThumbnailGridSkeleton count={minSlots} />;
@@ -185,14 +139,6 @@ export const ThumbnailGrid = memo(function ThumbnailGrid({
         <GridItem key={thumbnail.id} index={index}>
           <ThumbnailCard
             thumbnail={thumbnail}
-            currentUserId={currentUserId}
-            onFavoriteToggle={handleFavoriteToggle}
-            onDownload={handleDownload}
-            onShare={handleShare}
-            onCopy={handleCopy}
-            onEdit={handleEdit}
-            onDelete={handleDelete}
-            onClick={handleClick}
             // First 6 items are above the fold - priority load
             priority={index < 6}
           />
