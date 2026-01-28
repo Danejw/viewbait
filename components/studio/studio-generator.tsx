@@ -25,10 +25,13 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useStudio } from "./studio-provider";
+import { StudioChatPanel } from "./studio-chat";
 import { useFaces } from "@/lib/hooks/useFaces";
 import { FaceThumbnail, FaceThumbnailSkeleton } from "./face-thumbnail";
 import { useStyles } from "@/lib/hooks/useStyles";
+import { usePalettes } from "@/lib/hooks/usePalettes";
 import { StyleEditor } from "./style-editor";
+import { PaletteColorStrip } from "./palette-thumbnail-card";
 import { cn } from "@/lib/utils";
 import type { StyleInsert, StyleUpdate, DbStyle } from "@/lib/types/database";
 
@@ -547,6 +550,91 @@ export function StudioGeneratorStyleSelection() {
 }
 
 /**
+ * StudioGeneratorPalette
+ * Color palette selector for manual form and chat DynamicUIRenderer.
+ * Toggle on/off like Style Selection and Include Faces.
+ */
+export function StudioGeneratorPalette() {
+  const {
+    state: { includePalettes, selectedPalette },
+    actions: { setIncludePalettes, setSelectedPalette, setView },
+  } = useStudio();
+  const { palettes, defaultPalettes, isLoading } = usePalettes({
+    includeDefaults: true,
+    enabled: includePalettes,
+    autoFetch: includePalettes,
+  });
+
+  const effectivePalettes = useMemo(() => {
+    const defaults = defaultPalettes ?? [];
+    const user = (palettes ?? []).filter((p) => !p.is_default);
+    return [...defaults, ...user];
+  }, [palettes, defaultPalettes]);
+
+  return (
+    <div className="mb-6">
+      <div className="mb-4 flex items-center justify-between">
+        <label className="text-sm font-medium">Color Palette</label>
+        <Switch checked={includePalettes} onCheckedChange={setIncludePalettes} />
+      </div>
+
+      {includePalettes && (
+        <>
+          {isLoading ? (
+            <div className="h-16 animate-pulse rounded-md bg-muted" />
+          ) : effectivePalettes.length === 0 ? (
+            <p className="text-xs text-muted-foreground">
+              No palettes yet.{" "}
+              <button
+                type="button"
+                onClick={() => setView("palettes")}
+                className="text-primary underline hover:no-underline"
+              >
+                Add a palette
+              </button>
+            </p>
+          ) : (
+            <>
+              <div className="grid grid-cols-3 gap-2 max-h-[14rem] overflow-y-auto hide-scrollbar">
+                {effectivePalettes.map((palette) => (
+                  <button
+                    key={palette.id}
+                    type="button"
+                    onClick={() =>
+                      setSelectedPalette(selectedPalette === palette.id ? null : palette.id)
+                    }
+                    className={cn(
+                      "rounded-md border-2 p-1 text-left transition-all",
+                      selectedPalette === palette.id
+                        ? "border-primary ring-2 ring-primary/20"
+                        : "border-border hover:border-primary/50"
+                    )}
+                  >
+                    <PaletteColorStrip
+                      colors={palette.colors ?? []}
+                      heightClass="h-10"
+                      rounded="rounded-sm"
+                    />
+                    <p className="mt-1 truncate text-xs text-muted-foreground">{palette.name}</p>
+                  </button>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => setView("palettes")}
+                className="mt-1 text-xs text-muted-foreground underline hover:no-underline hover:text-foreground"
+              >
+                Manage palettes
+              </button>
+            </>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+/**
  * StudioGeneratorAspectRatio
  * Aspect ratio selector: 16:9, 1:1, 4:3, 9:16
  */
@@ -814,34 +902,12 @@ export function StudioGeneratorSubmit() {
 
 /**
  * StudioGeneratorChat
- * Chat mode interface - shows chat assistant when in chat mode
+ * Chat mode interface - in-sidebar chat panel (messages, suggestions, dynamic UI).
  */
 export function StudioGeneratorChat() {
-  const {
-    state: { mode },
-    actions: { openChatAssistant },
-  } = useStudio();
-
-  // When switching to chat mode, open the chat assistant
-  React.useEffect(() => {
-    if (mode === "chat") {
-      openChatAssistant();
-    }
-  }, [mode, openChatAssistant]);
-
   return (
-    <div className="flex h-full flex-col items-center justify-center py-12">
-      <div className="text-center">
-        <MessageSquare className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
-        <h2 className="mb-2 text-xl font-semibold">Chat Mode</h2>
-        <p className="mb-6 text-muted-foreground">
-          Use the chat assistant to generate thumbnails through conversation
-        </p>
-        <Button onClick={openChatAssistant} size="lg">
-          <MessageSquare className="mr-2 h-4 w-4" />
-          Open Chat Assistant
-        </Button>
-      </div>
+    <div className="flex h-full flex-col min-h-0">
+      <StudioChatPanel />
     </div>
   );
 }
@@ -856,7 +922,12 @@ export function StudioGenerator() {
   } = useStudio();
 
   if (mode === "chat") {
-    return <StudioGeneratorChat />;
+    return (
+      <div className="flex h-full flex-col min-h-0">
+        <StudioGeneratorTabs />
+        <StudioGeneratorChat />
+      </div>
+    );
   }
 
   return (
@@ -865,10 +936,11 @@ export function StudioGenerator() {
       <StudioGeneratorThumbnailText />
       <StudioGeneratorCustomInstructions />
       <StudioGeneratorStyleReferences />
+      <StudioGeneratorFaces />
       <StudioGeneratorStyleSelection />
+      <StudioGeneratorPalette />
       <StudioGeneratorAspectAndResolution />
       <StudioGeneratorVariations />
-      <StudioGeneratorFaces />
       <StudioGeneratorSubmit />
     </div>
   );

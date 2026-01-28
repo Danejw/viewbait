@@ -39,10 +39,13 @@ export interface AssistantChatRequest {
 export interface AssistantChatResponse {
   human_readable_message: string
   ui_components: Array<
+    | 'ThumbnailTextSection'
     | 'IncludeFaceSection'
     | 'StyleSelectionSection'
     | 'ColorPaletteSection'
     | 'StyleReferencesSection'
+    | 'AspectRatioSection'
+    | 'ResolutionSection'
     | 'AspectRatioResolutionSection'
     | 'VariationsSection'
     | 'CustomInstructionsSection'
@@ -79,14 +82,17 @@ const assistantToolDefinition = {
       },
       ui_components: {
         type: 'array',
-        description: 'Array of UI component names to display inline with the message. Only include components that are relevant to the current conversation context and what information is still needed.',
+        description: 'Array of UI component names to display inline. Return ONLY 1-2 component names that are directly relevant to the user\'s last message. Example: if the user says "Add my face to the thumbnail" return only [\'IncludeFaceSection\']; if "Pick a style" return only [\'StyleSelectionSection\']. Do NOT return many or all sections at once.',
         items: {
           type: 'string',
           enum: [
+            'ThumbnailTextSection',
             'IncludeFaceSection',
             'StyleSelectionSection',
             'ColorPaletteSection',
             'StyleReferencesSection',
+            'AspectRatioSection',
+            'ResolutionSection',
             'AspectRatioResolutionSection',
             'VariationsSection',
             'CustomInstructionsSection',
@@ -99,53 +105,53 @@ const assistantToolDefinition = {
       },
       form_state_updates: {
         type: 'object',
-        description: 'Optional updates to form state fields. Only include fields where the user has clearly specified a value in the conversation. Extract structured data from the conversation when the user explicitly states their preferences (e.g., "I want a 16:9 thumbnail", "Make it 2K resolution", "Use 3 variations"). Do NOT guess or infer values - only extract when the user has clearly stated their preference.',
+        description: 'Form state updates to pre-fill the surfaced section. IMPORTANT: When you return a ui_component, you MUST also set the matching form_state_updates so the surfaced section is pre-filled. Examples: "Add my face" -> set includeFace: true; "Make it more dramatic" -> set customInstructions: "Make it more dramatic"; "Set title to X" -> set thumbnailText: "X"; "Use 16:9" -> set selectedAspectRatio: "16:9". Always couple surfacing a component with setting its values when the user has expressed intent or a value.',
         properties: {
           thumbnailText: {
             type: 'string',
-            description: 'The thumbnail title/text that the user wants to use. Only set this if the user has explicitly stated what the title should be.',
+            description: 'The thumbnail title/text. Set when surfacing ThumbnailTextSection and user has stated a title.',
           },
           selectedStyle: {
             type: 'string',
-            description: 'Style ID or name that the user wants to use. Only set if the user has explicitly mentioned a style preference.',
+            description: 'Style ID or name. Set when surfacing StyleSelectionSection and user has mentioned a style.',
           },
           selectedColor: {
             type: 'string',
-            description: 'Color palette ID or name that the user wants to use. Only set if the user has explicitly mentioned a color preference.',
+            description: 'Color palette ID or name. Set when surfacing ColorPaletteSection and user has mentioned a palette.',
           },
           selectedAspectRatio: {
             type: 'string',
-            description: 'Aspect ratio the user wants (e.g., "16:9", "1:1", "4:3", "9:16"). Only set if the user has explicitly stated their aspect ratio preference.',
+            description: 'Aspect ratio (16:9, 1:1, 4:3, 9:16). Set when surfacing AspectRatioSection or AspectRatioResolutionSection and user has stated a ratio.',
             enum: ['16:9', '1:1', '4:3', '9:16'],
           },
           selectedResolution: {
             type: 'string',
-            description: 'Resolution the user wants (e.g., "1K", "2K", "4K"). Only set if the user has explicitly stated their resolution preference.',
+            description: 'Resolution (1K, 2K, 4K). Set when surfacing ResolutionSection or AspectRatioResolutionSection and user has stated a resolution.',
             enum: ['1K', '2K', '4K'],
           },
           variations: {
             type: 'number',
-            description: 'Number of variations the user wants (1-4). Only set if the user has explicitly stated how many variations they want.',
+            description: 'Number of variations (1-4). Set when surfacing VariationsSection and user has stated a count.',
             minimum: 1,
             maximum: 4,
           },
           includeFace: {
             type: 'boolean',
-            description: 'Whether the user wants to include face integration. Only set if the user has explicitly mentioned wanting to include their face.',
+            description: 'Whether to include face. Set to true when surfacing IncludeFaceSection and user wants to add their face.',
           },
           expression: {
             type: 'string',
-            description: 'Facial expression the user wants. Only set if the user has explicitly mentioned a specific expression preference.',
+            description: 'Facial expression. Set when user mentions an expression.',
             enum: getExpressionValues(),
           },
           pose: {
             type: 'string',
-            description: 'Pose the user wants. Only set if the user has explicitly mentioned a specific pose preference.',
+            description: 'Pose. Set when user mentions a pose.',
             enum: getPoseValues(),
           },
           customInstructions: {
             type: 'string',
-            description: 'Custom instructions for thumbnail generation. Only set this if the user has explicitly mentioned specific instructions, requirements, or preferences for how the thumbnail should look or be generated (e.g., "Make it more dramatic", "Add a glowing effect", "Use a minimalist approach"). Do NOT guess or infer - only extract when the user has clearly stated their custom instructions.',
+            description: 'Custom instructions text. Set when surfacing CustomInstructionsSection - copy the user\'s instruction verbatim (e.g., "Make it more dramatic", "Add a glowing effect").',
           },
         },
       },
@@ -203,12 +209,15 @@ export async function POST(request: Request) {
     const systemPrompt = `You are an expert an creating viral thumbnails with perfect, catchy simple titles. Your role is to guide users through the thumbnail creation process by reasoning about their intent from the conversation and surfacing appropriate UI components.
     If the user seems unsure, you can go ahead and help by being proactive and fill in the details for them.
 
-AVAILABLE UI COMPONENTS:
+AVAILABLE UI COMPONENTS (return only 1-2 that match the user's current message):
+- ThumbnailTextSection: For setting the thumbnail title/text.
 - IncludeFaceSection: For configuring face integration (selecting faces, expressions, poses)
 - StyleSelectionSection: For selecting a visual style for the thumbnail
 - ColorPaletteSection: For selecting a color palette
 - StyleReferencesSection: For uploading style reference images
-- AspectRatioResolutionSection: For setting aspect ratio (16:9, 1:1, 4:3, 9:16) and resolution (1K, 2K, 4K)
+- AspectRatioSection: For setting only aspect ratio (16:9, 1:1, 4:3, 9:16). Use when the user asks only about aspect ratio.
+- ResolutionSection: For setting only resolution (1K, 2K, 4K). Use when the user asks only about resolution.
+- AspectRatioResolutionSection: For setting both aspect ratio and resolution together. Use when the user asks for both; otherwise prefer AspectRatioSection or ResolutionSection alone.
 - VariationsSection: For setting number of variations to generate (1-4)
 - CustomInstructionsSection: For adding or editing custom instructions for thumbnail generation. Surface this when the user wants to provide specific instructions, requirements, or preferences for how the thumbnail should look or be generated.
 - GenerateThumbnailButton: Only surface this when you have sufficient information to generate a thumbnail. This implies a request for user confirmation.
@@ -259,18 +268,33 @@ Available Poses: ${formatPosesForPrompt()}
 
 INSTRUCTIONS:
 1. Analyze the conversation history to understand user intent. Reason holistically about what the user wants.
-2. When the user explicitly states preferences (e.g., "I want the title to be 'How to Build a Website'", "Make it 16:9", "Use 2K resolution", "I want 3 variations", "Make it more dramatic", "Add a glowing effect"), extract those values and include them in form_state_updates. Only extract when the user has clearly stated their preference - do NOT guess or infer.
-3. For custom instructions: When the user mentions specific requirements, preferences, or instructions for how the thumbnail should look or be generated (e.g., "Make it more dramatic", "Add a glowing effect", "Use a minimalist approach", "Make it look realistic"), extract these as customInstructions in form_state_updates. Be sure to include the full instruction text exactly as the user stated it.
-4. Determine what information is missing or what the user might want to configure next.
-5. Surface relevant UI components that help the user provide that information or make those choices.
-6. Only include GenerateThumbnailButton when you believe sufficient information has been gathered and the user is ready to generate.
-7. Write a natural, conversational message that guides the user. Be helpful and friendly.
-8. When you extract form state values, mention them naturally in your message (e.g., "I've set the title to 'How to Build a Website' as you mentioned", "I've added your custom instructions about making it more dramatic").
-9. Generate 2-3 relevant suggestions for what the user might want to do next. These should be short, actionable phrases that help guide the user. Suggestions should be contextually relevant - for example, if the user hasn't set a title yet, suggest "Set a title for your thumbnail". If they've set everything, suggest "Generate the thumbnail now".
+2. Return only 1-2 ui_components that match what the user just asked for. For example: "Add my face" -> only IncludeFaceSection; "Pick a style" -> only StyleSelectionSection; "Set the title" -> only ThumbnailTextSection. Do NOT return many or all sections at once.
+3. ALWAYS PRE-FILL: When you return a ui_component, you MUST also set form_state_updates so the surfaced section is pre-filled. Examples:
+   - "Add my face" -> return IncludeFaceSection AND set form_state_updates: { includeFace: true }
+   - "Make it more dramatic" -> return CustomInstructionsSection AND set form_state_updates: { customInstructions: "Make it more dramatic" }
+   - "Set the title to How to Code" -> return ThumbnailTextSection AND set form_state_updates: { thumbnailText: "How to Code" }
+   - "Use 16:9" -> return AspectRatioSection AND set form_state_updates: { selectedAspectRatio: "16:9" }
+   - "Make it 2K resolution" -> return ResolutionSection AND set form_state_updates: { selectedResolution: "2K" }
+   - "I want 3 variations" -> return VariationsSection AND set form_state_updates: { variations: 3 }
+4. For custom instructions: Copy the user's instruction text verbatim into customInstructions (e.g., "Make it look realistic", "Add a glowing effect").
+5. Only include GenerateThumbnailButton when you believe sufficient information has been gathered and the user is ready to generate.
+6. Write a natural, conversational message that guides the user. Be helpful and friendly.
+7. When you extract form state values, mention them naturally in your message (e.g., "I've set the title to 'How to Build a Website' as you mentioned", "I've enabled face integration for you").
+8. Generate 2-3 relevant suggestions for what the user might want to do next.
+
+PRE-FILL MAPPING (when surfacing these components, set these values):
+- IncludeFaceSection -> set includeFace: true when user wants to add their face
+- ThumbnailTextSection -> set thumbnailText to the user's title/text
+- CustomInstructionsSection -> set customInstructions to the user's instruction verbatim
+- StyleSelectionSection -> set selectedStyle when user names a style
+- ColorPaletteSection -> set selectedColor when user names a palette
+- AspectRatioSection -> set selectedAspectRatio when user specifies (16:9, 1:1, 4:3, 9:16)
+- ResolutionSection -> set selectedResolution when user specifies (1K, 2K, 4K)
+- VariationsSection -> set variations when user says how many (1-4)
 
 IMPORTANT: 
-- Extract structured data ONLY when the user has explicitly stated their preference in the conversation.
-- Do NOT guess or infer values - only extract when it's clear from the conversation.
+- When you surface a ui_component, ALWAYS set the matching form_state_updates so the section is pre-filled for the user.
+- Return only 1-2 ui_components per response that are directly relevant to the user's current message.
 - The form_state_updates will automatically sync to the manual settings, keeping both interfaces in sync.`
 
     // Build user prompt from conversation history
@@ -451,10 +475,13 @@ IMPORTANT:
               ui_components: Array.isArray(functionCallResult.ui_components) 
                 ? functionCallResult.ui_components.filter((comp: string) => 
                     [
+                      'ThumbnailTextSection',
                       'IncludeFaceSection',
                       'StyleSelectionSection',
                       'ColorPaletteSection',
                       'StyleReferencesSection',
+                      'AspectRatioSection',
+                      'ResolutionSection',
                       'AspectRatioResolutionSection',
                       'VariationsSection',
                       'CustomInstructionsSection',
@@ -621,10 +648,13 @@ IMPORTANT:
       ui_components: Array.isArray(functionCallResult.ui_components) 
         ? functionCallResult.ui_components.filter((comp: string) => 
             [
+              'ThumbnailTextSection',
               'IncludeFaceSection',
               'StyleSelectionSection',
               'ColorPaletteSection',
               'StyleReferencesSection',
+              'AspectRatioSection',
+              'ResolutionSection',
               'AspectRatioResolutionSection',
               'VariationsSection',
               'CustomInstructionsSection',

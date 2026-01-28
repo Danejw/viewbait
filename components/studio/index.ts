@@ -57,6 +57,7 @@ export {
   StudioGeneratorCustomInstructions,
   StudioGeneratorStyleReferences,
   StudioGeneratorStyleSelection,
+  StudioGeneratorPalette,
   StudioGeneratorAspectRatio,
   StudioGeneratorResolution,
   StudioGeneratorAspectAndResolution,

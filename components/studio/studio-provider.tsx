@@ -59,6 +59,7 @@ export interface StudioState {
   // Style and palette selection
   includeStyles: boolean;
   selectedStyle: string | null;
+  includePalettes: boolean;
   selectedPalette: string | null;
   selectedAspectRatio: string;
   selectedResolution: string;
@@ -110,6 +111,7 @@ export interface StudioActions {
   setFacePose: (pose: string) => void;
   setIncludeStyles: (include: boolean) => void;
   setSelectedStyle: (styleId: string | null) => void;
+  setIncludePalettes: (include: boolean) => void;
   setSelectedPalette: (paletteId: string | null) => void;
   setSelectedAspectRatio: (ratio: string) => void;
   setSelectedResolution: (resolution: string) => void;
@@ -146,6 +148,8 @@ export interface StudioActions {
   clearError: () => void;
   // Apply form state updates from assistant
   applyFormStateUpdates: (updates: Record<string, any>) => void;
+  // Reset chat and optionally form state (e.g. when user clicks Reset in chat panel)
+  resetChat: (clearForm?: boolean) => void;
 }
 
 /**
@@ -312,9 +316,10 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
     facePose: "None",
     includeStyles: false,
     selectedStyle: null,
+    includePalettes: false,
     selectedPalette: null,
     selectedAspectRatio: "16:9",
-    selectedResolution: "2K",
+    selectedResolution: "1K",
     variations: 1,
     styleReferences: [],
     isGenerating: false,
@@ -398,7 +403,7 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
       thumbnailText: state.thumbnailText,
       customInstructions: state.customInstructions,
       selectedStyle: state.includeStyles ? state.selectedStyle : null,
-      selectedPalette: state.selectedPalette,
+      selectedPalette: state.includePalettes ? state.selectedPalette : null,
       selectedAspectRatio: state.selectedAspectRatio,
       selectedResolution: state.selectedResolution,
       variations: state.variations,
@@ -517,7 +522,7 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
         thumbnailText: data.title,
         customInstructions: data.customPrompt || state.customInstructions,
         selectedStyle: state.includeStyles ? state.selectedStyle : null,
-        selectedPalette: state.selectedPalette,
+        selectedPalette: state.includePalettes ? state.selectedPalette : null,
         selectedAspectRatio: state.selectedAspectRatio,
         selectedResolution: state.selectedResolution,
         variations: 1, // Only generate one variation for regeneration
@@ -538,7 +543,7 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
       console.error("Error regenerating thumbnail:", error);
       setState((s) => ({ ...s, isRegenerating: false }));
     }
-  }, [state.thumbnailToEdit, state.customInstructions, state.includeStyles, state.selectedStyle, state.selectedPalette, state.selectedAspectRatio, state.selectedResolution, generate, refreshThumbnails]);
+  }, [state.thumbnailToEdit, state.customInstructions, state.includeStyles, state.selectedStyle, state.includePalettes, state.selectedPalette, state.selectedAspectRatio, state.selectedResolution, generate, refreshThumbnails]);
 
   // Image modal handlers
   const onViewThumbnail = useCallback((thumbnail: Thumbnail) => {
@@ -664,7 +669,7 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
           pose: state.facePose !== "None" ? state.facePose : null,
           styleReferences: state.styleReferences,
           selectedStyle: state.selectedStyle,
-          selectedColor: state.selectedPalette,
+          selectedColor: state.includePalettes ? state.selectedPalette : null,
           selectedAspectRatio: state.selectedAspectRatio,
           selectedResolution: state.selectedResolution,
           variations: state.variations,
@@ -745,6 +750,7 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
     setFacePose: (pose) => setState((s) => ({ ...s, facePose: pose })),
     setIncludeStyles: (include) => setState((s) => ({ ...s, includeStyles: include })),
     setSelectedStyle: (styleId) => setState((s) => ({ ...s, selectedStyle: styleId })),
+    setIncludePalettes: (include) => setState((s) => ({ ...s, includePalettes: include })),
     setSelectedPalette: (paletteId) => setState((s) => ({ ...s, selectedPalette: paletteId })),
     setSelectedAspectRatio: (ratio) => setState((s) => ({ ...s, selectedAspectRatio: ratio })),
     setSelectedResolution: (resolution) =>
@@ -787,6 +793,7 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
         if (updates.includeFace !== undefined) newState.includeFaces = updates.includeFace;
         if (updates.includeStyles !== undefined) newState.includeStyles = updates.includeStyles;
         if (updates.selectedStyle !== undefined) newState.selectedStyle = updates.selectedStyle;
+        if (updates.includePalettes !== undefined) newState.includePalettes = updates.includePalettes;
         if (updates.selectedColor !== undefined) newState.selectedPalette = updates.selectedColor;
         if (updates.selectedAspectRatio !== undefined)
           newState.selectedAspectRatio = updates.selectedAspectRatio;
@@ -800,6 +807,34 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
         if (updates.pose !== undefined) newState.facePose = updates.pose || "None";
         return newState;
       });
+    },
+    resetChat: (clearForm) => {
+      setState((s) => ({
+        ...s,
+        chatAssistant: {
+          ...s.chatAssistant,
+          conversationHistory: [],
+          isProcessing: false,
+        },
+        ...(clearForm
+          ? {
+              thumbnailText: "",
+              customInstructions: "",
+              includeFaces: false,
+              selectedFaces: [] as string[],
+              faceExpression: "None",
+              facePose: "None",
+              includeStyles: false,
+              selectedStyle: null as string | null,
+              includePalettes: false,
+              selectedPalette: null as string | null,
+              selectedAspectRatio: "16:9",
+              selectedResolution: "1K",
+              variations: 1,
+              styleReferences: [] as string[],
+            }
+          : {}),
+      }));
     },
   };
 
