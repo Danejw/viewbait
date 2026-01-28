@@ -5,7 +5,7 @@ import { useThumbnailGeneration } from "@/lib/hooks/useThumbnailGeneration";
 import { useThumbnails, useDeleteThumbnail, useToggleFavorite } from "@/lib/hooks/useThumbnails";
 import { useFaces } from "@/lib/hooks/useFaces";
 import { useAuth } from "@/lib/hooks/useAuth";
-import type { Thumbnail } from "@/lib/types/database";
+import type { Thumbnail, PublicStyle, DbStyle } from "@/lib/types/database";
 import { DeleteConfirmationModal } from "@/components/studio/delete-confirmation-modal";
 import { ThumbnailEditModal, type ThumbnailEditData } from "@/components/studio/thumbnail-edit-modal";
 import { ImageModal } from "@/components/ui/modal";
@@ -77,6 +77,9 @@ export interface StudioState {
   thumbnailToView: Thumbnail | null;
   isDeleting: boolean;
   isRegenerating: boolean;
+  // Style modal state
+  styleImageModalOpen: boolean;
+  styleToView: PublicStyle | DbStyle | null;
 }
 
 /**
@@ -127,6 +130,9 @@ export interface StudioActions {
   onRegenerateThumbnail: (data: ThumbnailEditData) => Promise<void>;
   onViewThumbnail: (thumbnail: Thumbnail) => void;
   closeImageModal: () => void;
+  // Style actions
+  onViewStyle: (style: PublicStyle | DbStyle) => void;
+  closeStyleImageModal: () => void;
   // Clear error
   clearError: () => void;
   // Apply form state updates from assistant
@@ -203,6 +209,19 @@ export function useThumbnailActions() {
     onEdit: actions.onEditThumbnail,
     onDelete: actions.onDeleteThumbnail,
     onView: actions.onViewThumbnail,
+  };
+}
+
+/**
+ * Hook for style-specific actions
+ * Provides all actions needed by StyleThumbnailCard without prop drilling
+ */
+export function useStyleActions() {
+  const { actions, data } = useStudio();
+  return {
+    currentUserId: data.currentUserId,
+    onView: actions.onViewStyle,
+    onUseStyle: actions.setSelectedStyle,
   };
 }
 
@@ -289,6 +308,9 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
     thumbnailToView: null,
     isDeleting: false,
     isRegenerating: false,
+    // Style modal state
+    styleImageModalOpen: false,
+    styleToView: null,
   });
 
   // Sync generation state
@@ -512,6 +534,26 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
     }, 300);
   }, []);
 
+  // Style modal handlers
+  const onViewStyle = useCallback((style: PublicStyle | DbStyle) => {
+    setState((s) => ({
+      ...s,
+      styleImageModalOpen: true,
+      styleToView: style,
+    }));
+  }, []);
+
+  const closeStyleImageModal = useCallback(() => {
+    setState((s) => ({
+      ...s,
+      styleImageModalOpen: false,
+    }));
+    // Delay clearing style to allow exit animation
+    setTimeout(() => {
+      setState((s) => ({ ...s, styleToView: null }));
+    }, 300);
+  }, []);
+
   const clearError = useCallback(() => {
     setState((s) => ({ ...s, generationError: null }));
     clearGenerationError();
@@ -667,6 +709,8 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
     onRegenerateThumbnail,
     onViewThumbnail,
     closeImageModal,
+    onViewStyle,
+    closeStyleImageModal,
     clearError,
     applyFormStateUpdates: (updates) => {
       setState((s) => {
@@ -744,6 +788,19 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
           src={state.thumbnailToView.imageUrl}
           alt={state.thumbnailToView.name}
           title={state.thumbnailToView.name}
+        />
+      )}
+      
+      {/* Style Image View Modal */}
+      {state.styleToView && state.styleToView.preview_thumbnail_url && (
+        <ImageModal
+          open={state.styleImageModalOpen}
+          onOpenChange={(open) => {
+            if (!open) closeStyleImageModal();
+          }}
+          src={state.styleToView.preview_thumbnail_url}
+          alt={state.styleToView.name}
+          title={state.styleToView.name}
         />
       )}
     </StudioContext.Provider>

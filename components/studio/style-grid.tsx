@@ -8,13 +8,18 @@
  * - Skeleton placeholders for loading state
  * - Memoized for re-render optimization
  * - Supports both PublicStyle (browse) and DbStyle (my styles) types
+ * - Uses StyleThumbnailCard for consistent thumbnail design
  * 
  * @see vercel-react-best-practices for optimization patterns
  */
 
 import React, { memo, useCallback } from "react";
 import { cn } from "@/lib/utils";
-import { StyleCard, StyleCardSkeleton, StyleCardEmpty } from "./style-card";
+import { 
+  StyleThumbnailCard, 
+  StyleThumbnailCardSkeleton, 
+  StyleThumbnailCardEmpty 
+} from "./style-thumbnail-card";
 import type { PublicStyle, DbStyle } from "@/lib/types/database";
 
 const DEFAULT_MIN_SLOTS = 8;
@@ -22,6 +27,10 @@ const DEFAULT_MIN_SLOTS = 8;
 export interface StyleGridProps {
   /** Styles to display (PublicStyle for browse, DbStyle for my styles) */
   styles: (PublicStyle | DbStyle)[];
+  /** Current user ID for ownership checks */
+  currentUserId?: string;
+  /** Map of favorited style IDs */
+  favoriteIds?: Set<string>;
   /** Minimum number of slots to show (fills with empty placeholders) */
   minSlots?: number;
   /** Show empty placeholders */
@@ -30,9 +39,12 @@ export interface StyleGridProps {
   gridClassName?: string;
   /** Loading state */
   isLoading?: boolean;
-  /** Callbacks for browse mode */
+  /** Callbacks */
+  onView?: (style: PublicStyle | DbStyle) => void;
   onUseStyle?: (styleId: string) => void;
-  onClick?: (style: PublicStyle | DbStyle) => void;
+  onEdit?: (style: DbStyle) => void;
+  onDelete?: (id: string) => void;
+  onToggleFavorite?: (id: string) => void;
 }
 
 /**
@@ -71,7 +83,7 @@ export function StyleGridSkeleton({ count = 8 }: { count?: number }) {
   return (
     <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
       {Array.from({ length: count }).map((_, i) => (
-        <StyleCardSkeleton key={`skeleton-${i}`} />
+        <StyleThumbnailCardSkeleton key={`skeleton-${i}`} />
       ))}
     </div>
   );
@@ -82,12 +94,17 @@ export function StyleGridSkeleton({ count = 8 }: { count?: number }) {
  */
 export const StyleGrid = memo(function StyleGrid({
   styles,
+  currentUserId,
+  favoriteIds,
   minSlots = DEFAULT_MIN_SLOTS,
   showEmptySlots = false,
   gridClassName,
   isLoading = false,
+  onView,
   onUseStyle,
-  onClick,
+  onEdit,
+  onDelete,
+  onToggleFavorite,
 }: StyleGridProps) {
   // Calculate empty slots
   const emptySlotCount = showEmptySlots
@@ -95,14 +112,29 @@ export const StyleGrid = memo(function StyleGrid({
     : 0;
 
   // Memoize callbacks
+  const handleView = useCallback(
+    (style: PublicStyle | DbStyle) => onView?.(style),
+    [onView]
+  );
+
   const handleUseStyle = useCallback(
     (styleId: string) => onUseStyle?.(styleId),
     [onUseStyle]
   );
 
-  const handleClick = useCallback(
-    (style: PublicStyle | DbStyle) => onClick?.(style),
-    [onClick]
+  const handleEdit = useCallback(
+    (style: DbStyle) => onEdit?.(style),
+    [onEdit]
+  );
+
+  const handleDelete = useCallback(
+    (id: string) => onDelete?.(id),
+    [onDelete]
+  );
+
+  const handleToggleFavorite = useCallback(
+    (id: string) => onToggleFavorite?.(id),
+    [onToggleFavorite]
   );
 
   // Show loading skeleton
@@ -120,10 +152,15 @@ export const StyleGrid = memo(function StyleGrid({
       {/* Render styles */}
       {styles.map((style, index) => (
         <GridItem key={style.id} index={index}>
-          <StyleCard
+          <StyleThumbnailCard
             style={style}
+            currentUserId={currentUserId}
+            isFavorite={favoriteIds?.has(style.id) ?? false}
+            onView={handleView}
             onUseStyle={handleUseStyle}
-            onClick={handleClick}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
+            onToggleFavorite={handleToggleFavorite}
             // First 6 items are above the fold - priority load
             priority={index < 6}
           />
@@ -133,7 +170,7 @@ export const StyleGrid = memo(function StyleGrid({
       {/* Empty placeholders */}
       {Array.from({ length: emptySlotCount }).map((_, index) => (
         <GridItem key={`empty-${index}`} index={styles.length + index}>
-          <StyleCardEmpty />
+          <StyleThumbnailCardEmpty />
         </GridItem>
       ))}
     </div>

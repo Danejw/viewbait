@@ -8,7 +8,7 @@ import { ThumbnailGrid } from "./thumbnail-grid";
 import { GalleryControls } from "./gallery-controls";
 import { FaceCard, FaceCardSkeleton } from "./face-card";
 import { FaceEditor } from "./face-editor";
-import { StyleCard, StyleCardSkeleton } from "./style-card";
+import { StyleThumbnailCard, StyleThumbnailCardSkeleton } from "./style-thumbnail-card";
 import { StyleEditor } from "./style-editor";
 import { PaletteCardManage, PaletteCardManageSkeleton } from "./palette-card-manage";
 import { PaletteEditor } from "./palette-editor";
@@ -794,7 +794,7 @@ export const StudioViewStyles = memo(function StudioViewStyles() {
         // Loading state
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 6 }).map((_, i) => (
-            <StyleCardSkeleton key={i} />
+            <StyleThumbnailCardSkeleton key={i} />
           ))}
         </div>
       ) : filteredStyles.length === 0 ? (
@@ -836,15 +836,15 @@ export const StudioViewStyles = memo(function StudioViewStyles() {
         // Styles grid
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {filteredStyles.map((style) => (
-            <StyleCard
+            <StyleThumbnailCard
               key={style.id}
               style={style}
+              currentUserId={user?.id}
               isFavorite={favoriteIds.has(style.id)}
+              onView={actions.onViewStyle}
               onEdit={handleEdit}
               onDelete={handleDeleteClick}
-              onTogglePublic={handleTogglePublic}
               onToggleFavorite={handleToggleFavorite}
-              showActions
             />
           ))}
         </div>

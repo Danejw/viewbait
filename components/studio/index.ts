@@ -2,6 +2,8 @@
 export {
   StudioProvider,
   useStudio,
+  useThumbnailActions,
+  useStyleActions,
   type StudioState,
   type StudioActions,
   type StudioMeta,
@@ -117,6 +119,13 @@ export {
   StyleCardEmpty,
   type StyleCardProps,
 } from "./style-card";
+
+export {
+  StyleThumbnailCard,
+  StyleThumbnailCardSkeleton,
+  StyleThumbnailCardEmpty,
+  type StyleThumbnailCardProps,
+} from "./style-thumbnail-card";
 
 export {
   StyleGrid,

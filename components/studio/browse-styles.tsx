@@ -24,9 +24,9 @@ import type { PublicSortOption, SortDirection } from "@/lib/hooks/usePublicConte
 import type { PublicStyle } from "@/lib/types/database";
 
 export interface BrowseStylesProps {
-  /** Callback when style is clicked */
+  /** Callback when style is clicked (for modal view - optional, uses studio context if not provided) */
   onStyleClick?: (style: PublicStyle) => void;
-  /** Callback when "Use Style" is clicked */
+  /** Callback when "Use Style" is clicked (optional, uses studio context if not provided) */
   onUseStyle?: (styleId: string) => void;
 }
 
@@ -42,11 +42,17 @@ export const BrowseStyles = memo(function BrowseStyles({
   const [orderDirection, setOrderDirection] = useState<SortDirection>("desc");
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Try to get studio context for applying styles (optional)
-  let studioActions: { setSelectedStyle?: (id: string | null) => void; setView?: (view: string) => void } | null = null;
+  // Try to get studio context for applying styles and modal view (optional)
+  let studioActions: { 
+    setSelectedStyle?: (id: string | null) => void; 
+    setView?: (view: string) => void;
+    onViewStyle?: (style: PublicStyle) => void;
+  } | null = null;
+  let currentUserId: string | undefined = undefined;
   try {
     const studio = useStudio();
     studioActions = studio.actions;
+    currentUserId = studio.data.currentUserId;
   } catch {
     // Not inside StudioProvider, that's fine
   }
@@ -80,12 +86,17 @@ export const BrowseStyles = memo(function BrowseStyles({
     setSearchQuery(query);
   }, []);
 
-  // Handle style click
+  // Handle style click (for modal view)
   const handleStyleClick = useCallback(
     (style: PublicStyle) => {
-      onStyleClick?.(style);
+      if (onStyleClick) {
+        onStyleClick(style);
+      } else if (studioActions?.onViewStyle) {
+        // Use studio context to open modal
+        studioActions.onViewStyle(style);
+      }
     },
-    [onStyleClick]
+    [onStyleClick, studioActions]
   );
 
   // Handle use style
@@ -163,11 +174,12 @@ export const BrowseStyles = memo(function BrowseStyles({
       ) : (
         <StyleGrid
           styles={styles}
+          currentUserId={currentUserId}
           isLoading={isLoading}
           minSlots={8}
           showEmptySlots={false}
+          onView={handleStyleClick}
           onUseStyle={handleUseStyle}
-          onClick={handleStyleClick}
         />
       )}
     </div>
