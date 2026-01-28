@@ -96,7 +96,7 @@ export function StudioGeneratorThumbnailText() {
 
   return (
     <div className="mb-6">
-      <label className="mb-2 block text-sm font-medium">Thumbnail Text</label>
+      <label className="mb-2 mt-4 block text-sm font-medium">Thumbnail Text</label>
       <div className="relative">
         <Input
           ref={thumbnailTextRef}
