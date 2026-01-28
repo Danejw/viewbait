@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Settings, PanelRightClose, PanelRightOpen } from "lucide-react";
+import { Settings, MessageSquare, SlidersHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -15,7 +15,7 @@ import { StudioGenerator } from "./studio-generator";
 
 /**
  * StudioSettingsSidebarHeader
- * Header with title and collapse toggle for the settings panel
+ * Header with Settings icon as collapse toggle (same pattern as left sidebar logo)
  */
 export function StudioSettingsSidebarHeader() {
   const {
@@ -28,57 +28,94 @@ export function StudioSettingsSidebarHeader() {
   }
 
   return (
-    <div className="flex items-center justify-between border-b border-border p-4">
-      <div className="flex items-center gap-2">
-        <Settings className="h-4 w-4 text-muted-foreground" />
-        <h2 className="text-sm font-semibold">Settings</h2>
-      </div>
-      <TooltipProvider delayDuration={0}>
+    <TooltipProvider delayDuration={0}>
+      <div className="border-b border-border p-4">
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon-sm" onClick={toggleRightSidebar}>
-              <PanelRightClose className="h-4 w-4" />
-            </Button>
+            <button
+              type="button"
+              onClick={toggleRightSidebar}
+              className="flex w-full items-center gap-2 rounded-md py-1 text-left hover:bg-sidebar-accent/50 transition-colors"
+              aria-label="Collapse settings"
+            >
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center">
+                <Settings className="h-4 w-4 block text-muted-foreground" />
+              </div>
+              <h2 className="text-sm font-semibold">Settings</h2>
+            </button>
           </TooltipTrigger>
           <TooltipContent side="left">Collapse settings</TooltipContent>
         </Tooltip>
-      </TooltipProvider>
-    </div>
+      </div>
+    </TooltipProvider>
   );
 }
 
 /**
  * StudioSettingsSidebarCollapsed
- * Collapsed state UI - vertical strip with expand button
+ * Collapsed state UI - vertical strip with Settings (expand), Manual, and Chat icons
  */
 export function StudioSettingsSidebarCollapsed() {
   const {
-    actions: { toggleRightSidebar },
+    state: { mode },
+    actions: { toggleRightSidebar, setMode, openChatAssistant },
   } = useStudio();
+
+  const handleManual = () => {
+    toggleRightSidebar();
+    setMode("manual");
+  };
+
+  const handleChat = () => {
+    toggleRightSidebar();
+    setMode("chat");
+    openChatAssistant();
+  };
 
   return (
     <TooltipProvider delayDuration={0}>
-      <div className="flex h-full flex-col items-center py-4">
+      <div className="flex h-full flex-col items-center gap-1 py-4">
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon-sm" onClick={toggleRightSidebar}>
-              <PanelRightOpen className="h-4 w-4" />
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={toggleRightSidebar}
+              aria-label="Expand settings"
+            >
+              <Settings className="h-4 w-4" />
             </Button>
           </TooltipTrigger>
           <TooltipContent side="left">Expand settings</TooltipContent>
         </Tooltip>
-        <div className="mt-4 flex flex-1 items-center">
-          <span
-            className="text-xs font-medium text-muted-foreground"
-            style={{
-              writingMode: "vertical-rl",
-              textOrientation: "mixed",
-              transform: "rotate(180deg)",
-            }}
-          >
-            Settings
-          </span>
-        </div>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={handleManual}
+              className={cn(mode === "manual" && "bg-muted text-foreground")}
+              aria-label="Manual mode"
+            >
+              <SlidersHorizontal className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="left">Manual</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={handleChat}
+              className={cn(mode === "chat" && "bg-muted text-foreground")}
+              aria-label="Chat mode"
+            >
+              <MessageSquare className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="left">Chat</TooltipContent>
+        </Tooltip>
       </div>
     </TooltipProvider>
   );

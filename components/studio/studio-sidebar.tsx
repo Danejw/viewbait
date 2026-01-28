@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Zap,
@@ -42,6 +41,52 @@ interface NavItem {
   view: StudioView;
   icon: React.ComponentType<{ className?: string }>;
   locked?: boolean;
+}
+
+/**
+ * ViewBaitLogo
+ * Application logo (matches app/icon.svg) for use in sidebar header
+ */
+function ViewBaitLogo({ className }: { className?: string }) {
+  return (
+    <svg
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+      aria-hidden
+    >
+      <defs>
+        <linearGradient
+          id="sidebar-logo-gradient"
+          x1="2"
+          y1="2"
+          x2="22"
+          y2="22"
+          gradientUnits="userSpaceOnUse"
+        >
+          <stop offset="0%" stopColor="#FF512F" />
+          <stop offset="100%" stopColor="#F09819" />
+        </linearGradient>
+      </defs>
+      <path
+        d="M 10 3 H 8 C 5.23858 3 3 5.23858 3 8 V 16 C 3 18.7614 5.23858 21 8 21 H 16 C 18.7614 21 21 18.7614 21 16 V 8 C 21 5.23858 18.7614 3 16 3 H 15"
+        stroke="url(#sidebar-logo-gradient)"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M 3 13 L 8.5 8.5 L 12 12 L 15.5 9.5 L 21 14.5"
+        stroke="url(#sidebar-logo-gradient)"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
 }
 
 const navItems: NavItem[] = [
@@ -378,20 +423,35 @@ export function StudioSidebarToggle() {
 export function StudioSidebar() {
   const {
     state: { leftSidebarCollapsed },
+    actions: { toggleLeftSidebar },
   } = useStudio();
 
   return (
     <div className="flex h-full flex-col">
-      {/* Logo */}
+      {/* Logo / collapse toggle */}
       <div className={cn(leftSidebarCollapsed ? "p-2" : "p-4")}>
-        <Link href="/" className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-sidebar-primary shrink-0">
-            <Zap className="h-4 w-4 text-sidebar-primary-foreground" />
-          </div>
-          {!leftSidebarCollapsed && (
-            <span className="text-lg font-semibold text-sidebar-foreground">ViewBait</span>
-          )}
-        </Link>
+        <TooltipProvider delayDuration={0}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                onClick={toggleLeftSidebar}
+                className="flex items-center gap-2 w-full rounded-md hover:bg-sidebar-accent/50 transition-colors text-left"
+                aria-label={leftSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+              >
+                <div className="flex h-8 w-8 items-center justify-center shrink-0">
+                  <ViewBaitLogo className="h-4 w-4" />
+                </div>
+                {!leftSidebarCollapsed && (
+                  <span className="text-lg font-semibold text-sidebar-foreground">ViewBait</span>
+                )}
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="right">
+              {leftSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </div>
       <StudioSidebarCredits />
       <StudioSidebarNav />

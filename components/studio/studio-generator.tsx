@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useState, useMemo } from "react";
+import React, { useCallback, useState, useMemo, useRef } from "react";
 import {
   Settings,
   MessageSquare,
@@ -148,6 +148,7 @@ export function StudioGeneratorStyleReferences() {
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const getUserId = useCallback(async (): Promise<string | null> => {
     const res = await fetch("/api/profiles");
@@ -237,13 +238,33 @@ export function StudioGeneratorStyleReferences() {
     [styleReferences.length, addFiles]
   );
 
+  const handleAddCellClick = useCallback(() => {
+    if (styleReferences.length >= MAX_STYLE_REFERENCES || isUploading) return;
+    fileInputRef.current?.click();
+  }, [styleReferences.length, isUploading]);
+
+  const handleFileInputChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      addFiles(e.target.files ?? null);
+      e.target.value = "";
+    },
+    [addFiles]
+  );
+
   return (
     <div className="mb-6">
-      <label className="mb-2 block text-sm font-medium">Style References</label>
-      <p className="mb-2 text-xs text-muted-foreground">
-        Drag and drop images here or paste from clipboard. Used as reference when generating (max{" "}
-        {MAX_STYLE_REFERENCES}).
-      </p>
+      <div className="mb-2 flex items-baseline gap-1.5">
+        <label className="text-sm font-medium">Style References</label>
+        <span className="text-xs text-muted-foreground">(max {MAX_STYLE_REFERENCES})</span>
+      </div>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        multiple
+        className="hidden"
+        onChange={handleFileInputChange}
+      />
       <div
         tabIndex={0}
         role="button"
@@ -255,30 +276,42 @@ export function StudioGeneratorStyleReferences() {
         onDragLeave={() => setIsDragging(false)}
         onPaste={handlePaste}
         className={cn(
-          "flex min-h-24 flex-wrap items-center gap-2 rounded-md border-2 border-dashed p-3 transition-colors",
+          "grid grid-cols-3 gap-1 rounded-md border-2 border-dashed p-2 transition-colors",
           isDragging ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"
         )}
       >
         {styleReferences.map((url, index) => (
-          <div key={`${url}-${index}`} className="relative h-16 w-16 shrink-0 overflow-hidden rounded border border-border">
-            <img src={url} alt="" className="h-full w-full object-cover" />
+          <div
+            key={`${url}-${index}`}
+            className="group relative aspect-square overflow-hidden rounded-md border-2 border-border transition-all hover:border-primary/50"
+          >
+            <img src={url} alt="" className="absolute inset-0 h-full w-full object-cover" />
             <button
               type="button"
-              onClick={() => removeStyleReference(index)}
-              className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-destructive-foreground"
+              onClick={(e) => {
+                e.stopPropagation();
+                removeStyleReference(index);
+              }}
+              className="absolute right-0.5 top-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-destructive text-destructive-foreground opacity-0 transition-opacity hover:opacity-100 group-hover:opacity-100"
+              aria-label="Remove reference"
             >
-              <X className="h-3 w-3" />
+              <X className="h-3.5 w-3.5" />
             </button>
           </div>
         ))}
         {styleReferences.length < MAX_STYLE_REFERENCES && (
-          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded border border-dashed border-border text-muted-foreground">
+          <button
+            type="button"
+            onClick={handleAddCellClick}
+            disabled={isUploading}
+            className="flex aspect-square items-center justify-center rounded-md border-2 border-dashed border-border text-muted-foreground transition-colors hover:border-primary hover:text-primary disabled:opacity-50"
+          >
             {isUploading ? (
               <span className="text-xs">...</span>
             ) : (
-              <ImagePlus className="h-6 w-6" />
+              <ImagePlus className="h-5 w-5" />
             )}
-          </div>
+          </button>
         )}
       </div>
       {uploadError && <p className="mt-1 text-xs text-destructive">{uploadError}</p>}
@@ -302,6 +335,7 @@ export function StudioGeneratorStyleSelection() {
     styles,
     defaultStyles,
     isLoading,
+    favoriteIds,
     createStyle,
     addReferenceImages,
     updatePreview,
@@ -314,12 +348,17 @@ export function StudioGeneratorStyleSelection() {
   const [editorOpen, setEditorOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Combine user styles and default styles for selection
+  // Combine user styles and default styles; sort favorites first
   const availableStyles = useMemo(() => {
-    // Filter to show user's own styles + default styles
     const userStyles = styles.filter((s) => !s.is_default);
-    return [...defaultStyles, ...userStyles];
-  }, [styles, defaultStyles]);
+    const combined = [...defaultStyles, ...userStyles];
+    return [...combined].sort((a, b) => {
+      const aFav = favoriteIds.has(a.id) ? 1 : 0;
+      const bFav = favoriteIds.has(b.id) ? 1 : 0;
+      if (bFav !== aFav) return bFav - aFav; // favorites first
+      return 0; // keep relative order
+    });
+  }, [styles, defaultStyles, favoriteIds]);
 
   // Handle style selection
   const handleSelectStyle = useCallback(
@@ -405,84 +444,81 @@ export function StudioGeneratorStyleSelection() {
 
       {includeStyles && (
         <>
-          <p className="mb-2 text-xs text-muted-foreground">
-            Select a style to guide the visual appearance of your thumbnail.
-          </p>
-
-          <div className="mb-2 flex flex-wrap gap-2">
-            {isLoading ? (
-              // Loading skeletons
-              <>
-                {Array.from({ length: 4 }).map((_, i) => (
-                  <div key={i} className="flex flex-col items-center gap-1">
-                    <Skeleton className="h-12 w-12 rounded-md" />
-                    <Skeleton className="h-3 w-12" />
-                  </div>
-                ))}
-              </>
+          <div className="mb-2 max-h-[22rem] overflow-y-auto hide-scrollbar">
+            <div className="grid grid-cols-3 gap-1">
+              {isLoading ? (
+              // Loading skeletons – tight grid, preview-sized cells
+              Array.from({ length: 6 }).map((_, i) => (
+                <Skeleton key={i} className="aspect-square rounded-md" />
+              ))
             ) : availableStyles.length === 0 ? (
-              // No styles available
-              <p className="text-xs text-muted-foreground">
-                No styles available.{" "}
-                <button
-                  type="button"
-                  onClick={handleQuickCreate}
-                  className="text-primary underline hover:no-underline"
-                >
-                  Create your first style
-                </button>
-              </p>
-            ) : (
-              // Show available styles
-              <>
-                {availableStyles.map((style) => (
+              // No styles: single full-width message cell
+              <div className="col-span-3 py-2">
+                <p className="text-xs text-muted-foreground">
+                  No styles available.{" "}
                   <button
-                    key={style.id}
                     type="button"
-                    onClick={() => handleSelectStyle(style.id)}
-                    className={cn(
-                      "flex flex-col items-center gap-1 rounded-md border-2 p-2 transition-all",
-                      selectedStyle === style.id
-                        ? "border-primary ring-2 ring-primary/20"
-                        : "border-border hover:border-primary/50"
-                    )}
+                    onClick={handleQuickCreate}
+                    className="text-primary underline hover:no-underline"
                   >
-                    <div className="relative h-12 w-12 overflow-hidden rounded bg-muted">
-                      {style.preview_thumbnail_url ? (
-                        <img
-                          src={style.preview_thumbnail_url}
-                          alt={style.name}
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center">
-                          <Palette className="h-5 w-5 text-muted-foreground" />
-                        </div>
-                      )}
-                      {/* Default style badge */}
-                      {style.is_default && (
-                        <div className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary">
-                          <Sparkles className="h-2.5 w-2.5 text-primary-foreground" />
-                        </div>
-                      )}
-                    </div>
-                    <span className="max-w-16 truncate text-xs">
-                      {style.name || "Style"}
-                    </span>
+                    Create your first style
                   </button>
-                ))}
-              </>
+                </p>
+              </div>
+            ) : (
+              // Style previews: fill container, title on hover only
+              availableStyles.map((style) => (
+                <button
+                  key={style.id}
+                  type="button"
+                  onClick={() => handleSelectStyle(style.id)}
+                  className={cn(
+                    "group relative aspect-square overflow-hidden rounded-md border-2 transition-all",
+                    selectedStyle === style.id
+                      ? "border-primary ring-2 ring-primary/20"
+                      : "border-border hover:border-primary/50"
+                  )}
+                >
+                  {/* Preview fills the cell */}
+                  {style.preview_thumbnail_url ? (
+                    <img
+                      src={style.preview_thumbnail_url}
+                      alt={style.name ?? "Style"}
+                      className="absolute inset-0 h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="absolute inset-0 flex items-center justify-center bg-muted">
+                      <Palette className="h-6 w-6 text-muted-foreground" />
+                    </div>
+                  )}
+                  {/* Default style badge */}
+                  {style.is_default && (
+                    <div className="absolute right-0.5 top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-primary">
+                      <Sparkles className="h-2.5 w-2.5 text-primary-foreground" />
+                    </div>
+                  )}
+                  {/* Title overlay – visible only on hover */}
+                  <span
+                    className="absolute inset-x-0 bottom-0 truncate bg-black/75 px-1.5 py-1 text-center text-xs text-white opacity-0 transition-opacity group-hover:opacity-100"
+                    title={style.name ?? "Style"}
+                  >
+                    {style.name || "Style"}
+                  </span>
+                </button>
+              ))
             )}
 
-            {/* Quick-create button */}
-            <button
-              type="button"
-              onClick={handleQuickCreate}
-              className="flex h-[72px] w-14 flex-col items-center justify-center gap-1 rounded-md border-2 border-dashed border-border text-muted-foreground transition-colors hover:border-primary hover:text-primary"
-            >
-              <Plus className="h-5 w-5" />
-              <span className="text-xs">New</span>
-            </button>
+            {/* Quick-create cell – same aspect as grid items */}
+            {!isLoading && (
+              <button
+                type="button"
+                onClick={handleQuickCreate}
+                className="flex aspect-square items-center justify-center rounded-md border-2 border-dashed border-border text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+              >
+                <Plus className="h-5 w-5" />
+              </button>
+            )}
+            </div>
           </div>
 
           {/* Link to full styles management */}
@@ -596,9 +632,6 @@ export function StudioGeneratorVariations() {
   return (
     <div className="mb-6">
       <label className="mb-2 block text-sm font-medium">Variations</label>
-      <p className="mb-2 text-xs text-muted-foreground">
-        Number of thumbnails to generate at once (1–4).
-      </p>
       <div className="flex flex-wrap gap-2">
         {VARIATIONS_OPTIONS.map((n) => (
           <Button
@@ -643,32 +676,27 @@ export function StudioGeneratorFaces() {
 
       {includeFaces && (
         <>
-          <div className="mb-4">
-            <p className="mb-2 text-xs text-muted-foreground">
-              Select faces to include in generation ({selectedFaces.length} selected)
-            </p>
-            <div className="flex flex-wrap gap-2">
+          <div className="mb-4 max-h-[22rem] overflow-y-auto hide-scrollbar">
+            <div className="grid grid-cols-3 gap-1">
               {isLoading ? (
-                // Loading state – face thumbnail skeletons (compact)
-                <>
-                  {Array.from({ length: 3 }).map((_, i) => (
-                    <FaceThumbnailSkeleton key={i} compact />
-                  ))}
-                </>
+                // Loading state – same tight grid as style selection
+                Array.from({ length: 6 }).map((_, i) => (
+                  <Skeleton key={i} className="aspect-square rounded-md" />
+                ))
               ) : faces.length === 0 ? (
-                // No faces saved
-                <p className="text-xs text-muted-foreground">
-                  No faces saved yet.{" "}
-                  <button
-                    type="button"
-                    onClick={handleAddFace}
-                    className="text-primary underline hover:no-underline"
-                  >
-                    Add your first face
-                  </button>
-                </p>
+                <div className="col-span-3 py-2">
+                  <p className="text-xs text-muted-foreground">
+                    No faces saved yet.{" "}
+                    <button
+                      type="button"
+                      onClick={handleAddFace}
+                      className="text-primary underline hover:no-underline"
+                    >
+                      Add your first face
+                    </button>
+                  </p>
+                </div>
               ) : (
-                // Show saved faces – FaceThumbnail compact with view modal and select
                 faces.map((face) => (
                   <FaceThumbnail
                     key={face.id}
@@ -680,17 +708,16 @@ export function StudioGeneratorFaces() {
                   />
                 ))
               )}
-              {/* Add new face button */}
-              <button
-                type="button"
-                onClick={handleAddFace}
-                className="flex flex-col items-center gap-1 rounded-md p-1"
-              >
-                <div className="flex h-12 w-12 items-center justify-center rounded-full border-2 border-dashed border-border hover:border-primary transition-colors">
-                  <Plus className="h-5 w-5 text-muted-foreground" />
-                </div>
-                <span className="text-xs text-muted-foreground">Add</span>
-              </button>
+              {/* Add new face cell – same aspect as grid items */}
+              {!isLoading && (
+                <button
+                  type="button"
+                  onClick={handleAddFace}
+                  className="flex aspect-square items-center justify-center rounded-md border-2 border-dashed border-border text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+                >
+                  <Plus className="h-5 w-5" />
+                </button>
+              )}
             </div>
           </div>
 

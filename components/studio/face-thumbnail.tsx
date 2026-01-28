@@ -15,7 +15,7 @@
  */
 
 import React, { memo, useCallback, useState } from "react";
-import { Pencil, Trash2, User, Expand, Check } from "lucide-react";
+import { Pencil, Trash2, User, Expand } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -139,13 +139,14 @@ export const FaceThumbnail = memo(function FaceThumbnail({
     [face.id, onDelete]
   );
 
-  const handleSelect = useCallback(
-    (e: React.MouseEvent) => {
-      e.stopPropagation();
-      onSelect?.(face.id);
-    },
-    [face.id, onSelect]
-  );
+  /** Compact: click thumbnail toggles selection (multi-select). Expand button opens view modal. */
+  const handleThumbnailClick = useCallback(() => {
+    if (onSelect) {
+      onSelect(face.id);
+    } else {
+      handleClick();
+    }
+  }, [face.id, onSelect, handleClick]);
 
   const handleImageLoad = useCallback(() => {
     setImageLoaded(true);
@@ -154,76 +155,67 @@ export const FaceThumbnail = memo(function FaceThumbnail({
   if (variant === "compact") {
     return (
       <div
+        role="button"
+        tabIndex={0}
+        onClick={handleThumbnailClick}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            handleThumbnailClick();
+          }
+        }}
+        aria-pressed={onSelect ? isSelected : undefined}
+        aria-label={onSelect ? `${face.name}${isSelected ? ", selected" : ""}` : undefined}
         className={cn(
-          "flex flex-col items-center gap-1 rounded-md p-0.5 transition-all",
-          isSelected && "ring-2 ring-primary ring-offset-2 rounded-md"
+          "group relative aspect-square cursor-pointer overflow-hidden rounded-md border-2 transition-all",
+          "hover:ring-2 hover:ring-primary/50 hover:shadow-lg",
+          isSelected ? "border-primary ring-2 ring-primary/20" : "border-border hover:border-primary/50"
         )}
       >
+        {/* Preview fills the cell (same layout as style selection) */}
+        {firstImage ? (
+          <>
+            {!imageLoaded && (
+              <Skeleton className="absolute inset-0 h-full w-full rounded-md" />
+            )}
+            <img
+              src={firstImage}
+              alt={face.name}
+              onLoad={handleImageLoad}
+              loading="lazy"
+              decoding="async"
+              className={cn(
+                "absolute inset-0 h-full w-full object-cover transition-opacity duration-200",
+                imageLoaded ? "opacity-100" : "opacity-0"
+              )}
+            />
+          </>
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center bg-muted">
+            <User className="h-6 w-6 text-muted-foreground" />
+          </div>
+        )}
+        {/* Hover overlay: View only (click thumbnail = select/deselect) */}
         <div
-          role="button"
-          tabIndex={0}
-          onClick={handleClick}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") {
-              e.preventDefault();
-              handleClick();
-            }
-          }}
           className={cn(
-            "group relative h-14 w-14 overflow-hidden rounded-full border-2 transition-all",
-            "cursor-pointer transition-transform duration-300 hover:scale-105",
-            "hover:ring-2 hover:ring-primary/50 hover:shadow-lg",
-            isSelected ? "border-primary" : "border-border hover:border-primary/50"
+            "absolute right-0.5 top-0.5 flex gap-0.5",
+            "opacity-0 transition-opacity duration-200 group-hover:opacity-100"
           )}
         >
-          {firstImage ? (
-            <>
-              {!imageLoaded && (
-                <Skeleton className="absolute inset-0 h-full w-full rounded-full" />
-              )}
-              <img
-                src={firstImage}
-                alt={face.name}
-                onLoad={handleImageLoad}
-                loading="lazy"
-                decoding="async"
-                className={cn(
-                  "h-full w-full object-cover transition-opacity duration-200",
-                  imageLoaded ? "opacity-100" : "opacity-0"
-                )}
-              />
-              <div
-                className={cn(
-                  "absolute inset-0 flex items-center justify-center gap-0.5",
-                  "bg-gradient-to-t from-black/60 via-black/30 to-transparent",
-                  "opacity-0 transition-opacity duration-200 group-hover:opacity-100"
-                )}
-              >
-                <ActionButton
-                  icon={Expand}
-                  label="View"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleClick();
-                  }}
-                />
-                {onSelect && (
-                  <ActionButton
-                    icon={Check}
-                    label={isSelected ? "Deselect" : "Select for generation"}
-                    onClick={handleSelect}
-                    active={isSelected}
-                  />
-                )}
-              </div>
-            </>
-          ) : (
-            <div className="flex h-full w-full items-center justify-center bg-muted">
-              <User className="h-6 w-6 text-muted-foreground" />
-            </div>
-          )}
+          <ActionButton
+            icon={Expand}
+            label="View full size"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleClick();
+            }}
+          />
         </div>
-        <span className="max-w-14 truncate text-xs text-muted-foreground">
+        {/* Name overlay – visible only on hover (same as style selection) */}
+        <span
+          className="absolute inset-x-0 bottom-0 truncate bg-black/75 px-1.5 py-1 text-center text-xs text-white opacity-0 transition-opacity group-hover:opacity-100"
+          title={face.name}
+        >
           {face.name}
         </span>
       </div>
