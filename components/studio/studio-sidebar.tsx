@@ -1,0 +1,402 @@
+"use client";
+
+import React, { useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import {
+  Zap,
+  Grid3x3,
+  FolderOpen,
+  Palette,
+  Droplets,
+  User,
+  Youtube,
+  Lock,
+  Bell,
+  ShoppingCart,
+  RefreshCw,
+  LogOut,
+  Download,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Settings,
+} from "lucide-react";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+  TooltipProvider,
+} from "@/components/ui/tooltip";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
+import { useStudio, type StudioView } from "./studio-provider";
+import { useAuth } from "@/lib/hooks/useAuth";
+import { useSubscription } from "@/lib/hooks/useSubscription";
+import SubscriptionModal from "@/components/subscription-modal";
+
+interface NavItem {
+  label: string;
+  view: StudioView;
+  icon: React.ComponentType<{ className?: string }>;
+  locked?: boolean;
+}
+
+const navItems: NavItem[] = [
+  { label: "Generator", view: "generator", icon: Zap },
+  { label: "Gallery", view: "gallery", icon: Grid3x3 },
+  { label: "Browse", view: "browse", icon: FolderOpen },
+  { label: "My Styles", view: "styles", icon: Palette },
+  { label: "My Palettes", view: "palettes", icon: Droplets },
+  { label: "My Faces", view: "faces", icon: User },
+  { label: "YouTube", view: "youtube", icon: Youtube, locked: true },
+];
+
+/**
+ * StudioSidebarNav
+ * Navigation items in the sidebar - switches views within SPA
+ * Supports collapsed mode with icon-only + tooltips
+ */
+export function StudioSidebarNav() {
+  const {
+    state: { currentView, leftSidebarCollapsed },
+    actions: { setView },
+  } = useStudio();
+
+  return (
+    <TooltipProvider delayDuration={0}>
+      <nav className={cn("flex flex-col gap-1", leftSidebarCollapsed ? "p-2" : "p-4")}>
+        {navItems.map((item) => {
+          const Icon = item.icon;
+          const isActive = currentView === item.view;
+
+          const buttonContent = (
+            <button
+              key={item.view}
+              onClick={() => !item.locked && setView(item.view)}
+              disabled={item.locked}
+              className={cn(
+                "flex items-center rounded-md text-sm transition-colors text-left w-full",
+                leftSidebarCollapsed
+                  ? "justify-center p-2"
+                  : "gap-3 px-3 py-2",
+                isActive
+                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                  : "text-sidebar-foreground hover:bg-sidebar-accent/50",
+                item.locked && "opacity-50 cursor-not-allowed"
+              )}
+            >
+              <Icon className="h-4 w-4 shrink-0" />
+              {!leftSidebarCollapsed && (
+                <>
+                  <span>{item.label}</span>
+                  {item.locked && <Lock className="ml-auto h-3 w-3" />}
+                </>
+              )}
+            </button>
+          );
+
+          if (leftSidebarCollapsed) {
+            return (
+              <Tooltip key={item.view}>
+                <TooltipTrigger asChild>{buttonContent}</TooltipTrigger>
+                <TooltipContent side="right" className="flex items-center gap-2">
+                  {item.label}
+                  {item.locked && <Lock className="h-3 w-3" />}
+                </TooltipContent>
+              </Tooltip>
+            );
+          }
+
+          return buttonContent;
+        })}
+      </nav>
+    </TooltipProvider>
+  );
+}
+
+/**
+ * StudioSidebarCredits
+ * Credits display section - adapts to collapsed state
+ * Click to open subscription modal for upgrades
+ */
+export function StudioSidebarCredits() {
+  const {
+    state: { leftSidebarCollapsed },
+  } = useStudio();
+  const { tier, tierConfig, creditsRemaining, creditsTotal, isLoading, productId } = useSubscription();
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  if (leftSidebarCollapsed) {
+    return (
+      <>
+        <TooltipProvider delayDuration={0}>
+          <div className="border-t border-sidebar-border p-2">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => setIsModalOpen(true)}
+                  className="flex items-center justify-center w-full cursor-pointer hover:opacity-80 transition-opacity"
+                >
+                  {isLoading ? (
+                    <Skeleton className="h-8 w-8 rounded-md" />
+                  ) : (
+                    <div className="flex h-8 w-8 items-center justify-center rounded-md bg-sidebar-accent text-xs font-medium text-sidebar-foreground">
+                      {creditsRemaining}
+                    </div>
+                  )}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="right">
+                {isLoading
+                  ? "Loading..."
+                  : `${tierConfig.name} Plan - ${creditsRemaining} / ${creditsTotal} credits (Click to upgrade)`}
+              </TooltipContent>
+            </Tooltip>
+          </div>
+        </TooltipProvider>
+        <SubscriptionModal
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          currentTier={tier}
+          currentProductId={productId}
+        />
+      </>
+    );
+  }
+
+  return (
+    <>
+      <TooltipProvider delayDuration={0}>
+        <div className="border-t border-sidebar-border p-4">
+          <div className="flex items-center justify-between">
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="text-left cursor-pointer hover:opacity-80 transition-opacity"
+            >
+              {isLoading ? (
+                <>
+                  <Skeleton className="h-4 w-12 mb-1" />
+                  <Skeleton className="h-3 w-24" />
+                </>
+              ) : (
+                <>
+                  <p className="text-sm font-medium text-sidebar-foreground">
+                    {tierConfig.name}
+                  </p>
+                  <p className="text-xs text-sidebar-foreground/70">
+                    {creditsRemaining} / {creditsTotal} credits
+                  </p>
+                </>
+              )}
+            </button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={() => setIsModalOpen(true)}
+                >
+                  <Settings className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="right">Manage Subscription</TooltipContent>
+            </Tooltip>
+          </div>
+        </div>
+      </TooltipProvider>
+      <SubscriptionModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        currentTier={tier}
+        currentProductId={productId}
+      />
+    </>
+  );
+}
+
+/**
+ * StudioSidebarUser
+ * User section at bottom of sidebar - adapts to collapsed state
+ */
+export function StudioSidebarUser() {
+  const {
+    state: { leftSidebarCollapsed },
+  } = useStudio();
+  const { user, profile, signOut, isLoading: authLoading } = useAuth();
+  const router = useRouter();
+
+  // Derive display values
+  const displayName =
+    profile?.full_name ||
+    user?.user_metadata?.full_name ||
+    user?.email?.split("@")[0] ||
+    "User";
+  const displayEmail = profile?.email || user?.email || "";
+  const truncatedEmail =
+    displayEmail.length > 15 ? displayEmail.slice(0, 12) + "..." : displayEmail;
+  const avatarUrl = profile?.avatar_url;
+  // Generate initials from name (first letter of each word, max 2)
+  const nameParts = displayName.split(" ").filter(Boolean);
+  const initials =
+    nameParts.length > 1
+      ? (nameParts[0][0] + nameParts[nameParts.length - 1][0]).toUpperCase().slice(0, 2)
+      : displayName.slice(0, 2).toUpperCase();
+
+  // Sign out handler: sign out then redirect to auth page so user can sign back in
+  const handleSignOut = async () => {
+    const { error } = await signOut();
+    if (!error) {
+      router.replace("/auth");
+    }
+  };
+
+  if (leftSidebarCollapsed) {
+    return (
+      <TooltipProvider delayDuration={0}>
+        <div className="mt-auto border-t border-sidebar-border p-2">
+          <div className="flex flex-col items-center gap-2">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon-sm">
+                  <Bell className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="right">Notifications</TooltipContent>
+            </Tooltip>
+            <ThemeToggle showTooltip size="icon-sm" />
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon-sm" onClick={handleSignOut}>
+                  <LogOut className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="right">Log out</TooltipContent>
+            </Tooltip>
+          </div>
+        </div>
+      </TooltipProvider>
+    );
+  }
+
+  return (
+    <div className="mt-auto border-t border-sidebar-border p-4">
+      <div className="mb-4 flex items-center gap-2">
+        <Button variant="ghost" size="icon-sm">
+          <Bell className="h-4 w-4" />
+        </Button>
+        <ThemeToggle size="icon-sm" />
+        <Button variant="ghost" size="icon-sm">
+          <ShoppingCart className="h-4 w-4" />
+        </Button>
+        <Button variant="ghost" size="icon-sm">
+          <RefreshCw className="h-4 w-4" />
+        </Button>
+      </div>
+      <div className="mb-4 flex items-center gap-3">
+        <Avatar size="sm">
+          {avatarUrl && <AvatarImage src={avatarUrl} alt={displayName} />}
+          <AvatarFallback>{initials}</AvatarFallback>
+        </Avatar>
+        <div className="flex-1 min-w-0">
+          {authLoading ? (
+            <>
+              <Skeleton className="h-4 w-16 mb-1" />
+              <Skeleton className="h-3 w-24" />
+            </>
+          ) : (
+            <>
+              <p className="text-sm font-medium text-sidebar-foreground truncate">
+                {displayName}
+              </p>
+              <p className="text-xs text-sidebar-foreground/70 truncate">
+                {truncatedEmail}
+              </p>
+            </>
+          )}
+        </div>
+      </div>
+      <div className="mb-4 flex items-center gap-2">
+        <Button variant="ghost" size="icon-sm" onClick={handleSignOut}>
+          <LogOut className="h-4 w-4" />
+        </Button>
+      </div>
+      <Button variant="outline" size="sm" className="w-full">
+        <Download className="mr-2 h-4 w-4" />
+        Export All Data
+      </Button>
+    </div>
+  );
+}
+
+/**
+ * StudioSidebarToggle
+ * Toggle button to collapse/expand the left sidebar
+ */
+export function StudioSidebarToggle() {
+  const {
+    state: { leftSidebarCollapsed },
+    actions: { toggleLeftSidebar },
+  } = useStudio();
+
+  return (
+    <TooltipProvider delayDuration={0}>
+      <div className={cn("border-t border-sidebar-border", leftSidebarCollapsed ? "p-2" : "p-4")}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size={leftSidebarCollapsed ? "icon-sm" : "sm"}
+              onClick={toggleLeftSidebar}
+              className={cn(!leftSidebarCollapsed && "w-full justify-start")}
+            >
+              {leftSidebarCollapsed ? (
+                <PanelLeftOpen className="h-4 w-4" />
+              ) : (
+                <>
+                  <PanelLeftClose className="h-4 w-4 mr-2" />
+                  <span>Collapse</span>
+                </>
+              )}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="right">
+            {leftSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          </TooltipContent>
+        </Tooltip>
+      </div>
+    </TooltipProvider>
+  );
+}
+
+/**
+ * StudioSidebar
+ * Complete sidebar composition - content only (frame wrapper is in page)
+ */
+export function StudioSidebar() {
+  const {
+    state: { leftSidebarCollapsed },
+  } = useStudio();
+
+  return (
+    <div className="flex h-full flex-col">
+      {/* Logo */}
+      <div className={cn(leftSidebarCollapsed ? "p-2" : "p-4")}>
+        <Link href="/" className="flex items-center gap-2">
+          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-sidebar-primary shrink-0">
+            <Zap className="h-4 w-4 text-sidebar-primary-foreground" />
+          </div>
+          {!leftSidebarCollapsed && (
+            <span className="text-lg font-semibold text-sidebar-foreground">ViewBait</span>
+          )}
+        </Link>
+      </div>
+      <StudioSidebarCredits />
+      <StudioSidebarNav />
+      <StudioSidebarUser />
+      <StudioSidebarToggle />
+    </div>
+  );
+}

@@ -1,0 +1,13 @@
+{
+  "table_name": "sessions",
+  "table_type": "BASE TABLE",
+  "schema": {
+    "columns": [],
+    "constraints": [],
+    "indexes": []
+  },
+  "rls_policies": [],
+  "exported_at": "2026-01-28T06:53:56.203Z",
+  "project_ref": "eqxagfhgfgrcdbtmxepl",
+  "note": "This schema was inferred by querying the table. For complete schema with constraints, indexes, and RLS policies, please run the SQL queries from supabase/queries/ in Supabase SQL Editor."
+}

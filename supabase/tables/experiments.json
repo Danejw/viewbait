@@ -1,0 +1,94 @@
+{
+  "table_name": "experiments",
+  "table_type": "BASE TABLE",
+  "schema": {
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": false,
+        "ordinal_position": 1,
+        "inferred": true,
+        "note": "Schema inferred from sample data. Run SQL queries for complete information."
+      },
+      {
+        "column_name": "user_id",
+        "data_type": "uuid",
+        "is_nullable": false,
+        "ordinal_position": 2,
+        "inferred": true,
+        "note": "Schema inferred from sample data. Run SQL queries for complete information."
+      },
+      {
+        "column_name": "channel_id",
+        "data_type": "text",
+        "is_nullable": false,
+        "ordinal_position": 3,
+        "inferred": true,
+        "note": "Schema inferred from sample data. Run SQL queries for complete information."
+      },
+      {
+        "column_name": "video_id",
+        "data_type": "text",
+        "is_nullable": false,
+        "ordinal_position": 4,
+        "inferred": true,
+        "note": "Schema inferred from sample data. Run SQL queries for complete information."
+      },
+      {
+        "column_name": "status",
+        "data_type": "text",
+        "is_nullable": false,
+        "ordinal_position": 5,
+        "inferred": true,
+        "note": "Schema inferred from sample data. Run SQL queries for complete information."
+      },
+      {
+        "column_name": "started_at",
+        "data_type": "unknown",
+        "is_nullable": true,
+        "ordinal_position": 6,
+        "inferred": true,
+        "note": "Schema inferred from sample data. Run SQL queries for complete information."
+      },
+      {
+        "column_name": "completed_at",
+        "data_type": "unknown",
+        "is_nullable": true,
+        "ordinal_position": 7,
+        "inferred": true,
+        "note": "Schema inferred from sample data. Run SQL queries for complete information."
+      },
+      {
+        "column_name": "notes",
+        "data_type": "unknown",
+        "is_nullable": true,
+        "ordinal_position": 8,
+        "inferred": true,
+        "note": "Schema inferred from sample data. Run SQL queries for complete information."
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp",
+        "is_nullable": false,
+        "ordinal_position": 9,
+        "inferred": true,
+        "note": "Schema inferred from sample data. Run SQL queries for complete information."
+      },
+      {
+        "column_name": "updated_at",
+        "data_type": "timestamp",
+        "is_nullable": false,
+        "ordinal_position": 10,
+        "inferred": true,
+        "note": "Schema inferred from sample data. Run SQL queries for complete information."
+      }
+    ],
+    "constraints": [],
+    "indexes": []
+  },
+  "rls_policies": [],
+  "exported_at": "2026-01-28T06:53:55.947Z",
+  "project_ref": "eqxagfhgfgrcdbtmxepl",
+  "note": "This schema was inferred by querying the table. For complete schema with constraints, indexes, and RLS policies, please run the SQL queries from supabase/queries/ in Supabase SQL Editor."
+}

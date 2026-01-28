@@ -1,0 +1,44 @@
+{
+  "table_name": "example_table",
+  "schema": {
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "ordinal_position": 1
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "NO",
+        "column_default": "now()",
+        "ordinal_position": 2
+      }
+    ],
+    "constraints": [
+      {
+        "constraint_name": "example_table_pkey",
+        "constraint_type": "PRIMARY KEY",
+        "column_name": "id"
+      }
+    ],
+    "indexes": [
+      {
+        "index_name": "example_table_created_at_idx",
+        "column_name": "created_at",
+        "is_unique": false
+      }
+    ]
+  },
+  "rls_policies": [
+    {
+      "policyname": "Users can view own rows",
+      "cmd": "SELECT",
+      "qual": "(user_id = auth.uid())",
+      "with_check": null
+    }
+  ],
+  "exported_at": "2026-01-28T06:45:13.299Z"
+}
