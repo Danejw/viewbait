@@ -455,6 +455,7 @@ const STYLE_SORT_OPTIONS: SortOption[] = [
 
 export const StudioViewStyles = memo(function StudioViewStyles() {
   const { user } = useAuth();
+  const { actions } = useStudio();
   const {
     styles,
     publicStyles,

@@ -43,11 +43,7 @@ export const BrowseStyles = memo(function BrowseStyles({
   const [searchQuery, setSearchQuery] = useState("");
 
   // Try to get studio context for applying styles and modal view (optional)
-  let studioActions: { 
-    setSelectedStyle?: (id: string | null) => void; 
-    setView?: (view: string) => void;
-    onViewStyle?: (style: PublicStyle) => void;
-  } | null = null;
+  let studioActions: ReturnType<typeof useStudio>['actions'] | null = null;
   let currentUserId: string | undefined = undefined;
   try {
     const studio = useStudio();
