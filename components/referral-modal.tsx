@@ -8,7 +8,8 @@
  */
 
 import { useState } from "react";
-import { Gift, Copy, Loader2, Check } from "lucide-react";
+import { Gift, Copy, Check } from "lucide-react";
+import { ViewBaitLogo } from "@/components/ui/viewbait-logo";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -81,7 +82,7 @@ export default function ReferralModal({ isOpen, onClose }: ReferralModalProps) {
 
         {isLoading ? (
           <div className="flex items-center justify-center py-8">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            <ViewBaitLogo className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
         ) : referralCode ? (
           <div className="space-y-4">
@@ -127,7 +128,7 @@ export default function ReferralModal({ isOpen, onClose }: ReferralModalProps) {
             >
               {isCreating ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <ViewBaitLogo className="mr-2 h-4 w-4 animate-spin" />
                   Creating...
                 </>
               ) : (

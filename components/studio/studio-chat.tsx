@@ -350,9 +350,9 @@ export function StudioChatPanel() {
   }, [resetChat]);
 
   return (
-    <div className="flex h-full flex-col">
-      {/* Header */}
-      <div className="flex items-center justify-between border-b border-border p-2 mb-3">
+    <div className="flex h-full min-h-0 flex-col">
+      {/* Header - fixed at top */}
+      <div className="flex shrink-0 items-center justify-between border-b border-border p-2 mb-3">
         <div className="flex items-center gap-2">
           <MessageSquare className="h-4 w-4 text-muted-foreground" />
           <h3 className="text-sm font-semibold">Chat</h3>
@@ -363,8 +363,8 @@ export function StudioChatPanel() {
         </Button>
       </div>
 
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto hide-scrollbar space-y-4 min-h-0">
+      {/* Messages - scrollable; fills space above input */}
+      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto hide-scrollbar">
         {messages.map((msg, index) => (
           <div key={index}>
             <ChatMessage
@@ -409,8 +409,8 @@ export function StudioChatPanel() {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input */}
-      <div className="border-t border-border pt-3 mt-3 shrink-0">
+      {/* Input - fixed at bottom of section */}
+      <div className="shrink-0 border-t border-border pt-3 mt-3">
         <div className="flex gap-2">
           <Input
             ref={inputRef}

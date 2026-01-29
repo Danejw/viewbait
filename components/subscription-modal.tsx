@@ -8,7 +8,8 @@
  */
 
 import { useState } from "react";
-import { Check, Crown, Loader2 } from "lucide-react";
+import { Check, Crown } from "lucide-react";
+import { ViewBaitLogo } from "@/components/ui/viewbait-logo";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -46,7 +47,7 @@ export default function SubscriptionModal({
       <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
         <DialogContent className="w-[95vw] max-w-4xl sm:max-w-4xl md:max-w-5xl lg:max-w-6xl">
           <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            <ViewBaitLogo className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
         </DialogContent>
       </Dialog>
@@ -221,7 +222,7 @@ export default function SubscriptionModal({
                   >
                     {isLoading ? (
                       <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        <ViewBaitLogo className="mr-2 h-4 w-4 animate-spin" />
                         Processing...
                       </>
                     ) : isCurrentTier ? (

@@ -319,102 +319,113 @@ export const ThumbnailCard = memo(function ThumbnailCard({
     onView(thumbnail);
   }, [thumbnail, onView]);
 
-  return (
-    <Card
-      ref={setNodeRef}
+  // Pull-up action bar: rendered above the card so it's never clipped by overflow.
+  // Wrapper expands hover area upward (pt + -mt) so moving to the popup keeps it visible.
+  const actionBar = (
+    <div
+      role="toolbar"
+      aria-label="Thumbnail actions"
       className={cn(
-        "group relative aspect-video w-full cursor-pointer overflow-hidden p-0 transition-all",
-        "hover:ring-2 hover:ring-primary/50 hover:shadow-lg",
-        isDragging && "opacity-50 ring-2 ring-primary cursor-grabbing",
-        draggable && !isDragging && "cursor-grab"
+        "absolute bottom-full left-1/2 z-10 mb-2 flex -translate-x-1/2 items-center justify-center gap-1 rounded-lg px-2 py-1.5 shadow-lg",
+        "bg-muted/95 backdrop-blur-sm ring-1 ring-border/50",
+        "translate-y-1 opacity-0 transition-all duration-200 ease-out",
+        "group-hover/thumb:translate-y-0 group-hover/thumb:opacity-100 group-hover/thumb:pointer-events-auto",
+        "pointer-events-none"
       )}
-      onClick={handleClick}
-      {...listeners}
-      {...attributes}
+      onClick={(e) => e.stopPropagation()}
     >
-      <div className="relative h-full w-full overflow-hidden bg-muted">
-        {/* Image with scale animation on hover */}
-        <div className="h-full w-full transition-transform duration-300 group-hover:scale-105">
-          <ProgressiveImage
-            src={imageUrl}
-            src400w={thumbnail400wUrl}
-            src800w={thumbnail800wUrl}
-            alt={name}
-            priority={priority}
-          />
-        </div>
+      <ActionButton
+        icon={Heart}
+        label={isFavorite ? "Remove from favorites" : "Add to favorites"}
+        onClick={handleFavorite}
+        active={isFavorite}
+      />
+      <ActionButton
+        icon={Download}
+        label="Download"
+        onClick={handleDownload}
+      />
+      <ActionButton
+        icon={Share2}
+        label="Share"
+        onClick={handleShare}
+      />
+      <ActionButton
+        icon={Copy}
+        label="Copy link"
+        onClick={handleCopy}
+      />
+      {isOwner && (
+        <ActionButton
+          icon={Pencil}
+          label="Edit"
+          onClick={handleEdit}
+        />
+      )}
+      {isOwner && (
+        <ActionButton
+          icon={Trash2}
+          label="Delete"
+          onClick={handleDelete}
+          variant="destructive"
+        />
+      )}
+    </div>
+  );
 
-        {/* Top overlay - Title (left) and Resolution (right) - shown on hover */}
-        <div
-          className={cn(
-            "absolute inset-x-0 top-0 flex items-start justify-between p-2",
-            "bg-gradient-to-b from-black/60 to-transparent",
-            "opacity-0 transition-opacity duration-200 group-hover:opacity-100"
-          )}
-        >
-          {/* Title */}
-          <p className="max-w-[70%] truncate text-sm font-medium text-white drop-shadow-sm">
-            {name}
-          </p>
-          
-          {/* Resolution badge */}
-          <ResolutionBadge resolution={resolution} />
-        </div>
+  return (
+    <div
+      className={cn(
+        "group/thumb relative overflow-visible",
+        "pt-[52px] -mt-[52px]"
+      )}
+    >
+      {/* Pull-up action bar: above card, outside overflow so icons are never clipped */}
+      {actionBar}
 
-        {/* Action bar - absolutely positioned at bottom, shown on hover */}
-        <div
-          className={cn(
-            "absolute inset-x-0 bottom-0 flex items-center justify-center gap-1 p-2",
-            "bg-gradient-to-t from-black/60 via-black/40 to-transparent",
-            "opacity-0 transition-opacity duration-200 group-hover:opacity-100"
-          )}
-        >
-          <ActionButton
-            icon={Heart}
-            label={isFavorite ? "Remove from favorites" : "Add to favorites"}
-            onClick={handleFavorite}
-            active={isFavorite}
-          />
-          
-          <ActionButton
-            icon={Download}
-            label="Download"
-            onClick={handleDownload}
-          />
-          
-          <ActionButton
-            icon={Share2}
-            label="Share"
-            onClick={handleShare}
-          />
-          
-          <ActionButton
-            icon={Copy}
-            label="Copy link"
-            onClick={handleCopy}
-          />
-          
-          {/* Edit button - only shown if user owns the thumbnail */}
-          {isOwner && (
-            <ActionButton
-              icon={Pencil}
-              label="Edit"
-              onClick={handleEdit}
+      <Card
+        ref={setNodeRef}
+        className={cn(
+          "group relative aspect-video w-full cursor-pointer overflow-hidden p-0 transition-all",
+          "hover:ring-2 hover:ring-primary/50 hover:shadow-lg",
+          isDragging && "opacity-50 ring-2 ring-primary cursor-grabbing",
+          draggable && !isDragging && "cursor-grab"
+        )}
+        onClick={handleClick}
+        {...listeners}
+        {...attributes}
+      >
+        <div className="relative h-full w-full overflow-hidden bg-muted">
+          {/* Image with scale animation on hover */}
+          <div className="h-full w-full transition-transform duration-300 group-hover:scale-105">
+            <ProgressiveImage
+              src={imageUrl}
+              src400w={thumbnail400wUrl}
+              src800w={thumbnail800wUrl}
+              alt={name}
+              priority={priority}
             />
-          )}
-          
-          {/* Delete button - only shown if user owns the thumbnail */}
-          {isOwner && (
-            <ActionButton
-              icon={Trash2}
-              label="Delete"
-              onClick={handleDelete}
-              variant="destructive"
-            />
-          )}
+          </div>
+
+          {/* Top overlay - Title (left) and Resolution (right) - shown on hover */}
+          <div
+            className={cn(
+              "absolute inset-x-0 top-0 flex items-start justify-between p-2",
+              "bg-gradient-to-b from-black/60 to-transparent",
+              "opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+            )}
+          >
+            {/* Title */}
+            <p className="max-w-[70%] truncate text-sm font-medium text-white drop-shadow-sm">
+              {name}
+            </p>
+
+            {/* Resolution badge */}
+            <ResolutionBadge resolution={resolution} />
+          </div>
         </div>
-      </div>
-    </Card>
+      </Card>
+    </div>
   );
 });
 

@@ -123,11 +123,13 @@ export function StudioSettingsSidebarCollapsed() {
 
 /**
  * StudioSettingsSidebarContent
- * Expanded content - renders the generator form
+ * Expanded content - renders the generator form.
+ * In chat mode, wrapper uses h-full flex flex-col so the chat panel fills height
+ * and the input stays fixed at the bottom with messages scrolling above.
  */
 export function StudioSettingsSidebarContent() {
   return (
-    <div className="p-2">
+    <div className="flex h-full flex-col min-h-0 p-2">
       <StudioGenerator />
     </div>
   );

@@ -10,7 +10,6 @@ import {
   X,
   Palette,
   Plus,
-  Loader2,
   Sparkles,
   SlidersHorizontal,
 } from "lucide-react";
@@ -26,6 +25,7 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ViewBaitLogo } from "@/components/ui/viewbait-logo";
 import { useStudio } from "@/components/studio/studio-provider";
 import { StudioChatPanel } from "@/components/studio/studio-chat";
 import { useFaces } from "@/lib/hooks/useFaces";
@@ -317,7 +317,7 @@ export function StudioGeneratorStyleReferences() {
     >
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <label className="my-2 text-sm font-medium">Style References</label>
+          <label className="my-2 text-sm font-medium">References</label>
           <span className="text-xs text-muted-foreground">(max {MAX_STYLE_REFERENCES})</span>
           {/* Drop hint when dragging thumbnail */}
           {isThumbnailBeingDragged && hasRoom && (
@@ -1049,6 +1049,9 @@ export function StudioGeneratorSubmit() {
 
   return (
     <div className="space-y-2">
+      <p className="text-center text-xs text-muted-foreground">
+        {variations} thumbnail{variations > 1 ? "s" : ""} • {totalCost} credit{totalCost > 1 ? "s" : ""}
+      </p>
       <Button
         onClick={generateThumbnails}
         disabled={isDisabled}
@@ -1057,16 +1060,13 @@ export function StudioGeneratorSubmit() {
       >
         {isGenerating ? (
           <span className="flex items-center gap-2">
-            <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+            <ViewBaitLogo className="h-4 w-4 animate-spin" />
             Generating...
           </span>
         ) : (
           "GENERATE THUMBNAILS"
         )}
       </Button>
-      <p className="text-center text-xs text-muted-foreground">
-        {variations} thumbnail{variations > 1 ? "s" : ""} • {totalCost} credit{totalCost > 1 ? "s" : ""}
-      </p>
     </div>
   );
 }
@@ -1077,7 +1077,7 @@ export function StudioGeneratorSubmit() {
  */
 export function StudioGeneratorChat() {
   return (
-    <div className="flex h-full flex-col min-h-0">
+    <div className="flex h-full min-h-0 flex-col">
       <StudioChatPanel />
     </div>
   );
@@ -1096,23 +1096,29 @@ export function StudioGenerator() {
     return (
       <div className="flex h-full flex-col min-h-0">
         <StudioGeneratorTabs />
-        <StudioGeneratorChat />
+        <div className="flex-1 min-h-0 flex flex-col">
+          <StudioGeneratorChat />
+        </div>
       </div>
     );
   }
 
   return (
-    <div>
+    <div className="flex flex-1 flex-col min-h-0">
       <StudioGeneratorTabs />
-      <StudioGeneratorThumbnailText />
-      <StudioGeneratorCustomInstructions />
-      <StudioGeneratorStyleReferences />
-      <StudioGeneratorFaces />
-      <StudioGeneratorStyleSelection />
-      <StudioGeneratorPalette />
-      <StudioGeneratorAspectAndResolution />
-      <StudioGeneratorVariations />
-      <StudioGeneratorSubmit />
+      <div className="flex-1 min-h-0 overflow-y-auto hide-scrollbar">
+        <StudioGeneratorThumbnailText />
+        <StudioGeneratorCustomInstructions />
+        <StudioGeneratorStyleReferences />
+        <StudioGeneratorFaces />
+        <StudioGeneratorStyleSelection />
+        <StudioGeneratorPalette />
+        <StudioGeneratorAspectAndResolution />
+        <StudioGeneratorVariations />
+      </div>
+      <div className="flex-shrink-0 pt-2">
+        <StudioGeneratorSubmit />
+      </div>
     </div>
   );
 }

@@ -8,7 +8,8 @@
  */
 
 import React from "react";
-import { AlertTriangle, Loader2 } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
+import { ViewBaitLogo } from "@/components/ui/viewbait-logo";
 import {
   Modal,
   ModalContent,
@@ -94,7 +95,7 @@ export function DeleteConfirmationModal({
           >
             {isDeleting ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <ViewBaitLogo className="mr-2 h-4 w-4 animate-spin" />
                 Deleting...
               </>
             ) : (

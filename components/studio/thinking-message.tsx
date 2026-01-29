@@ -1,8 +1,9 @@
 "use client";
 
 import React from "react";
-import { ChevronDown, ChevronRight, Loader2 } from "lucide-react";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ViewBaitLogo } from "@/components/ui/viewbait-logo";
 
 export interface ThinkingState {
   status?: string;
@@ -34,7 +35,7 @@ export function ThinkingMessage({
     <div className="flex justify-start">
       <div className="max-w-[90%] rounded-lg border border-border bg-muted/50 px-3 py-2 text-sm">
         <div className="flex items-center gap-2">
-          <Loader2 className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" />
+          <ViewBaitLogo className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" />
           <span className="text-muted-foreground">{displayMessage}</span>
         </div>
         {toolCalls.length > 0 && (
@@ -56,7 +57,7 @@ export function ThinkingMessage({
                 {toolCalls.map((tc, i) => (
                   <li key={i} className="flex items-center gap-2">
                     {tc.status === "calling" ? (
-                      <Loader2 className="h-3 w-3 animate-spin" />
+                      <ViewBaitLogo className="h-3 w-3 animate-spin" />
                     ) : (
                       <span className="h-3 w-3 rounded-full bg-green-500/50" />
                     )}

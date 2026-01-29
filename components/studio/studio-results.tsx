@@ -6,6 +6,7 @@ import { ThumbnailGrid } from "./thumbnail-grid";
 import { Button } from "@/components/ui/button";
 import { AlertCircle, RefreshCw, ChevronDown } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { ViewBaitLogo } from "@/components/ui/viewbait-logo";
 
 /**
  * StudioResultsHeader
@@ -41,7 +42,11 @@ export const StudioResultsHeader = memo(function StudioResultsHeader() {
         disabled={thumbnailsLoading}
         className="gap-2"
       >
-        <RefreshCw className={`h-4 w-4 ${thumbnailsLoading ? "animate-spin" : ""}`} />
+        {thumbnailsLoading ? (
+          <ViewBaitLogo className="h-4 w-4 animate-spin" />
+        ) : (
+          <RefreshCw className="h-4 w-4" />
+        )}
         Refresh
       </Button>
     </div>
@@ -95,7 +100,7 @@ export const StudioResultsLoadMore = memo(function StudioResultsLoadMore() {
       >
         {isFetchingNextPage ? (
           <>
-            <RefreshCw className="h-4 w-4 animate-spin" />
+            <ViewBaitLogo className="h-4 w-4 animate-spin" />
             Loading...
           </>
         ) : (

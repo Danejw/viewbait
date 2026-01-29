@@ -19,13 +19,13 @@ import {
   Droplets,
   Upload,
   X,
-  Loader2,
   Sparkles,
   Plus,
   AlertCircle,
   ImageIcon,
   Trash2,
 } from "lucide-react";
+import { ViewBaitLogo } from "@/components/ui/viewbait-logo";
 import {
   Dialog,
   DialogContent,
@@ -631,7 +631,7 @@ export function PaletteEditor({
                   >
                     {isAnalyzing ? (
                       <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <ViewBaitLogo className="h-4 w-4 animate-spin" />
                         Analyzing...
                       </>
                     ) : (
@@ -740,7 +740,7 @@ export function PaletteEditor({
           <Button onClick={handleSave} disabled={!canSave}>
             {isSaving || isLoading ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <ViewBaitLogo className="mr-2 h-4 w-4 animate-spin" />
                 {isEditMode ? "Saving..." : "Creating..."}
               </>
             ) : isEditMode ? (

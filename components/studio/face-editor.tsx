@@ -8,7 +8,8 @@
  */
 
 import React, { useState, useCallback, useRef, useEffect } from "react";
-import { User, ImagePlus, X, Loader2, Upload } from "lucide-react";
+import { User, ImagePlus, X, Upload } from "lucide-react";
+import { ViewBaitLogo } from "@/components/ui/viewbait-logo";
 import {
   Dialog,
   DialogContent,
@@ -71,7 +72,7 @@ function ImagePreviewItem({
         />
         {isRemoving && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-            <Loader2 className="h-5 w-5 animate-spin text-white" />
+            <ViewBaitLogo className="h-5 w-5 animate-spin text-white" />
           </div>
         )}
       </div>
@@ -380,7 +381,7 @@ export function FaceEditor({
           <Button onClick={handleSave} disabled={!canSave}>
             {isSaving || isLoading ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <ViewBaitLogo className="mr-2 h-4 w-4 animate-spin" />
                 {isEditMode ? "Saving..." : "Creating..."}
               </>
             ) : isEditMode ? (

@@ -46,6 +46,7 @@ import type { ThumbnailSortOption, SortDirection } from "@/lib/hooks/useThumbnai
 import type { Thumbnail, DbFace, DbStyle, DbPalette, StyleInsert, StyleUpdate, PaletteInsert, PaletteUpdate } from "@/lib/types/database";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { cn } from "@/lib/utils";
+import { ViewBaitLogo } from "@/components/ui/viewbait-logo";
 
 /**
  * StudioViewGallery
@@ -229,7 +230,7 @@ export const StudioViewGallery = memo(function StudioViewGallery() {
               >
                 {isFetchingNextPage ? (
                   <>
-                    <RefreshCw className="h-4 w-4 animate-spin" />
+                    <ViewBaitLogo className="h-4 w-4 animate-spin" />
                     Loading...
                   </>
                 ) : (
@@ -821,7 +822,7 @@ export const StudioViewStyles = memo(function StudioViewStyles() {
             >
               {isDeleting ? (
                 <>
-                  <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                  <ViewBaitLogo className="mr-2 h-4 w-4 animate-spin" />
                   Deleting...
                 </>
               ) : (
@@ -1510,7 +1511,7 @@ export const StudioViewFaces = memo(function StudioViewFaces() {
             >
               {isDeleting ? (
                 <>
-                  <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                  <ViewBaitLogo className="mr-2 h-4 w-4 animate-spin" />
                   Deleting...
                 </>
               ) : (

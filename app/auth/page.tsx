@@ -10,7 +10,8 @@
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Zap, Mail, Loader2 } from "lucide-react";
+import { Zap, Mail } from "lucide-react";
+import { ViewBaitLogo } from "@/components/ui/viewbait-logo";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -65,7 +66,7 @@ function AuthForm() {
   if (authLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <ViewBaitLogo className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     );
   }
@@ -75,7 +76,7 @@ function AuthForm() {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="text-center">
-          <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" />
+          <ViewBaitLogo className="mx-auto h-8 w-8 animate-spin text-primary" />
           <p className="mt-4 text-sm text-muted-foreground">Redirecting to studio...</p>
         </div>
       </div>
@@ -273,7 +274,7 @@ function AuthForm() {
                   <Button type="submit" className="w-full" size="lg" disabled={loading}>
                     {loading ? (
                       <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        <ViewBaitLogo className="mr-2 h-4 w-4 animate-spin" />
                         Signing in...
                       </>
                     ) : (
@@ -360,7 +361,7 @@ function AuthForm() {
                   <Button type="submit" className="w-full" size="lg" disabled={loading}>
                     {loading ? (
                       <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        <ViewBaitLogo className="mr-2 h-4 w-4 animate-spin" />
                         Creating account...
                       </>
                     ) : (
@@ -393,7 +394,7 @@ function AuthForm() {
                 disabled={loading}
               >
                 {loading ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <ViewBaitLogo className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
                   <GoogleIcon className="mr-2 h-4 w-4" />
                 )}
@@ -431,7 +432,7 @@ export default function AuthPage() {
     <Suspense
       fallback={
         <div className="flex min-h-screen items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <ViewBaitLogo className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
       }
     >

@@ -18,6 +18,7 @@
 import React, { memo, useState, useCallback } from "react";
 import { RefreshCw, ChevronDown, ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ViewBaitLogo } from "@/components/ui/viewbait-logo";
 import { Card, CardContent } from "@/components/ui/card";
 import { BrowseControls } from "./browse-controls";
 import { ThumbnailGrid } from "./thumbnail-grid";
@@ -146,7 +147,7 @@ export const BrowseThumbnails = memo(function BrowseThumbnails() {
               >
                 {isFetchingNextPage ? (
                   <>
-                    <RefreshCw className="h-4 w-4 animate-spin" />
+                    <ViewBaitLogo className="h-4 w-4 animate-spin" />
                     Loading...
                   </>
                 ) : (

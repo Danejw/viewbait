@@ -29,7 +29,8 @@ import {
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import { useStudio, type StudioView } from "./studio-provider";
+import { ViewBaitLogo } from "@/components/ui/viewbait-logo";
+import { useStudio, type StudioView } from "@/components/studio/studio-provider";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useSubscription } from "@/lib/hooks/useSubscription";
 import SubscriptionModal from "@/components/subscription-modal";
@@ -43,56 +44,11 @@ export interface NavItem {
   locked?: boolean;
 }
 
-/**
- * ViewBaitLogo
- * Application logo (matches app/icon.svg) for use in sidebar header
- */
-function ViewBaitLogo({ className }: { className?: string }) {
-  return (
-    <svg
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      className={className}
-      aria-hidden
-    >
-      <defs>
-        <linearGradient
-          id="sidebar-logo-gradient"
-          x1="2"
-          y1="2"
-          x2="22"
-          y2="22"
-          gradientUnits="userSpaceOnUse"
-        >
-          <stop offset="0%" stopColor="#FF512F" />
-          <stop offset="100%" stopColor="#F09819" />
-        </linearGradient>
-      </defs>
-      <path
-        d="M 10 3 H 8 C 5.23858 3 3 5.23858 3 8 V 16 C 3 18.7614 5.23858 21 8 21 H 16 C 18.7614 21 21 18.7614 21 16 V 8 C 21 5.23858 18.7614 3 16 3 H 15"
-        stroke="url(#sidebar-logo-gradient)"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M 3 13 L 8.5 8.5 L 12 12 L 15.5 9.5 L 21 14.5"
-        stroke="url(#sidebar-logo-gradient)"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
 export const navItems: NavItem[] = [
   { label: "Generator", view: "generator", icon: Zap },
-  { label: "Gallery", view: "gallery", icon: Grid3x3 },
+
   { label: "Browse", view: "browse", icon: FolderOpen },
+  { label: "Gallery", view: "gallery", icon: Grid3x3 },
   { label: "My Styles", view: "styles", icon: Palette },
   { label: "My Palettes", view: "palettes", icon: Droplets },
   { label: "My Faces", view: "faces", icon: User },

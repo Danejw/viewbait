@@ -9,7 +9,8 @@
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Zap, ArrowLeft, Loader2, Mail, CheckCircle } from "lucide-react";
+import { Zap, ArrowLeft, Mail, CheckCircle } from "lucide-react";
+import { ViewBaitLogo } from "@/components/ui/viewbait-logo";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -64,7 +65,7 @@ function ForgotPasswordForm() {
   if (authLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <ViewBaitLogo className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     );
   }
@@ -153,7 +154,7 @@ function ForgotPasswordForm() {
                 <Button type="submit" className="w-full" size="lg" disabled={loading}>
                   {loading ? (
                     <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      <ViewBaitLogo className="mr-2 h-4 w-4 animate-spin" />
                       Sending...
                     </>
                   ) : (
@@ -184,7 +185,7 @@ export default function ForgotPasswordPage() {
     <Suspense
       fallback={
         <div className="flex min-h-screen items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <ViewBaitLogo className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
       }
     >

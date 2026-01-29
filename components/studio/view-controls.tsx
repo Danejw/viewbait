@@ -28,6 +28,7 @@ import {
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ViewBaitLogo } from "@/components/ui/viewbait-logo";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -398,13 +399,22 @@ export const ViewControls = memo(function ViewControls({
               isCompact ? "h-8 w-8" : isMedium ? "h-9 w-9" : "h-10 w-10"
             )}
           >
-            <RefreshCw
-              className={cn(
-                "pointer-events-none",
-                isCompact ? "h-3.5 w-3.5" : "h-4 w-4",
-                isRefreshing && "animate-spin"
-              )}
-            />
+            {isRefreshing ? (
+              <ViewBaitLogo
+                className={cn(
+                  "pointer-events-none",
+                  isCompact ? "h-3.5 w-3.5" : "h-4 w-4",
+                  "animate-spin"
+                )}
+              />
+            ) : (
+              <RefreshCw
+                className={cn(
+                  "pointer-events-none",
+                  isCompact ? "h-3.5 w-3.5" : "h-4 w-4"
+                )}
+              />
+            )}
           </Button>
         )}
 

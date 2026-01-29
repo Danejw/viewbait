@@ -19,12 +19,12 @@ import {
   Palette,
   ImagePlus,
   X,
-  Loader2,
   Upload,
   Sparkles,
   Wand2,
   AlertCircle,
 } from "lucide-react";
+import { ViewBaitLogo } from "@/components/ui/viewbait-logo";
 import {
   Dialog,
   DialogContent,
@@ -95,7 +95,7 @@ function ImagePreviewItem({
         />
         {isRemoving && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-            <Loader2 className="h-5 w-5 animate-spin text-white" />
+            <ViewBaitLogo className="h-5 w-5 animate-spin text-white" />
           </div>
         )}
       </div>
@@ -583,7 +583,7 @@ export function StyleEditor({
               >
                 {isAnalyzing ? (
                   <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <ViewBaitLogo className="h-4 w-4 animate-spin" />
                     Analyzing...
                   </>
                 ) : (
@@ -661,7 +661,7 @@ export function StyleEditor({
               >
                 {isGeneratingPreview ? (
                   <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <ViewBaitLogo className="h-4 w-4 animate-spin" />
                     Generating...
                   </>
                 ) : (
@@ -698,7 +698,7 @@ export function StyleEditor({
           <Button onClick={handleSave} disabled={!canSave}>
             {isSaving || isLoading ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <ViewBaitLogo className="mr-2 h-4 w-4 animate-spin" />
                 {isEditMode ? "Saving..." : "Creating..."}
               </>
             ) : isEditMode ? (
