@@ -5,12 +5,13 @@
  *
  * Combined sign-in and sign-up page with tab navigation.
  * Redirects authenticated users to the studio.
+ * Uses the same header and footer as the root landing page.
  */
 
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Zap, Mail } from "lucide-react";
+import { Mail } from "lucide-react";
 import { ViewBaitLogo } from "@/components/ui/viewbait-logo";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -41,6 +42,18 @@ function AuthForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { signIn, signUp, signInWithGoogle, isAuthenticated, isLoading: authLoading } = useAuth();
+
+  // All hooks must run unconditionally before any return (Rules of Hooks)
+  const [isMobile, setIsMobile] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768 || "ontouchstart" in window);
+    };
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
 
   const [activeTab, setActiveTab] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
@@ -177,22 +190,252 @@ function AuthForm() {
     router.push("/auth/forgot-password");
   };
 
+  const handleNavClick = () => setMenuOpen(false);
+
   return (
-    <div className="flex min-h-screen flex-col bg-background">
-      {/* Header */}
-      <header className="border-b border-border">
-        <div className="container mx-auto flex h-16 items-center justify-between px-4">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary">
-              <Zap className="h-4 w-4 text-primary-foreground" />
-            </div>
-            <span className="text-lg font-semibold">ViewBait</span>
+    <div
+      className="landing-page"
+      style={{
+        minHeight: "100vh",
+        background: "#030303",
+        color: "#fff",
+        display: "flex",
+        flexDirection: "column",
+      }}
+    >
+      {/* Mobile menu overlay */}
+      <div
+        className={`mobile-menu-overlay ${menuOpen ? "open" : ""}`}
+        onClick={() => setMenuOpen(false)}
+        onKeyDown={(e) => e.key === "Escape" && setMenuOpen(false)}
+        role="button"
+        tabIndex={0}
+        aria-label="Close menu"
+      />
+
+      {/* Mobile menu */}
+      <div className={`mobile-menu ${menuOpen ? "open" : ""}`} aria-hidden={!menuOpen}>
+        <nav style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+          {["Product", "Pricing", "Creators"].map((link) => (
+            <Link
+              key={link}
+              href={`/#${link.toLowerCase()}`}
+              onClick={handleNavClick}
+              className="crt-text"
+              style={{
+                color: "#999",
+                textDecoration: "none",
+                fontSize: "18px",
+                fontWeight: 600,
+                padding: "12px 0",
+                borderBottom: "1px solid rgba(255,255,255,0.05)",
+              }}
+            >
+              {link}
+            </Link>
+          ))}
+          <Link
+            href="/studio"
+            onClick={handleNavClick}
+            className="btn-crt"
+            style={{
+              marginTop: "16px",
+              padding: "16px 24px",
+              background: "#ff0000",
+              border: "none",
+              borderRadius: "12px",
+              color: "#fff",
+              fontSize: "16px",
+              fontWeight: 700,
+              cursor: "pointer",
+              width: "100%",
+              textAlign: "center",
+              textDecoration: "none",
+              display: "block",
+            }}
+          >
+            Open Studio
+          </Link>
+        </nav>
+      </div>
+
+      {/* Navigation – same as root landing */}
+      <nav
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          zIndex: 100,
+          padding: "16px var(--landing-padding-x)",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          background: "rgba(3,3,3,0.95)",
+          backdropFilter: "blur(20px) saturate(180%)",
+          borderBottom: "1px solid rgba(255,255,255,0.03)",
+          transition: "all 0.4s ease",
+        }}
+      >
+        <Link
+          href="/"
+          style={{ display: "flex", alignItems: "center", gap: "10px", textDecoration: "none", color: "inherit" }}
+        >
+          <div
+            style={{
+              width: "36px",
+              height: "36px",
+              background: "#ff0000",
+              borderRadius: "10px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              position: "relative",
+              boxShadow: "0 0 30px rgba(255,0,0,0.4), inset 0 0 20px rgba(255,255,255,0.1)",
+            }}
+          >
+            <div className="crop-mark tl" style={{ width: "6px", height: "6px", borderColor: "rgba(255,255,255,0.5)" }} />
+            <div className="crop-mark br" style={{ width: "6px", height: "6px", borderColor: "rgba(255,255,255,0.5)" }} />
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+              <path
+                d="M 10 3 H 8 C 5.23858 3 3 5.23858 3 8 V 16 C 3 18.7614 5.23858 21 8 21 H 16 C 18.7614 21 21 18.7614 21 16 V 8 C 21 5.23858 18.7614 3 16 3 H 15"
+                stroke="white"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M 3 13 L 8.5 8.5 L 12 12 L 15.5 9.5 L 21 14.5"
+                stroke="white"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </div>
+          <div>
+            <span
+              className="crt-text-heavy"
+              style={{
+                fontSize: "18px",
+                fontWeight: 900,
+                letterSpacing: "-0.02em",
+                display: "block",
+                lineHeight: 1,
+              }}
+            >
+              VIEWBAIT
+            </span>
+            <span
+              className="mono hide-mobile crt-text"
+              style={{
+                fontSize: "9px",
+                color: "#555",
+                letterSpacing: "0.1em",
+              }}
+            >
+              THUMBNAIL STUDIO
+            </span>
+          </div>
+        </Link>
+
+        <div className="landing-nav-links hide-mobile" style={{ alignItems: "center", gap: "40px" }}>
+          {["Product", "Pricing", "Creators"].map((link) => (
+            <Link
+              key={link}
+              href={`/#${link.toLowerCase()}`}
+              className="crt-text"
+              style={{
+                color: "#666",
+                textDecoration: "none",
+                fontSize: "14px",
+                fontWeight: 500,
+                position: "relative",
+                padding: "8px 0",
+              }}
+            >
+              {link}
+            </Link>
+          ))}
+          <Link
+            href="/studio"
+            className="btn-crt"
+            style={{
+              padding: "12px 24px",
+              background: "#fff",
+              border: "none",
+              borderRadius: "10px",
+              color: "#000",
+              fontSize: "14px",
+              fontWeight: 700,
+              cursor: "pointer",
+              position: "relative",
+              overflow: "hidden",
+              textDecoration: "none",
+              display: "inline-block",
+            }}
+          >
+            Open Studio
           </Link>
         </div>
-      </header>
+
+        <button
+          type="button"
+          className="hide-desktop"
+          onClick={() => setMenuOpen(!menuOpen)}
+          aria-expanded={menuOpen}
+          aria-label={menuOpen ? "Close menu" : "Open menu"}
+          style={{
+            width: "44px",
+            height: "44px",
+            background: "rgba(255,255,255,0.05)",
+            border: "1px solid rgba(255,255,255,0.1)",
+            borderRadius: "10px",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "5px",
+            cursor: "pointer",
+          }}
+        >
+          <span
+            style={{
+              width: "18px",
+              height: "2px",
+              background: "#fff",
+              borderRadius: "2px",
+              transition: "all 0.3s ease",
+              transform: menuOpen ? "rotate(45deg) translateY(7px)" : "none",
+              boxShadow: "0 0 4px rgba(255,0,0,0.5)",
+            }}
+          />
+          <span
+            style={{
+              width: "18px",
+              height: "2px",
+              background: "#fff",
+              borderRadius: "2px",
+              opacity: menuOpen ? 0 : 1,
+              transition: "all 0.3s ease",
+            }}
+          />
+          <span
+            style={{
+              width: "18px",
+              height: "2px",
+              background: "#fff",
+              borderRadius: "2px",
+              transition: "all 0.3s ease",
+              transform: menuOpen ? "rotate(-45deg) translateY(-7px)" : "none",
+              boxShadow: "0 0 4px rgba(255,0,0,0.5)",
+            }}
+          />
+        </button>
+      </nav>
 
       {/* Main Content */}
-      <main className="flex flex-1 items-center justify-center px-4 py-12">
+      <main className="flex flex-1 items-center justify-center px-4 py-12 pt-24">
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
             <CardTitle className="text-2xl font-bold">Welcome to ViewBait</CardTitle>
@@ -407,19 +650,104 @@ function AuthForm() {
         </Card>
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-border py-6">
-        <div className="container mx-auto px-4 text-center">
-          <p className="text-xs text-muted-foreground">
-            By continuing, you agree to our{" "}
-            <Link href="/legal/terms.md" className="underline hover:text-foreground">
-              Terms of Service
-            </Link>{" "}
-            and{" "}
-            <Link href="/legal/privacy.md" className="underline hover:text-foreground">
-              Privacy Policy
+      {/* Footer – same as root landing */}
+      <footer
+        style={{
+          padding: "32px var(--landing-padding-x)",
+          borderTop: "1px solid rgba(255,255,255,0.03)",
+        }}
+      >
+        <div
+          style={{
+            maxWidth: "1600px",
+            margin: "0 auto",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            flexWrap: "wrap",
+            gap: "20px",
+          }}
+        >
+          <Link
+            href="/"
+            style={{ display: "flex", alignItems: "center", gap: "10px", textDecoration: "none", color: "inherit" }}
+          >
+            <div
+              style={{
+                width: "28px",
+                height: "28px",
+                background: "#ff0000",
+                borderRadius: "6px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                boxShadow: "0 0 15px rgba(255,0,0,0.4)",
+              }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                <path
+                  d="M 10 3 H 8 C 5.23858 3 3 5.23858 3 8 V 16 C 3 18.7614 5.23858 21 8 21 H 16 C 18.7614 21 21 18.7614 21 16 V 8 C 21 5.23858 18.7614 3 16 3 H 15"
+                  stroke="white"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <path
+                  d="M 3 13 L 8.5 8.5 L 12 12 L 15.5 9.5 L 21 14.5"
+                  stroke="white"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </div>
+            <span className="crt-text-heavy" style={{ fontSize: "14px", fontWeight: 800 }}>
+              VIEWBAIT
+            </span>
+          </Link>
+
+          <div style={{ display: "flex", gap: "24px", flexWrap: "wrap" }}>
+            <Link
+              href="/legal/privacy"
+              className="crt-text"
+              style={{
+                color: "#444",
+                textDecoration: "none",
+                fontSize: "12px",
+                transition: "color 0.2s",
+              }}
+            >
+              Privacy
             </Link>
-          </p>
+            <Link
+              href="/legal/terms"
+              className="crt-text"
+              style={{
+                color: "#444",
+                textDecoration: "none",
+                fontSize: "12px",
+                transition: "color 0.2s",
+              }}
+            >
+              Terms
+            </Link>
+            <a
+              href="mailto:contact@viewbait.app"
+              className="crt-text"
+              style={{
+                color: "#444",
+                textDecoration: "none",
+                fontSize: "12px",
+                transition: "color 0.2s",
+              }}
+            >
+              Contact
+            </a>
+          </div>
+
+          <div className="mono crt-text" style={{ color: "#333", fontSize: "11px", letterSpacing: "0.05em" }}>
+            © {new Date().getFullYear()} VIEWBAIT
+          </div>
         </div>
       </footer>
     </div>
