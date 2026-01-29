@@ -9,6 +9,8 @@ import { useAuth } from "@/lib/hooks/useAuth";
 import { useSubscription } from "@/lib/hooks/useSubscription";
 import { useWatermarkedImage } from "@/lib/hooks/useWatermarkedImage";
 import { applyQrWatermark } from "@/lib/utils/watermarkUtils";
+import { blobToJpeg } from "@/lib/utils/blobToJpeg";
+import { EXPRESSIONS, POSES } from "@/lib/constants/face-options";
 import type { Thumbnail, PublicStyle, DbStyle, PublicPalette, DbPalette, DbFace } from "@/lib/types/database";
 import { DeleteConfirmationModal } from "@/components/studio/delete-confirmation-modal";
 import { ThumbnailEditModal, type ThumbnailEditData } from "@/components/studio/thumbnail-edit-modal";
@@ -142,7 +144,7 @@ export interface StudioActions {
   // Thumbnail actions
   onFavoriteToggle: (id: string) => void;
   onDeleteThumbnail: (id: string) => void;
-  onDownloadThumbnail: (id: string) => void;
+  onDownloadThumbnail: (thumbnail: Thumbnail) => void;
   onShareThumbnail: (id: string) => void;
   onCopyThumbnail: (id: string) => void;
   onEditThumbnail: (thumbnail: Thumbnail) => void;
@@ -382,6 +384,7 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
 
   const thumbnailTextRef = useRef<HTMLInputElement>(null);
   const customInstructionsRef = useRef<HTMLTextAreaElement>(null);
+  const fallbackClearTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Memoized refresh function
   // Uses invalidateAllThumbnails to refresh ALL thumbnail queries (including gallery with different sorting)
@@ -390,8 +393,8 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
     await invalidateAllThumbnails();
   }, [invalidateAllThumbnails]);
 
-  // Clear generating placeholders only when the corresponding thumbnail is in the fetched list.
-  // Keeps placeholders visible until the real thumbnail appears, regardless of refetch timing.
+  // Clear generating placeholders when: (1) thumbnail is in the fetched list, or
+  // (2) item has generating: false (image already shown) after a short delay so "Generating..." clears.
   React.useEffect(() => {
     if (generationState.generatingItems.size === 0) return;
     const thumbnailIds = new Set(thumbnails.map((t) => t.id));
@@ -399,7 +402,31 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
     for (const item of generationState.generatingItems.values()) {
       if (thumbnailIds.has(item.id)) idsToRemove.push(item.id);
     }
-    if (idsToRemove.length > 0) removeGeneratingItemsByIds(idsToRemove);
+    if (idsToRemove.length > 0) {
+      if (fallbackClearTimeoutRef.current) {
+        clearTimeout(fallbackClearTimeoutRef.current);
+        fallbackClearTimeoutRef.current = null;
+      }
+      removeGeneratingItemsByIds(idsToRemove);
+      return;
+    }
+    // Fallback: items with image already shown (generating: false) — remove after delay so list can catch up
+    const completedIds: string[] = [];
+    for (const item of generationState.generatingItems.values()) {
+      if (!item.generating && item.imageUrl) completedIds.push(item.id);
+    }
+    if (completedIds.length === 0) return;
+    if (fallbackClearTimeoutRef.current) return; // already scheduled
+    fallbackClearTimeoutRef.current = setTimeout(() => {
+      fallbackClearTimeoutRef.current = null;
+      removeGeneratingItemsByIds(completedIds);
+    }, 2000);
+    return () => {
+      if (fallbackClearTimeoutRef.current) {
+        clearTimeout(fallbackClearTimeoutRef.current);
+        fallbackClearTimeoutRef.current = null;
+      }
+    };
   }, [thumbnails, generationState.generatingItems, removeGeneratingItemsByIds]);
 
   // Generate thumbnails action
@@ -508,37 +535,41 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
   });
 
   const onDownloadThumbnail = useCallback(
-    async (id: string) => {
-      const thumbnail = thumbnails.find((t) => t.id === id);
+    async (thumbnail: Thumbnail) => {
       if (!thumbnail?.imageUrl) return;
-      const filename = `${thumbnail.name || "thumbnail"}.png`;
-      if (!hasWatermark()) {
-        const link = document.createElement("a");
-        link.href = thumbnail.imageUrl;
-        link.download = filename;
-        link.click();
-        return;
-      }
+      const baseName = thumbnail.name || "thumbnail";
       try {
         const res = await fetch(thumbnail.imageUrl, { mode: "cors" });
         if (!res.ok) throw new Error(`Failed to fetch image: ${res.status}`);
-        const blob = await res.blob();
-        const watermarked = await applyQrWatermark(blob);
-        const objectUrl = URL.createObjectURL(watermarked);
+        let blob = await res.blob();
+        if (hasWatermark()) {
+          blob = await applyQrWatermark(blob);
+        }
+        let downloadBlob: Blob;
+        let filename: string;
+        try {
+          downloadBlob = await blobToJpeg(blob);
+          filename = `${baseName}.jpg`;
+        } catch {
+          downloadBlob = blob;
+          const ext = blob.type?.includes("jpeg") || blob.type?.includes("jpg") ? "jpg" : "png";
+          filename = `${baseName}.${ext}`;
+        }
+        const objectUrl = URL.createObjectURL(downloadBlob);
         const link = document.createElement("a");
         link.href = objectUrl;
         link.download = filename;
         link.click();
         URL.revokeObjectURL(objectUrl);
       } catch (err) {
-        console.error("Watermarked download failed:", err);
+        console.error("Thumbnail download failed:", err);
         const link = document.createElement("a");
         link.href = thumbnail.imageUrl;
-        link.download = filename;
+        link.download = `${baseName}.jpg`;
         link.click();
       }
     },
-    [thumbnails, hasWatermark]
+    [hasWatermark]
   );
 
   const onShareThumbnail = useCallback((id: string) => {
@@ -876,9 +907,16 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
         if (updates.variations !== undefined) newState.variations = updates.variations;
         if (updates.customInstructions !== undefined)
           newState.customInstructions = updates.customInstructions;
-        if (updates.expression !== undefined)
-          newState.faceExpression = updates.expression || "None";
-        if (updates.pose !== undefined) newState.facePose = updates.pose || "None";
+        if (updates.expression !== undefined) {
+          const exprVal = updates.expression || "none";
+          const expr = EXPRESSIONS.find((e) => e.value === exprVal);
+          newState.faceExpression = expr ? expr.label : exprVal;
+        }
+        if (updates.pose !== undefined) {
+          const poseVal = updates.pose || "none";
+          const pose = POSES.find((p) => p.value === poseVal);
+          newState.facePose = pose ? pose.label : poseVal;
+        }
         if (updates.includeStyleReferences !== undefined)
           newState.includeStyleReferences = updates.includeStyleReferences;
         if (updates.styleReferences !== undefined) newState.styleReferences = updates.styleReferences;

@@ -316,9 +316,9 @@ export const ThumbnailCard = memo(function ThumbnailCard({
   const handleDownload = useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation();
-      onDownload(id);
+      onDownload(thumbnail);
     },
-    [id, onDownload]
+    [thumbnail, onDownload]
   );
 
   const handleShare = useCallback(

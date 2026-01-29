@@ -10,7 +10,11 @@ import { logError } from '@/lib/server/utils/logger'
 // Emotion mappings - not sensitive, used for transforming user input
 export const EMOTION_DESCRIPTIONS: Record<string, string> = {
   excited: 'extremely excited and enthusiastic facial expression with wide eyes',
+  thinking: 'thoughtful thinking expression with hand on chin or contemplative look',
   shocked: 'shocked and surprised expression with mouth open and wide eyes',
+  fire: 'intense fired-up expression, hyped and energetic',
+  cool: 'cool and confident expression with a slight smirk',
+  'mind-blown': 'mind blown expression with wide eyes and amazed look',
   happy: 'genuinely happy and joyful expression with a big smile',
   serious: 'serious and focused expression with intense eyes',
   angry: 'angry and frustrated expression with furrowed brows',
@@ -65,11 +69,19 @@ export const POSE_DESCRIPTIONS: Record<string, string> = {
 }
 
 /**
+ * Normalize emotion key for lookup (e.g. "Mind blown" -> "mind-blown", "Happy" -> "happy")
+ */
+function normalizeEmotionKey(emotion: string): string {
+  return emotion.toLowerCase().trim().replace(/\s+/g, '-')
+}
+
+/**
  * Get emotion description from key
  */
 export function getEmotionDescription(emotion?: string): string {
   if (!emotion) return ''
-  return EMOTION_DESCRIPTIONS[emotion] || emotion
+  const key = normalizeEmotionKey(emotion)
+  return EMOTION_DESCRIPTIONS[key] ?? EMOTION_DESCRIPTIONS[emotion] ?? emotion
 }
 
 /**

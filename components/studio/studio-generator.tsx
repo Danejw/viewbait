@@ -1074,6 +1074,11 @@ export function StudioGeneratorFaces() {
                     <SelectItem value="None">None</SelectItem>
                     <SelectItem value="Happy">Happy</SelectItem>
                     <SelectItem value="Excited">Excited</SelectItem>
+                    <SelectItem value="Thinking">Thinking</SelectItem>
+                    <SelectItem value="Shocked">Shocked</SelectItem>
+                    <SelectItem value="Fire">Fire</SelectItem>
+                    <SelectItem value="Cool">Cool</SelectItem>
+                    <SelectItem value="Mind blown">Mind blown</SelectItem>
                     <SelectItem value="Serious">Serious</SelectItem>
                     <SelectItem value="Surprised">Surprised</SelectItem>
                     <SelectItem value="Confident">Confident</SelectItem>

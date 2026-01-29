@@ -18,7 +18,7 @@
 
 import React, { memo, useCallback, useState } from "react";
 import { useDraggable } from "@dnd-kit/core";
-import { Sparkles, Pencil, Trash2, Heart } from "lucide-react";
+import { Sparkles, Pencil, Trash2, Heart, Download } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -28,6 +28,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import { blobToJpeg } from "@/lib/utils/blobToJpeg";
 import type { PublicStyle, DbStyle } from "@/lib/types/database";
 import type { DragData } from "./studio-dnd-context";
 
@@ -209,6 +210,42 @@ export const StyleThumbnailCard = memo(function StyleThumbnailCard({
     [id, onToggleFavorite]
   );
 
+  const handleDownload = useCallback(
+    async (e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (!preview_thumbnail_url) return;
+      const baseName = name || "style";
+      try {
+        const res = await fetch(preview_thumbnail_url, { mode: "cors" });
+        if (!res.ok) throw new Error(`Failed to fetch image: ${res.status}`);
+        const blob = await res.blob();
+        let downloadBlob: Blob;
+        let filename: string;
+        try {
+          downloadBlob = await blobToJpeg(blob);
+          filename = `${baseName}.jpg`;
+        } catch {
+          downloadBlob = blob;
+          const ext = blob.type?.includes("jpeg") || blob.type?.includes("jpg") ? "jpg" : "png";
+          filename = `${baseName}.${ext}`;
+        }
+        const objectUrl = URL.createObjectURL(downloadBlob);
+        const link = document.createElement("a");
+        link.href = objectUrl;
+        link.download = filename;
+        link.click();
+        URL.revokeObjectURL(objectUrl);
+      } catch (err) {
+        console.error("Style image download failed:", err);
+        const link = document.createElement("a");
+        link.href = preview_thumbnail_url;
+        link.download = `${baseName}.jpg`;
+        link.click();
+      }
+    },
+    [preview_thumbnail_url, name]
+  );
+
   const handleImageLoad = useCallback(() => {
     setImageLoaded(true);
   }, []);
@@ -295,6 +332,15 @@ export const StyleThumbnailCard = memo(function StyleThumbnailCard({
               label={isFavorite ? "Remove from favorites" : "Add to favorites"}
               onClick={handleToggleFavorite}
               active={isFavorite}
+            />
+          )}
+
+          {/* Download button - only shown if user owns the style and has a preview image */}
+          {isOwner && preview_thumbnail_url && (
+            <ActionButton
+              icon={Download}
+              label="Download"
+              onClick={handleDownload}
             />
           )}
           
