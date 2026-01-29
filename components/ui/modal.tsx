@@ -178,23 +178,23 @@ interface ImageModalProps {
 function ImageModal({ open, onOpenChange, src, alt, title }: ImageModalProps) {
   return (
     <Modal open={open} onOpenChange={onOpenChange}>
-      <ModalContent 
-        size="4xl" 
-        className="p-0 bg-black/95 border-0 max-w-[95vw] max-h-[95vh] overflow-hidden"
+      <ModalContent
+        size="4xl"
+        className="flex flex-col gap-0 p-0 border-0 max-w-[95vw] max-h-[95vh] overflow-hidden bg-white dark:bg-black"
         showCloseButton={true}
       >
         {title && (
-          <ModalHeader className="absolute top-4 left-4 z-10 pointer-events-none">
-            <ModalTitle className="text-white drop-shadow-lg text-base font-semibold">
+          <ModalHeader className="absolute top-2 left-2 z-10 pointer-events-none">
+            <ModalTitle className="text-foreground drop-shadow-lg text-base font-semibold">
               {title}
             </ModalTitle>
           </ModalHeader>
         )}
-        <div className="relative flex items-center justify-center w-full h-full min-h-[50vh] p-4">
+        <div className="relative flex min-h-0 w-full flex-1 items-center justify-center overflow-hidden">
           <img
             src={src}
             alt={alt}
-            className="max-w-full max-h-[90vh] w-auto h-auto object-contain rounded-lg transition-opacity duration-300"
+            className="h-auto max-h-[90vh] w-full object-contain transition-opacity duration-300"
             loading="eager"
           />
         </div>
