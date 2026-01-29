@@ -86,14 +86,14 @@ export function StudioLayoutResponsive({
         <Tabs
           value={mobilePanel}
           onValueChange={(v) => setMobilePanel(v as "results" | "settings")}
-          className="flex flex-1 flex-col overflow-hidden"
+          className="flex flex-1 flex-col overflow-hidden mx-2"
         >
-          <TabsList className="shrink-0 w-full px-4 mt-2 flex gap-2" variant="default">
+          <TabsList className="shrink-0 w-full mt-2 flex gap-2" variant="default">
             <TabsTrigger value="results" variant="primary" size="lg">
-              Results
+              Preview
             </TabsTrigger>
             <TabsTrigger value="settings" variant="primary" size="lg">
-              Settings
+              Create
             </TabsTrigger>
           </TabsList>
           <TabsContent
