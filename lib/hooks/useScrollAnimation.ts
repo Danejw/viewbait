@@ -32,47 +32,26 @@ export function useScrollAnimation(
     const element = ref.current;
     const rect = element.getBoundingClientRect();
     const windowHeight = window.innerHeight;
-    const windowWidth = window.innerWidth;
     const elementTop = rect.top;
-    const elementHeight = rect.height;
-    const elementCenter = elementTop + elementHeight / 2;
 
-    // Calculate viewport boundaries with margin
-    const viewportTop = -100; // Start animating 100px before entering
-    const viewportBottom = windowHeight + 100; // Continue animating 100px after exiting
-    
-    // Check if element is in the animation range
-    const isInRange = 
-      elementCenter > viewportTop && 
-      elementCenter < viewportBottom;
+    // Entry-based progress: fade in as the section *enters* the viewport from below,
+    // so there's no band of blank black. Progress = 1 when section top reaches upper viewport.
+    const startFadeAt = windowHeight + 200; // Start fading in 200px before section top enters
+    const fullOpacityAt = windowHeight * 0.25; // Full opacity when section top is 25% from top
+    const visibleRange = startFadeAt - fullOpacityAt; // Scroll distance over which we go 0 -> 1
 
-    if (isInRange) {
+    if (elementTop <= startFadeAt) {
       setIsVisible(true);
-      
-      // Calculate smooth progress based on element's position relative to viewport
-      // Progress: 0 when element is entering/exiting, 1 when centered
-      const viewportCenter = windowHeight / 2;
-      const distanceFromCenter = elementCenter - viewportCenter;
-      const maxDistance = windowHeight / 2 + 300; // Extended range for smoother transitions
-      
-      // Calculate raw progress (0 to 1) based on distance from center
-      let rawProgress = 1 - Math.min(Math.abs(distanceFromCenter) / maxDistance, 1);
-      
-      // Apply smooth easing curve for more natural motion
-      // Use ease-out cubic for smooth deceleration
-      rawProgress = rawProgress < 0 ? 0 : rawProgress;
-      const easedProgress = 1 - Math.pow(1 - rawProgress, 3);
-      
-      // Clamp between 0 and 1
-      const calculatedProgress = Math.max(0, Math.min(1, easedProgress));
-      
-      setProgress(calculatedProgress);
+      // Linear progress over the range, then ease for smoother feel
+      let rawProgress = (startFadeAt - elementTop) / visibleRange;
+      rawProgress = Math.max(0, Math.min(1, rawProgress));
+      const easedProgress = 1 - Math.pow(1 - rawProgress, 2); // Ease-out quad: smooth deceleration at full opacity
+      setProgress(easedProgress);
     } else {
-      // Element is outside viewport - animate out
       setIsVisible(false);
       setProgress(0);
     }
-  }, [threshold, enabled]);
+  }, [enabled]);
 
   useEffect(() => {
     if (!enabled) return;

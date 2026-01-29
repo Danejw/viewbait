@@ -5,7 +5,7 @@ import { useScrollAnimation } from "@/lib/hooks/useScrollAnimation";
 
 export interface ScrollRevealProps {
   children: ReactNode;
-  /** Vertical offset in px for translateY (default 24) */
+  /** Vertical offset in px for translateY (default 12) */
   offsetY?: number;
   /** Optional className for the wrapper */
   className?: string;
@@ -19,7 +19,7 @@ export interface ScrollRevealProps {
  */
 export function ScrollReveal({
   children,
-  offsetY = 24,
+  offsetY = 6,
   className,
   style,
 }: ScrollRevealProps) {
@@ -36,6 +36,7 @@ export function ScrollReveal({
         opacity,
         transform: `translateY(${translateY}px)`,
         willChange: "opacity, transform",
+        transition: "opacity 0.8s ease-out, transform 0.8s ease-out",
         ...style,
       }}
     >

@@ -433,9 +433,8 @@ a:focus-visible {
 
 .landing-page .phosphor-red {
   text-shadow:
-    0 0 4px rgba(255, 0, 0, 0.8),
-    0 0 8px rgba(255, 0, 0, 0.5),
-    0 0 16px rgba(255, 0, 0, 0.3),
+    0 0 2px rgba(255, 0, 0, 0.4),
+    0 0 4px rgba(255, 0, 0, 0.25),
     1px 0 0 rgba(255, 100, 100, 0.5),
     -1px 0 0 rgba(200, 0, 50, 0.5);
 }

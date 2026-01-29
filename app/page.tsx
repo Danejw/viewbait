@@ -832,41 +832,16 @@ export default function ViewBaitLanding() {
             </div>
           </div>
         </div>
-
-        <div
-          className="hide-mobile"
-          style={{
-            position: "absolute",
-            bottom: "32px",
-            left: "50%",
-            transform: "translateX(-50%)",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            gap: "10px",
-            opacity: 0.5,
-          }}
-          aria-hidden
-        >
-          <span className="mono crt-text" style={{ fontSize: "9px", letterSpacing: "0.1em", color: "#555" }}>
-            SCROLL
-          </span>
-          <div
-            style={{
-              width: "1px",
-              height: "32px",
-              background: "linear-gradient(180deg, #ff0000, transparent)",
-              boxShadow: "0 0 8px rgba(255,0,0,0.5)",
-            }}
-          />
-        </div>
       </section>
 
       {/* Bento Features */}
       <section
         id="product"
         style={{
-          padding: "var(--landing-section-padding) var(--landing-padding-x)",
+          paddingTop: "max(40px, 6vh)",
+          paddingBottom: "var(--landing-section-padding)",
+          paddingLeft: "var(--landing-padding-x)",
+          paddingRight: "var(--landing-padding-x)",
           position: "relative",
         }}
       >
