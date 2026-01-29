@@ -379,7 +379,7 @@ export function StudioChatPanel() {
                     {msg.suggestions.map((s, i) => (
                       <Button
                         key={i}
-                        variant="outline"
+                        variant="suggestion"
                         size="sm"
                         className="text-xs"
                         onClick={() => handleSuggestionClick(s)}

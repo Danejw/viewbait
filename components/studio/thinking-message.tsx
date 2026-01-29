@@ -2,7 +2,7 @@
 
 import React from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 import { ViewBaitLogo } from "@/components/ui/viewbait-logo";
 
 export interface ThinkingState {
@@ -40,10 +40,12 @@ export function ThinkingMessage({
         </div>
         {toolCalls.length > 0 && (
           <div className="mt-2 border-t border-border pt-2">
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="icon-sm"
               onClick={onToggleExpanded}
-              className="flex w-full items-center gap-1 text-left text-xs text-muted-foreground hover:text-foreground"
+              className="w-full justify-start gap-1 text-left text-xs text-muted-foreground hover:text-foreground"
             >
               {isExpanded ? (
                 <ChevronDown className="h-3 w-3" />
@@ -51,7 +53,7 @@ export function ThinkingMessage({
                 <ChevronRight className="h-3 w-3" />
               )}
               <span>Tool calls</span>
-            </button>
+            </Button>
             {isExpanded && (
               <ul className="mt-1 space-y-1 pl-4 text-xs text-muted-foreground">
                 {toolCalls.map((tc, i) => (

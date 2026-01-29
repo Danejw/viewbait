@@ -190,14 +190,16 @@ export function StudioMobileFloatingNav() {
           <FloatingButtonItem>
             <Tooltip>
               <TooltipTrigger asChild>
-                <button
+                <Button
                   type="button"
+                  variant="outline"
+                  size="icon-lg"
                   onClick={() => setSubscriptionModalOpen(true)}
-                  className="flex h-10 w-10 items-center justify-center rounded-full bg-background border border-border text-foreground text-xs font-medium shadow-md hover:bg-primary hover:text-primary-foreground hover:border-primary transition-colors"
+                  className="rounded-full shadow-md bg-background border-border text-foreground text-xs font-medium hover:bg-primary hover:text-primary-foreground hover:border-primary min-w-10 h-10"
                   aria-label="Credits and subscription"
                 >
                   {creditsLoading ? "…" : creditsRemaining}
-                </button>
+                </Button>
               </TooltipTrigger>
               <TooltipContent side="right">Credits and subscription</TooltipContent>
             </Tooltip>
@@ -211,14 +213,14 @@ export function StudioMobileFloatingNav() {
               <FloatingButtonItem key={item.view}>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <button
+                    <Button
                       type="button"
+                      variant="outline"
+                      size="icon-lg"
                       onClick={() => !item.locked && setView(item.view)}
                       disabled={item.locked}
                       className={cn(
-                        "flex h-12 w-12 items-center justify-center rounded-full shadow-md transition-colors disabled:opacity-50 disabled:pointer-events-none",
-                        "bg-background border border-border text-foreground",
-                        "hover:bg-primary hover:text-primary-foreground hover:border-primary",
+                        "h-12 w-12 rounded-full shadow-md bg-background border-border text-foreground hover:bg-primary hover:text-primary-foreground hover:border-primary",
                         isSelected && "bg-primary text-primary-foreground border-primary ring-2 ring-primary ring-offset-2 ring-offset-background",
                         item.locked && "cursor-not-allowed"
                       )}
@@ -226,7 +228,7 @@ export function StudioMobileFloatingNav() {
                       aria-current={isSelected ? "true" : undefined}
                     >
                       <Icon className="h-5 w-5" />
-                    </button>
+                    </Button>
                   </TooltipTrigger>
                   <TooltipContent side="right">{tooltipLabel}</TooltipContent>
                 </Tooltip>

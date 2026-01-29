@@ -74,17 +74,18 @@ export function StudioSidebarNav() {
           const isActive = currentView === item.view;
 
           const buttonContent = (
-            <button
+            <Button
               key={item.view}
+              type="button"
+              variant="ghost"
+              size={leftSidebarCollapsed ? "icon-sm" : "sm"}
               onClick={() => !item.locked && setView(item.view)}
               disabled={item.locked}
               className={cn(
-                "flex items-center rounded-md text-sm transition-colors text-left w-full",
-                leftSidebarCollapsed
-                  ? "justify-center p-2"
-                  : "gap-3 px-3 py-2",
+                "w-full justify-start text-left",
+                leftSidebarCollapsed ? "shrink-0" : "gap-3",
                 isActive
-                  ? "bg-sidebar-primary text-sidebar-primary-foreground"
+                  ? "bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary hover:text-sidebar-primary-foreground"
                   : "text-sidebar-foreground hover:bg-sidebar-accent/50",
                 item.locked && "opacity-50 cursor-not-allowed"
               )}
@@ -96,7 +97,7 @@ export function StudioSidebarNav() {
                   {item.locked && <Lock className="ml-auto h-3 w-3" />}
                 </>
               )}
-            </button>
+            </Button>
           );
 
           if (leftSidebarCollapsed) {
@@ -137,18 +138,21 @@ export function StudioSidebarCredits() {
           <div className="border-t border-sidebar-border p-2">
             <Tooltip>
               <TooltipTrigger asChild>
-                <button
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
                   onClick={() => setIsModalOpen(true)}
-                  className="flex items-center justify-center w-full cursor-pointer hover:opacity-80 transition-opacity"
+                  className="w-full flex items-center justify-center hover:opacity-80"
                 >
                   {isLoading ? (
                     <Skeleton className="h-8 w-8 rounded-md" />
                   ) : (
-                    <div className="flex h-8 w-8 items-center justify-center rounded-md bg-sidebar-accent text-xs font-medium text-sidebar-foreground">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-md bg-sidebar-accent text-xs font-medium text-sidebar-foreground">
                       {creditsRemaining}
-                    </div>
+                    </span>
                   )}
-                </button>
+                </Button>
               </TooltipTrigger>
               <TooltipContent side="right">
                 {isLoading
@@ -172,27 +176,31 @@ export function StudioSidebarCredits() {
     <>
       <TooltipProvider delayDuration={0}>
         <div className="border-t border-sidebar-border p-4">
-          <div className="flex items-center justify-between">
-            <button
+          <div className="flex items-start justify-between gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
               onClick={() => setIsModalOpen(true)}
-              className="text-left cursor-pointer hover:opacity-80 transition-opacity"
+              className="text-left cursor-pointer hover:opacity-80 flex-1 min-w-0 p-0 h-auto"
             >
               {isLoading ? (
-                <>
-                  <Skeleton className="h-4 w-12 mb-1" />
+                <div className="flex flex-col gap-1">
+                  <Skeleton className="h-4 w-12" />
                   <Skeleton className="h-3 w-24" />
-                </>
+                </div>
               ) : (
-                <>
-                  <p className="text-sm font-medium text-sidebar-foreground">
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-sm font-medium text-sidebar-foreground block">
                     {tierConfig.name}
-                  </p>
-                  <p className="text-xs text-sidebar-foreground/70">
-                    {creditsRemaining} / {creditsTotal} credits
-                  </p>
-                </>
+                  </span>
+                  <span className="text-xs text-sidebar-foreground/70 block">
+                    <span className="text-primary font-medium">{creditsRemaining}</span>
+                    {" "}/ {creditsTotal} credits
+                  </span>
+                </div>
               )}
-            </button>
+            </Button>
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -296,7 +304,14 @@ export function StudioSidebarUser() {
     <TooltipProvider delayDuration={0}>
       <div className="mt-auto border-t border-sidebar-border p-4">
         <div className="mb-4 flex items-center gap-2">
-          <NotificationBell size="icon-sm" />
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="inline-flex">
+                <NotificationBell size="icon-sm" />
+              </span>
+            </TooltipTrigger>
+            <TooltipContent side="right">Notifications</TooltipContent>
+          </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
               <span className="inline-flex">
@@ -409,10 +424,12 @@ export function StudioSidebar() {
     <div className="flex h-full flex-col">
       {/* Logo / collapse toggle */}
       <div className={cn(leftSidebarCollapsed ? "p-2" : "p-2")}>
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size={leftSidebarCollapsed ? "icon-sm" : "sm"}
                 onClick={toggleLeftSidebar}
-                className="flex items-center gap-2 w-full rounded-md hover:bg-sidebar-accent/50 transition-colors text-left"
+                className="w-full justify-start gap-2 text-left hover:bg-sidebar-accent/50 text-sidebar-foreground"
                 aria-label={leftSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
               >
                 <div className="flex h-8 w-8 items-center justify-center shrink-0">
@@ -421,7 +438,7 @@ export function StudioSidebar() {
                 {!leftSidebarCollapsed && (
                   <span className="text-lg font-semibold text-sidebar-foreground">View<span className="text-primary">Bait</span></span>
                 )}
-              </button>
+              </Button>
       </div>
       <StudioSidebarCredits />
       <StudioSidebarNav />

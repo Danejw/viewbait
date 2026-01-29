@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 
 /**
  * Reusable circular X icon button for closing modals, dialogs, sheets, and panels.
- * Use with Radix Close (asChild) or standalone with onClick.
+ * Uses primary (default) variant for prominence. Use with Radix Close (asChild) or standalone with onClick.
  */
 const CloseButton = React.forwardRef<
   HTMLButtonElement,
@@ -18,7 +18,7 @@ const CloseButton = React.forwardRef<
     <Button
       ref={ref}
       type="button"
-      variant="ghost"
+      variant="default"
       size="icon-sm"
       aria-label="Close"
       className={cn("rounded-full", className)}

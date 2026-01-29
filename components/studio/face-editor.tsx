@@ -76,20 +76,21 @@ function ImagePreviewItem({
           </div>
         )}
       </div>
-      <button
+      <Button
         type="button"
+        variant="destructive"
+        size="icon-xs"
         onClick={() => onRemove(preview.id)}
         disabled={isRemoving}
         className={cn(
-          "absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full",
-          "bg-destructive text-destructive-foreground shadow-sm",
+          "absolute -right-2 -top-2 h-6 w-6 rounded-full shadow-sm",
           "opacity-0 transition-opacity group-hover:opacity-100",
-          "hover:bg-destructive/90 focus:outline-none focus:ring-2 focus:ring-destructive",
           isRemoving && "opacity-100"
         )}
+        aria-label="Remove face"
       >
         <X className="h-3 w-3" />
-      </button>
+      </Button>
     </div>
   );
 }
@@ -164,39 +165,45 @@ function DropZone({
   }
 
   return (
-    <div
-      role="button"
-      tabIndex={0}
-      onDrop={handleDrop}
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onClick={handleClick}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          handleClick();
-        }
-      }}
+    <Button
+      asChild
+      type="button"
+      variant="outline"
       className={cn(
-        "flex h-24 w-24 cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed transition-colors",
+        "flex h-24 w-24 cursor-pointer flex-col items-center justify-center gap-1 h-auto border-2 border-dashed rounded-lg",
         isDragging
           ? "border-primary bg-primary/5"
           : "border-border hover:border-primary/50",
         disabled && "cursor-not-allowed opacity-50"
       )}
+      onClick={handleClick}
+      disabled={disabled}
     >
-      <Upload className="h-5 w-5 text-muted-foreground" />
-      <span className="text-[10px] text-muted-foreground text-center px-1">
-        Add Image
-      </span>
-      <input
-        ref={inputRef}
-        type="file"
-        accept="image/*"
-        multiple
-        onChange={handleFileChange}
-        className="hidden"
-      />
-    </div>
+      <div
+        tabIndex={0}
+        onDrop={handleDrop}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            handleClick();
+          }
+        }}
+      >
+        <Upload className="h-5 w-5 text-muted-foreground" />
+        <span className="text-[10px] text-muted-foreground text-center px-1">
+          Add Image
+        </span>
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          onChange={handleFileChange}
+          className="hidden"
+        />
+      </div>
+    </Button>
   );
 }
 

@@ -1,6 +1,6 @@
 # Button Audit — Application-Wide Button Types and Variants
 
-This document captures all buttons, button types, and button variants used across the Viewbait application so styling can be controlled from a central system.
+This document captures all buttons, button types, and button variants used across the Viewbait application. **All in-app buttons use the shared `Button` component from `@/components/ui/button.tsx`** (or wrappers that delegate to it), so styling is controlled from a central system.
 
 ---
 
@@ -15,11 +15,13 @@ The app uses a single primary Button component built with **class-variance-autho
 | Variant       | Usage in app |
 |---------------|--------------|
 | **default**   | Primary CTAs: auth submit, landing "Get Started" / "Start Creating", generate button, "View plans", subscription tier (selected), not-found links, aspect ratio / resolution / variations toggles when selected |
-| **outline**   | Secondary actions: "Learn More", dialog "Close", "Try Again" (error states), "Cancel" (modals), Add view/cell, refresh, load more, mobile nav actions, browse controls |
+| **outline**   | Secondary actions: "Learn More", dialog "Close", "Try Again" (error states), "Cancel" (modals), Add view/cell, refresh, load more, mobile nav actions, browse controls, drop zones (with `asChild`) |
 | **secondary** | Style card "Use style", palette-editor cancel, style-editor cancel, subscription modal (current tier) |
-| **ghost**     | Icon-only and low-emphasis: CloseButton, menu, user, sign out, referral, theme toggle, notification bell, sidebar collapse, card overflow actions, chat "Reset", "Dismiss", pagination (inactive), calendar day cell, combobox clear |
+| **ghost**     | Icon-only and low-emphasis: menu, user, sign out, referral, theme toggle, notification bell, sidebar collapse, card overflow actions, chat "Reset", "Dismiss", pagination (inactive), calendar day cell, combobox clear, nav items, notification list rows (with `asChild`). CloseButton uses **default** (primary). |
 | **destructive** | Delete actions: thumbnail delete, palette delete, style delete, face delete, delete-confirmation primary action |
-| **link**      | Defined in `button.tsx` but **not used** anywhere in the codebase |
+| **link**      | Forgot password, "Create your first style", "Manage all styles", "Add a palette", "Manage palettes", "Add your first face" (inline link-style actions) |
+
+**Ghost and secondary hover:** On hover, text and icon (and any content inside the button) use the **primary** color (`hover:text-primary`, `hover:[&_svg]:text-primary`).
 
 ### 1.2 Sizes
 
@@ -31,14 +33,14 @@ The app uses a single primary Button component built with **class-variance-autho
 | **lg**      | Auth submit buttons, landing CTAs, generate button, not-found |
 | **icon**    | Send (chat), calendar day cell, view-controls icon buttons, style-card / face-card overflow, notification-item, browse-controls, theme-toggle (when not icon-sm), combobox chip remove |
 | **icon-xs** | Combobox clear button, InputGroupButton in combobox |
-| **icon-sm** | CloseButton, sidebar icons (referral, sign out, collapse), thumbnail/palette/style/face card actions, studio-generator mode toggle, notification bell, theme toggle, sidebar trigger |
+| **icon-sm** | CloseButton (primary variant), sidebar icons (referral, sign out, collapse), thumbnail/palette/style/face card actions, studio-generator mode toggle, notification bell, theme toggle, sidebar trigger |
 | **icon-lg**  | Mobile floating nav actions, studio-settings-sidebar icons, referral modal close |
 
 ### 1.3 HTML button types
 
 | Type       | Where used |
 |------------|-------------|
-| **submit** | Auth forms (login, signup, forgot-password submit, reset-password via BaseButton) |
+| **submit** | Auth forms (login, signup, forgot-password submit, reset-password) |
 | **button** | All other buttons (default when omitted on `<Button>`) |
 
 ---
@@ -47,12 +49,12 @@ The app uses a single primary Button component built with **class-variance-autho
 
 ### 2.1 CloseButton (`@/components/ui/close-button.tsx`)
 
-- Wraps `Button` with fixed props: `type="button"`, `variant="ghost"`, `size="icon-sm"`, `aria-label="Close"`.
-- Used in: modal, dialog, sheet.
+- Wraps `Button` with fixed props: `type="button"`, `variant="default"` (primary), `size="icon-sm"`, `aria-label="Close"`.
+- Used in: modal, dialog, sheet, studio chat. Primary variant for prominence.
 
 ### 2.2 FloatingButton (`@/components/ui/floating-button.tsx`)
 
-- **Not** a Button variant. FAB pattern built with Framer Motion (`motion.div` / `motion.ul`). Trigger and items are custom-styled; no use of `Button` or `buttonVariants`.
+- **Not** a Button variant. FAB pattern built with Framer Motion (`motion.div` / `motion.ul`). Callers pass `Button` as `triggerContent` and as `FloatingButtonItem` children so all FAB triggers use the shared Button styling.
 
 ### 2.3 ButtonGroup (`@/components/ui/button-group.tsx`)
 
@@ -68,6 +70,13 @@ The app uses a single primary Button component built with **class-variance-autho
 - `AlertDialogAction`: uses `Button` with `variant`/`size` props (default: `variant="default"`, `size="default"`).
 - `AlertDialogCancel`: uses `Button` with default `variant="outline"`, `size="default"`.
 
+### 2.6 Tabs — primary segment look (`@/components/ui/tabs.tsx`)
+
+- **TabsTrigger** has CVA `tabsTriggerVariants` with **variant** (`default` | `primary`) and **size** (`default` | `compact` | `lg`).
+- The **primary** look (active: `bg-primary` / `text-primary-foreground`, inactive: `bg-muted` / `text-muted-foreground` with hover) is defined by `variant="primary"`. Use this for segment-style tabs so the app stays consistent.
+- **Sizes:** `compact` for small panels (e.g. notification popover: Unread / All / Archived); `lg` for full panels (e.g. Browse: Thumbnails / Styles / Palettes; Results / Settings).
+- Used in: notification-popover, studio-frame (mobile Results/Settings), studio-views (Browse tabs).
+
 ---
 
 ## 3. Other Components That Use Button
@@ -82,9 +91,9 @@ The app uses a single primary Button component built with **class-variance-autho
 
 ---
 
-## 4. Raw `<button>` Elements (Not Using Button Component)
+## 4. Migration status (completed)
 
-These are native `<button>` elements with custom `className`s. Replacing them with `Button` would centralize styling.
+- **Raw `<button>` elements** have been replaced with `<Button>` across: auth page (forgot password), studio-sidebar (nav items, credits, collapse), studio-generator (mode tabs, add cell, style/palette/face links and grids), thinking-message, view-controls (clear search), studio-mobile-floating-nav (credits, nav items), studio-settings-sidebar, palette-editor, palette-card-manage, face-editor, face-card, style-editor.
 
 | File | Purpose |
 |------|---------|
@@ -105,34 +114,24 @@ Some clickable areas use `role="button"` on non-button elements (e.g. `studio-ge
 
 ---
 
-## 5. Alternative Button System (Reset Password)
-
-**File:** `app/auth/reset-password/page.tsx`
-
-- Uses **BaseButton** from `@/app/components/BaseButton` with `variant="primary"` and `size="md"`.
-- `Button` from `@/components/ui/button.tsx` does **not** have `variant="primary"` or `size="md"` (it has `default` and `lg`/`sm`/etc.).
-- **Recommendation:** Either migrate this page to `Button` (e.g. `variant="default"` and `size="lg"` to match other auth pages) or document BaseButton as a separate system and map its variants to the central one.
-
----
-
-## 6. Summary: Single Source of Truth
+## 5. Summary: Single Source of Truth
 
 | Concern | Current state |
 |--------|----------------|
 | **Primary component** | `@/components/ui/button.tsx` — CVA variants and sizes |
-| **Variants used** | default, outline, secondary, ghost, destructive. **link** exists but unused |
+| **Variants used** | default, outline, secondary, ghost, destructive, link |
 | **Sizes used** | default, sm, lg, icon, icon-xs, icon-sm, icon-lg. **xs** only via InputGroupButton |
 | **HTML types** | `submit` on form submit buttons; `button` everywhere else |
-| **Gaps** | (1) Many raw `<button>` and `role="button"` elements; (2) BaseButton on reset-password with different variant/size names; (3) InputGroupButton has its own size scale |
+| **Ghost/secondary hover** | Text and icon use primary color on hover |
 
-### Recommendations for a central system
+### Central system in place
 
-1. **Keep** `button.tsx` and `buttonVariants` as the single source of truth for primary/secondary/ghost/destructive and sizes.
-2. **Replace** raw `<button>` and appropriate `role="button"` elements with `<Button>` and the right variant/size so all interactive buttons go through the same styles.
-3. **Align** reset-password with the rest of the app: use `Button` with `variant="default"` and `size="lg"` (or add `primary`/`md` to the central Button if you want to keep those names).
-4. **Document** CloseButton, InputGroupButton, and AlertDialog Action/Cancel as wrappers that delegate to `Button` and list their default variant/size in this doc.
-5. **Optionally** remove or repurpose the unused `link` variant, or start using it for text-link-style actions so it’s consistent.
+1. **Single source:** `button.tsx` and `buttonVariants` control all button styling.
+2. **Wrappers:** CloseButton, InputGroupButton, and AlertDialog Action/Cancel delegate to `Button`; FloatingButton callers pass `Button` as trigger and items.
+3. **Drop zones / custom markup:** `Button asChild` wraps divs that need drag-drop or custom layout while keeping Button styling and semantics.
+4. **link variant:** Used for inline link-style actions (forgot password, "Create your first style", "Manage all styles", etc.).
+’s consistent.
 
 ---
 
-*Last audited: application-wide grep and file review of `viewbait` (Button, CloseButton, FloatingButton, ButtonGroup, InputGroupButton, AlertDialog, raw buttons, BaseButton).*
+*Last updated: after centralizing all buttons on `Button` and adding ghost/secondary hover (primary color).*

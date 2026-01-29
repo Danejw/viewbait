@@ -31,17 +31,19 @@ export function StudioSettingsSidebarHeader() {
   return (
     <TooltipProvider delayDuration={0}>
       <div className="p-2">
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="sm"
               onClick={toggleRightSidebar}
-              className="flex w-full items-center gap-2 rounded-md text-left hover:bg-sidebar-accent/50 transition-colors"
+              className="w-full justify-start gap-2 text-left hover:bg-sidebar-accent/50"
               aria-label="Collapse settings"
             >
               <div className="flex h-8 w-8 shrink-0 items-center justify-center">
                 <Settings className="h-4 w-4 block text-muted-foreground" />
               </div>
               <h2 className="text-sm font-semibold">Settings</h2>
-            </button>
+            </Button>
       </div>
     </TooltipProvider>
   );

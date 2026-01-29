@@ -89,16 +89,10 @@ export function StudioLayoutResponsive({
           className="flex flex-1 flex-col overflow-hidden"
         >
           <TabsList className="shrink-0 w-full px-4 mt-2 flex gap-2" variant="default">
-            <TabsTrigger
-              value="results"
-              className="flex-1 rounded-lg py-2.5 text-sm font-medium transition-colors data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:hover:bg-primary/80 data-[state=inactive]:bg-muted data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:bg-primary/10 data-[state=inactive]:hover:text-primary"
-            >
+            <TabsTrigger value="results" variant="primary" size="lg">
               Results
             </TabsTrigger>
-            <TabsTrigger
-              value="settings"
-              className="flex-1 rounded-lg py-2.5 text-sm font-medium transition-colors data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:hover:bg-primary/80 data-[state=inactive]:bg-muted data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:bg-primary/10 data-[state=inactive]:hover:text-primary"
-            >
+            <TabsTrigger value="settings" variant="primary" size="lg">
               Settings
             </TabsTrigger>
           </TabsList>

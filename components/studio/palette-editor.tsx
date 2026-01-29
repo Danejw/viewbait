@@ -197,36 +197,39 @@ function ColorChip({
           maxLength={7}
         />
       ) : (
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="sm"
           onClick={handleEditStart}
           onDoubleClick={() => colorInputRef.current?.click()}
           disabled={disabled}
           className={cn(
-            "text-xs font-mono transition-opacity",
+            "min-w-0 text-xs font-mono transition-opacity h-auto py-0",
             !disabled && "cursor-pointer hover:opacity-80"
           )}
           style={{ color: contrastColor }}
           title="Click to edit, double-click for color picker"
         >
           {color}
-        </button>
+        </Button>
       )}
 
       {/* Delete button */}
       {canDelete && !disabled && (
-        <button
+        <Button
           type="button"
+          variant="destructive"
+          size="icon-xs"
           onClick={() => onDelete(index)}
           className={cn(
-            "absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full",
-            "bg-destructive text-destructive-foreground shadow-sm",
-            "opacity-0 transition-opacity group-hover:opacity-100",
-            "hover:bg-destructive/90 focus:outline-none focus:ring-2 focus:ring-destructive"
+            "absolute -right-2 -top-2 h-6 w-6 rounded-full shadow-sm",
+            "opacity-0 transition-opacity group-hover:opacity-100"
           )}
+          aria-label="Remove color"
         >
           <X className="h-3 w-3" />
-        </button>
+        </Button>
       )}
     </div>
   );
@@ -243,19 +246,19 @@ function AddColorButton({
   disabled?: boolean;
 }) {
   return (
-    <button
+    <Button
       type="button"
+      variant="outline"
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        "flex h-16 w-full min-w-[80px] items-center justify-center rounded-lg",
-        "border-2 border-dashed border-border bg-muted/50 transition-all",
+        "h-16 w-full min-w-[80px] border-2 border-dashed border-border bg-muted/50 rounded-lg",
         !disabled && "hover:border-primary/50 hover:bg-muted",
         disabled && "cursor-not-allowed opacity-50"
       )}
     >
       <Plus className="h-5 w-5 text-muted-foreground" />
-    </button>
+    </Button>
   );
 }
 
@@ -343,55 +346,61 @@ function ImageUploadZone({
           className="h-full w-full object-cover"
         />
         {!disabled && (
-          <button
+          <Button
             type="button"
+            variant="destructive"
+            size="icon"
             onClick={onClear}
-            className={cn(
-              "absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full",
-              "bg-background/80 backdrop-blur-sm transition-colors hover:bg-destructive hover:text-destructive-foreground"
-            )}
+            className="absolute right-2 top-2 h-8 w-8 rounded-full bg-background/80 backdrop-blur-sm hover:bg-destructive hover:text-destructive-foreground"
+            aria-label="Clear image"
           >
             <Trash2 className="h-4 w-4" />
-          </button>
+          </Button>
         )}
       </div>
     );
   }
 
   return (
-    <div
-      role="button"
-      tabIndex={0}
-      onDrop={handleDrop}
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onClick={handleClick}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          handleClick();
-        }
-      }}
+    <Button
+      asChild
+      type="button"
+      variant="outline"
       className={cn(
-        "flex aspect-video w-full max-w-xs cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed transition-colors",
+        "flex aspect-video w-full max-w-xs cursor-pointer flex-col items-center justify-center gap-2 h-auto border-2 border-dashed rounded-lg",
         isDragging
           ? "border-primary bg-primary/5"
           : "border-border hover:border-primary/50",
         disabled && "cursor-not-allowed opacity-50"
       )}
+      onClick={handleClick}
+      disabled={disabled}
     >
-      <ImageIcon className="h-8 w-8 text-muted-foreground" />
-      <div className="text-center">
-        <p className="text-sm font-medium">Drop an image here</p>
-        <p className="text-xs text-muted-foreground">or click to browse, or paste (Ctrl+V)</p>
+      <div
+        tabIndex={0}
+        onDrop={handleDrop}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            handleClick();
+          }
+        }}
+      >
+        <ImageIcon className="h-8 w-8 text-muted-foreground" />
+        <div className="text-center">
+          <p className="text-sm font-medium">Drop an image here</p>
+          <p className="text-xs text-muted-foreground">or click to browse, or paste (Ctrl+V)</p>
+        </div>
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/*"
+          onChange={handleFileChange}
+          className="hidden"
+        />
       </div>
-      <input
-        ref={inputRef}
-        type="file"
-        accept="image/*"
-        onChange={handleFileChange}
-        className="hidden"
-      />
-    </div>
+    </Button>
   );
 }
 

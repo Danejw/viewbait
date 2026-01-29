@@ -2,29 +2,30 @@
 
 /**
  * Password Reset Page
- * 
+ *
  * Allows users to set a new password after clicking the reset link in their email.
  */
 
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import BaseCard from "@/app/components/BaseCard";
-import BaseButton from "@/app/components/BaseButton";
-import BaseInput from "@/app/components/BaseInput";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useAuth } from "@/lib/hooks/useAuth";
 
 function ResetPasswordForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { updatePassword, isAuthenticated } = useAuth();
-  
+
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
-  // Redirect if already authenticated
+  // Redirect already authenticated users
   useEffect(() => {
     if (isAuthenticated && !searchParams.get("code")) {
       router.push("/studio");
@@ -48,7 +49,7 @@ function ResetPasswordForm() {
     setLoading(true);
     try {
       const { error: updateError } = await updatePassword(password);
-      
+
       if (updateError) {
         setError(updateError.message || "Failed to update password");
       } else {
@@ -66,76 +67,82 @@ function ResetPasswordForm() {
 
   return (
     <div className="flex min-h-screen items-center justify-center px-6 py-12">
-      <BaseCard padding="lg" className="w-full max-w-md">
-        <h1 className="mb-6 text-2xl font-bold font-display text-foreground">
-          Reset Password
-        </h1>
+      <Card className="w-full max-w-md">
+        <CardContent className="p-6">
+          <h1 className="mb-6 text-2xl font-bold font-display text-foreground">
+            Reset Password
+          </h1>
 
-        {success ? (
-          <div className="space-y-4">
-            <p className="text-primary">
-              Password updated successfully! Redirecting...
-            </p>
-          </div>
-        ) : (
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {error && (
-              <div className="rounded-lg bg-destructive/10 border border-destructive/20 p-3 text-sm text-destructive">
-                {error}
+          {success ? (
+            <div className="space-y-4">
+              <p className="text-primary">
+                Password updated successfully! Redirecting...
+              </p>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {error && (
+                <div className="rounded-lg bg-destructive/10 border border-destructive/20 p-3 text-sm text-destructive">
+                  {error}
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <Label htmlFor="password">New Password</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  minLength={8}
+                  placeholder="••••••••"
+                  disabled={loading}
+                  autoComplete="new-password"
+                />
               </div>
-            )}
 
-            <BaseInput
-              id="password"
-              type="password"
-              label="New Password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              minLength={8}
-              placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
-              disabled={loading}
-              variant="inset"
-              size="md"
-            />
+              <div className="space-y-2">
+                <Label htmlFor="confirmPassword">Confirm Password</Label>
+                <Input
+                  id="confirmPassword"
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                  minLength={8}
+                  placeholder="••••••••"
+                  disabled={loading}
+                  autoComplete="new-password"
+                />
+              </div>
 
-            <BaseInput
-              id="confirmPassword"
-              type="password"
-              label="Confirm Password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              required
-              minLength={8}
-              placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
-              disabled={loading}
-              variant="inset"
-              size="md"
-            />
-
-            <BaseButton
-              type="submit"
-              variant="primary"
-              size="md"
-              disabled={loading}
-              className="w-full"
-            >
-              {loading ? "Updating..." : "Update Password"}
-            </BaseButton>
-          </form>
-        )}
-      </BaseCard>
+              <Button
+                type="submit"
+                variant="default"
+                size="lg"
+                disabled={loading}
+                className="w-full"
+              >
+                {loading ? "Updating..." : "Update Password"}
+              </Button>
+            </form>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
 
 export default function ResetPasswordPage() {
   return (
-    <Suspense fallback={
-      <div className="flex min-h-screen items-center justify-center">
-        <div>Loading...</div>
-      </div>
-    }>
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center">
+          <div>Loading...</div>
+        </div>
+      }
+    >
       <ResetPasswordForm />
     </Suspense>
   );

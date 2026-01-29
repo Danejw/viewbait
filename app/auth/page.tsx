@@ -252,13 +252,15 @@ function AuthForm() {
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <Label htmlFor="signin-password">Password</Label>
-                      <button
+                      <Button
                         type="button"
+                        variant="link"
+                        size="sm"
                         onClick={handleForgotPassword}
-                        className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                        className="text-xs text-muted-foreground h-auto p-0"
                       >
                         Forgot password?
-                      </button>
+                      </Button>
                     </div>
                     <Input
                       id="signin-password"

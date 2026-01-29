@@ -105,40 +105,19 @@ export function NotificationPopover({ onClose }: NotificationPopoverProps) {
         )}
       </div>
 
-      {/* Tabs: primary button look (matches Browse and Results/Settings) */}
+      {/* Tabs: primary variant + compact size (design system) */}
       <Tabs defaultValue="unread" className="w-full">
-        <TabsList variant="default" className="w-full flex gap-2 p-1 mx-3 mt-2">
-          <TabsTrigger
-            value="unread"
-            className={cn(
-              "flex-1 rounded-lg py-2 text-sm font-medium transition-colors",
-              "data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:hover:bg-primary/80",
-              "data-[state=inactive]:bg-muted data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:bg-primary/10 data-[state=inactive]:hover:text-primary"
-            )}
-          >
+        <TabsList variant="default" className="w-full flex gap-2 p-1 mx-3 mt-1.5">
+          <TabsTrigger value="unread" variant="primary" size="compact">
             Unread
             {unreadCount > 0 && (
               <span className="ml-1 text-xs opacity-90">({unreadCount})</span>
             )}
           </TabsTrigger>
-          <TabsTrigger
-            value="all"
-            className={cn(
-              "flex-1 rounded-lg py-2 text-sm font-medium transition-colors",
-              "data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:hover:bg-primary/80",
-              "data-[state=inactive]:bg-muted data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:bg-primary/10 data-[state=inactive]:hover:text-primary"
-            )}
-          >
+          <TabsTrigger value="all" variant="primary" size="compact">
             All
           </TabsTrigger>
-          <TabsTrigger
-            value="archived"
-            className={cn(
-              "flex-1 rounded-lg py-2 text-sm font-medium transition-colors",
-              "data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:hover:bg-primary/80",
-              "data-[state=inactive]:bg-muted data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:bg-primary/10 data-[state=inactive]:hover:text-primary"
-            )}
-          >
+          <TabsTrigger value="archived" variant="primary" size="compact">
             Archived
           </TabsTrigger>
         </TabsList>

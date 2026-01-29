@@ -14,6 +14,7 @@
 import React, { memo, useCallback } from "react";
 import { Sparkles, Droplets, Globe, Lock } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { PaletteThumbnailCard } from "@/components/studio/palette-thumbnail-card";
@@ -66,11 +67,12 @@ export const PaletteCardCompact = memo(function PaletteCardCompact({
   }, [palette.id, onSelect]);
 
   return (
-    <button
+    <Button
       type="button"
+      variant="ghost"
       onClick={handleClick}
       className={cn(
-        "flex flex-col items-center gap-1 rounded-md p-2 transition-all",
+        "flex flex-col items-center gap-1 rounded-md p-2 transition-all h-auto",
         "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
         isSelected && "ring-2 ring-primary ring-offset-2"
       )}
@@ -100,7 +102,7 @@ export const PaletteCardCompact = memo(function PaletteCardCompact({
       <span className="max-w-16 truncate text-xs text-muted-foreground">
         {palette.name}
       </span>
-    </button>
+    </Button>
   );
 });
 

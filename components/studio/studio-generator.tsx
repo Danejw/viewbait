@@ -7,13 +7,13 @@ import {
   MessageSquare,
   Link as LinkIcon,
   ImagePlus,
-  X,
   Palette,
   Plus,
   Sparkles,
   SlidersHorizontal,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { CloseButton } from "@/components/ui/close-button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -55,10 +55,13 @@ export function StudioGeneratorTabs() {
 
   return (
     <div className="flex gap-2 border-b border-border">
-      <button
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
         onClick={() => setMode("manual")}
         className={cn(
-          "flex items-center gap-2 border-b-2 px-4 py-2 text-sm font-medium transition-colors",
+          "rounded-none border-b-2 -mb-px",
           mode === "manual"
             ? "border-primary text-primary"
             : "border-transparent text-muted-foreground hover:text-foreground"
@@ -66,11 +69,14 @@ export function StudioGeneratorTabs() {
       >
         <SlidersHorizontal className="h-4 w-4" />
         Manual
-      </button>
-      <button
+      </Button>
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
         onClick={() => setMode("chat")}
         className={cn(
-          "flex items-center gap-2 border-b-2 px-4 py-2 text-sm font-medium transition-colors",
+          "rounded-none border-b-2 -mb-px",
           mode === "chat"
             ? "border-primary text-primary"
             : "border-transparent text-muted-foreground hover:text-foreground"
@@ -78,7 +84,7 @@ export function StudioGeneratorTabs() {
       >
         <MessageSquare className="h-4 w-4" />
         Chat
-      </button>
+      </Button>
     </div>
   );
 }
@@ -345,48 +351,51 @@ export function StudioGeneratorStyleReferences() {
             className="hidden"
             onChange={handleFileInputChange}
           />
-          <div
-            tabIndex={0}
-            role="button"
-            onDrop={handleFileDrop}
-            onDragOver={(e) => {
-              e.preventDefault();
-              setIsDraggingFile(true);
-            }}
-            onDragLeave={() => setIsDraggingFile(false)}
-            onPaste={handlePaste}
+          <Button
+            asChild
+            type="button"
+            variant="outline"
             className={cn(
-              "grid grid-cols-3 gap-1 rounded-md border-2 border-dashed p-2 transition-colors",
+              "grid grid-cols-3 gap-1 rounded-md border-2 border-dashed p-2 h-auto min-h-[6rem]",
               isDraggingFile ? "border-primary bg-primary/5" : "border-border hover:border-primary/50",
               isDropTarget && "border-primary bg-primary/10"
             )}
           >
+            <div
+              tabIndex={0}
+              role="button"
+              onDrop={handleFileDrop}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setIsDraggingFile(true);
+              }}
+              onDragLeave={() => setIsDraggingFile(false)}
+              onPaste={handlePaste}
+            >
             {styleReferences.map((url, index) => (
               <div
                 key={`${url}-${index}`}
                 className="group relative aspect-square overflow-hidden rounded-md border-2 border-border transition-all hover:border-primary/50"
               >
                 <img src={url} alt="" className="absolute inset-0 h-full w-full object-cover" />
-                <button
-                  type="button"
+                <CloseButton
                   onClick={(e) => {
                     e.stopPropagation();
                     removeStyleReference(index);
                   }}
-                  className="absolute right-0.5 top-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-destructive text-destructive-foreground opacity-0 transition-opacity hover:opacity-100 group-hover:opacity-100"
+                  className="absolute right-0.5 top-0.5 h-6 w-6 opacity-0 transition-opacity hover:opacity-100 group-hover:opacity-100"
                   aria-label="Remove reference"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
+                />
               </div>
             ))}
             {hasRoom && (
-              <button
+              <Button
                 type="button"
+                variant="outline"
                 onClick={handleAddCellClick}
                 disabled={isUploading}
                 className={cn(
-                  "flex aspect-square items-center justify-center rounded-md border-2 border-dashed border-border text-muted-foreground transition-colors hover:border-primary hover:text-primary disabled:opacity-50",
+                  "aspect-square h-auto w-full border-2 border-dashed border-border text-muted-foreground hover:border-primary hover:text-primary",
                   isDropTarget && "border-primary text-primary"
                 )}
               >
@@ -395,9 +404,10 @@ export function StudioGeneratorStyleReferences() {
                 ) : (
                   <ImagePlus className="h-5 w-5" />
                 )}
-              </button>
+              </Button>
             )}
-          </div>
+            </div>
+          </Button>
           {uploadError && <p className="mt-1 text-xs text-destructive">{uploadError}</p>}
         </>
       )}
@@ -571,24 +581,27 @@ export function StudioGeneratorStyleSelection() {
               <div className="col-span-3 py-2">
                 <p className="text-xs text-muted-foreground">
                   No styles available.{" "}
-                  <button
+                  <Button
                     type="button"
+                    variant="link"
+                    size="sm"
                     onClick={handleQuickCreate}
-                    className="text-primary underline hover:no-underline"
+                    className="h-auto p-0 text-primary"
                   >
                     Create your first style
-                  </button>
+                  </Button>
                 </p>
               </div>
             ) : (
               // Style previews: fill container, title on hover only
               availableStyles.map((style) => (
-                <button
+                <Button
                   key={style.id}
                   type="button"
+                  variant="outline"
                   onClick={() => handleSelectStyle(style.id)}
                   className={cn(
-                    "group relative aspect-square overflow-hidden rounded-md border-2 transition-all",
+                    "group relative aspect-square h-auto w-full overflow-hidden rounded-md border-2 p-0 transition-all",
                     selectedStyle === style.id
                       ? "border-primary ring-2 ring-primary/20"
                       : "border-border hover:border-primary/50"
@@ -619,32 +632,35 @@ export function StudioGeneratorStyleSelection() {
                   >
                     {style.name || "Style"}
                   </span>
-                </button>
+                </Button>
               ))
             )}
 
             {/* Quick-create cell – same aspect as grid items */}
             {!isLoading && (
-              <button
+              <Button
                 type="button"
+                variant="outline"
                 onClick={handleQuickCreate}
-                className="flex aspect-square items-center justify-center rounded-md border-2 border-dashed border-border text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+                className="aspect-square h-auto w-full border-2 border-dashed border-border text-muted-foreground hover:border-primary hover:text-primary"
               >
                 <Plus className="h-5 w-5" />
-              </button>
+              </Button>
             )}
             </div>
           </div>
 
           {/* Link to full styles management */}
           {availableStyles.length > 0 && (
-            <button
+            <Button
               type="button"
+              variant="link"
+              size="sm"
               onClick={handleManageStyles}
-              className="text-xs text-muted-foreground underline hover:no-underline hover:text-foreground"
+              className="h-auto p-0 text-xs text-muted-foreground hover:text-foreground"
             >
               Manage all styles
-            </button>
+            </Button>
           )}
         </>
       )}
@@ -726,26 +742,29 @@ export function StudioGeneratorPalette() {
           ) : effectivePalettes.length === 0 ? (
             <p className="text-xs text-muted-foreground">
               No palettes yet.{" "}
-              <button
+              <Button
                 type="button"
+                variant="link"
+                size="sm"
                 onClick={() => setView("palettes")}
-                className="text-primary underline hover:no-underline"
+                className="h-auto p-0 text-primary"
               >
                 Add a palette
-              </button>
+              </Button>
             </p>
           ) : (
             <>
               <div className="grid grid-cols-3 gap-2 max-h-[14rem] overflow-y-auto hide-scrollbar">
                 {effectivePalettes.map((palette) => (
-                  <button
+                  <Button
                     key={palette.id}
                     type="button"
+                    variant="outline"
                     onClick={() =>
                       setSelectedPalette(selectedPalette === palette.id ? null : palette.id)
                     }
                     className={cn(
-                      "rounded-md border-2 p-1 text-left transition-all",
+                      "h-auto flex-col items-stretch rounded-md border-2 p-1 text-left transition-all",
                       selectedPalette === palette.id
                         ? "border-primary ring-2 ring-primary/20"
                         : "border-border hover:border-primary/50"
@@ -757,16 +776,18 @@ export function StudioGeneratorPalette() {
                       rounded="rounded-sm"
                     />
                     <p className="mt-1 truncate text-xs text-muted-foreground">{palette.name}</p>
-                  </button>
+                  </Button>
                 ))}
               </div>
-              <button
+              <Button
                 type="button"
+                variant="link"
+                size="sm"
                 onClick={() => setView("palettes")}
-                className="mt-1 text-xs text-muted-foreground underline hover:no-underline hover:text-foreground"
+                className="mt-1 h-auto p-0 text-xs text-muted-foreground hover:text-foreground"
               >
                 Manage palettes
-              </button>
+              </Button>
             </>
           )}
         </>
@@ -946,13 +967,15 @@ export function StudioGeneratorFaces() {
                 <div className="col-span-3 py-2">
                   <p className="text-xs text-muted-foreground">
                     No faces saved yet.{" "}
-                    <button
+                    <Button
                       type="button"
+                      variant="link"
+                      size="sm"
                       onClick={handleAddFace}
-                      className="text-primary underline hover:no-underline"
+                      className="h-auto p-0 text-primary"
                     >
                       Add your first face
-                    </button>
+                    </Button>
                   </p>
                 </div>
               ) : (
@@ -969,13 +992,14 @@ export function StudioGeneratorFaces() {
               )}
               {/* Add new face cell – same aspect as grid items */}
               {!isLoading && (
-                <button
+                <Button
                   type="button"
+                  variant="outline"
                   onClick={handleAddFace}
-                  className="flex aspect-square items-center justify-center rounded-md border-2 border-dashed border-border text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+                  className="aspect-square h-auto w-full border-2 border-dashed border-border text-muted-foreground hover:border-primary hover:text-primary"
                 >
                   <Plus className="h-5 w-5" />
-                </button>
+                </Button>
               )}
             </div>
           </div>

@@ -271,16 +271,19 @@ export const ViewControls = memo(function ViewControls({
             title={isCompact ? searchPlaceholder : undefined}
           />
           {searchQuery && (
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="icon-xs"
               onClick={handleClearSearch}
               className={cn(
                 "absolute top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground",
                 isCompact ? "right-1.5" : "right-2"
               )}
+              aria-label="Clear search"
             >
               <X className={cn(isCompact ? "h-3 w-3" : "h-3.5 w-3.5")} />
-            </button>
+            </Button>
           )}
         </div>
       )}

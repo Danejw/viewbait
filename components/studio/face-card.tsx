@@ -127,11 +127,12 @@ export const FaceCardCompact = memo(function FaceCardCompact({
   const firstImage = face.image_urls?.[0];
 
   return (
-    <button
+    <Button
       type="button"
+      variant="ghost"
       onClick={handleClick}
       className={cn(
-        "flex flex-col items-center gap-1 rounded-md p-1 transition-all",
+        "flex flex-col items-center gap-1 rounded-md p-1 transition-all h-auto",
         "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
         isSelected && "ring-2 ring-primary ring-offset-2"
       )}
@@ -155,7 +156,7 @@ export const FaceCardCompact = memo(function FaceCardCompact({
       <span className="max-w-14 truncate text-xs text-muted-foreground">
         {face.name}
       </span>
-    </button>
+    </Button>
   );
 });
 

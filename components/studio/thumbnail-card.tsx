@@ -8,7 +8,9 @@
  * - Lazy image loading with intersection observer
  * - Skeleton state for generating items
  * - Progressive image loading (400w -> 800w -> full)
- * - Hover effects: scale animation, title/resolution overlay, action bar
+ * - Hover effects: scale animation, title/resolution overlay
+ * - Action bar in a pop-up above the thumbnail on hover (HoverCard) so icons
+ *   are never clipped by the card bounds and remain fully visible/clickable
  * - Auto-wired actions via useThumbnailActions hook (no prop drilling)
  * - Drag-and-drop support for dropping into style references
  * 
@@ -21,6 +23,11 @@ import { Heart, Download, Share2, Copy, Pencil, Trash2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from "@/components/ui/hover-card";
 import {
   Tooltip,
   TooltipContent,
@@ -195,7 +202,7 @@ function ActionButton({
           size="icon-sm"
           onClick={onClick}
           className={cn(
-            "h-7 w-7 bg-muted/80 hover:bg-muted",
+            "h-7 w-7 bg-muted hover:bg-muted",
             variant === "destructive" && "hover:bg-destructive/20 hover:text-destructive",
             active && "text-red-500"
           )}
@@ -319,21 +326,9 @@ export const ThumbnailCard = memo(function ThumbnailCard({
     onView(thumbnail);
   }, [thumbnail, onView]);
 
-  // Pull-up action bar: rendered above the card so it's never clipped by overflow.
-  // Wrapper expands hover area upward (pt + -mt) so moving to the popup keeps it visible.
+  /** Action bar content - shared between HoverCard pop-up (keeps design consistent) */
   const actionBar = (
-    <div
-      role="toolbar"
-      aria-label="Thumbnail actions"
-      className={cn(
-        "absolute bottom-full left-1/2 z-10 mb-2 flex -translate-x-1/2 items-center justify-center gap-1 rounded-lg px-2 py-1.5 shadow-lg",
-        "bg-muted/95 backdrop-blur-sm ring-1 ring-border/50",
-        "translate-y-1 opacity-0 transition-all duration-200 ease-out",
-        "group-hover/thumb:translate-y-0 group-hover/thumb:opacity-100 group-hover/thumb:pointer-events-auto",
-        "pointer-events-none"
-      )}
-      onClick={(e) => e.stopPropagation()}
-    >
+    <div className="flex items-center justify-center gap-1">
       <ActionButton
         icon={Heart}
         label={isFavorite ? "Remove from favorites" : "Add to favorites"}
@@ -374,58 +369,58 @@ export const ThumbnailCard = memo(function ThumbnailCard({
   );
 
   return (
-    <div
-      className={cn(
-        "group/thumb relative overflow-visible",
-        "pt-[52px] -mt-[52px]"
-      )}
-    >
-      {/* Pull-up action bar: above card, outside overflow so icons are never clipped */}
-      {actionBar}
+    <HoverCard openDelay={150} closeDelay={100}>
+      <HoverCardTrigger asChild>
+        <Card
+          ref={setNodeRef}
+          className={cn(
+            "group relative aspect-video w-full cursor-pointer overflow-hidden p-0 transition-all",
+            "hover:ring-2 hover:ring-primary/50 hover:shadow-lg",
+            isDragging && "opacity-50 ring-2 ring-primary cursor-grabbing",
+            draggable && !isDragging && "cursor-grab"
+          )}
+          onClick={handleClick}
+          {...listeners}
+          {...attributes}
+        >
+          <div className="relative h-full w-full overflow-hidden bg-muted">
+            {/* Image with scale animation on hover */}
+            <div className="h-full w-full transition-transform duration-300 group-hover:scale-105">
+              <ProgressiveImage
+                src={imageUrl}
+                src400w={thumbnail400wUrl}
+                src800w={thumbnail800wUrl}
+                alt={name}
+                priority={priority}
+              />
+            </div>
 
-      <Card
-        ref={setNodeRef}
-        className={cn(
-          "group relative aspect-video w-full cursor-pointer overflow-hidden p-0 transition-all",
-          "hover:ring-2 hover:ring-primary/50 hover:shadow-lg",
-          isDragging && "opacity-50 ring-2 ring-primary cursor-grabbing",
-          draggable && !isDragging && "cursor-grab"
-        )}
-        onClick={handleClick}
-        {...listeners}
-        {...attributes}
+            {/* Top overlay - Title (left) and Resolution (right) - shown on hover */}
+            <div
+              className={cn(
+                "absolute inset-x-0 top-0 flex items-start justify-between p-2",
+                "bg-gradient-to-b from-black/60 to-transparent",
+                "opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+              )}
+            >
+              <p className="max-w-[70%] truncate text-sm font-medium text-white drop-shadow-sm">
+                {name}
+              </p>
+              <ResolutionBadge resolution={resolution} />
+            </div>
+          </div>
+        </Card>
+      </HoverCardTrigger>
+      {/* Action bar in pop-up above thumbnail - icons only, no card background */}
+      <HoverCardContent
+        side="top"
+        align="center"
+        sideOffset={8}
+        className="w-auto border-0 bg-transparent p-0 shadow-none ring-0"
       >
-        <div className="relative h-full w-full overflow-hidden bg-muted">
-          {/* Image with scale animation on hover */}
-          <div className="h-full w-full transition-transform duration-300 group-hover:scale-105">
-            <ProgressiveImage
-              src={imageUrl}
-              src400w={thumbnail400wUrl}
-              src800w={thumbnail800wUrl}
-              alt={name}
-              priority={priority}
-            />
-          </div>
-
-          {/* Top overlay - Title (left) and Resolution (right) - shown on hover */}
-          <div
-            className={cn(
-              "absolute inset-x-0 top-0 flex items-start justify-between p-2",
-              "bg-gradient-to-b from-black/60 to-transparent",
-              "opacity-0 transition-opacity duration-200 group-hover:opacity-100"
-            )}
-          >
-            {/* Title */}
-            <p className="max-w-[70%] truncate text-sm font-medium text-white drop-shadow-sm">
-              {name}
-            </p>
-
-            {/* Resolution badge */}
-            <ResolutionBadge resolution={resolution} />
-          </div>
-        </div>
-      </Card>
-    </div>
+        {actionBar}
+      </HoverCardContent>
+    </HoverCard>
   );
 });
 
