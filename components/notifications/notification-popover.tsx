@@ -88,7 +88,7 @@ export function NotificationPopover({ onClose }: NotificationPopoverProps) {
   }
 
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col min-w-0">
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2 border-b">
         <h3 className="font-semibold text-sm">Notifications</h3>
@@ -105,9 +105,10 @@ export function NotificationPopover({ onClose }: NotificationPopoverProps) {
         )}
       </div>
 
-      {/* Tabs: primary variant + compact size (design system) */}
-      <Tabs defaultValue="unread" className="w-full">
-        <TabsList variant="default" className="w-full flex gap-2 p-1 mx-3 mt-1.5">
+      {/* Tabs: primary variant + compact size; px-3 contains width so list doesn't overflow */}
+      <div className="px-3 min-w-0">
+        <Tabs defaultValue="unread" className="w-full min-w-0">
+          <TabsList variant="default" className="w-full min-w-0 flex gap-2 p-1 mt-1.5">
           <TabsTrigger value="unread" variant="primary" size="compact">
             Unread
             {unreadCount > 0 && (
@@ -214,7 +215,8 @@ export function NotificationPopover({ onClose }: NotificationPopoverProps) {
             </TabsContent>
           </>
         )}
-      </Tabs>
+        </Tabs>
+      </div>
     </div>
   );
 }
