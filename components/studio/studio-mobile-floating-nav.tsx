@@ -128,7 +128,7 @@ export function StudioMobileFloatingNav() {
                 <Button
                   variant="outline"
                   size="icon-lg"
-                  className="rounded-full shadow-md bg-background border-border text-foreground hover:bg-primary hover:text-primary-foreground hover:border-primary"
+                  className="rounded-full shadow-md bg-background dark:bg-card border-border text-foreground hover:bg-primary hover:text-primary-foreground hover:border-primary"
                   aria-label="Open menu"
                 >
                   <PanelLeft className="h-5 w-5" />
@@ -146,7 +146,7 @@ export function StudioMobileFloatingNav() {
                   variant="outline"
                   size="icon-lg"
                   onClick={handleSignOut}
-                  className="rounded-full shadow-md bg-background border-border text-foreground hover:bg-primary hover:text-primary-foreground hover:border-primary"
+                  className="rounded-full shadow-md bg-background dark:bg-card border-border text-foreground hover:bg-primary hover:text-primary-foreground hover:border-primary"
                   aria-label="Log out"
                 >
                   <LogOut className="h-4 w-4" />
@@ -162,7 +162,7 @@ export function StudioMobileFloatingNav() {
                 <span className="inline-flex">
                   <ThemeToggleSimple
                     size="icon-lg"
-                    className="rounded-full bg-background border border-border text-foreground hover:bg-primary hover:text-primary-foreground hover:border-primary shadow-md"
+                    className="rounded-full bg-background dark:bg-card border border-border text-foreground hover:bg-primary hover:text-primary-foreground hover:border-primary shadow-md"
                   />
                 </span>
               </TooltipTrigger>
@@ -177,7 +177,7 @@ export function StudioMobileFloatingNav() {
                   variant="outline"
                   size="icon-lg"
                   onClick={() => setReferralModalOpen(true)}
-                  className="rounded-full shadow-md bg-background border-border text-foreground hover:bg-primary hover:text-primary-foreground hover:border-primary"
+                  className="rounded-full shadow-md bg-background dark:bg-card border-border text-foreground hover:bg-primary hover:text-primary-foreground hover:border-primary"
                   aria-label="Referral code"
                 >
                   <Gift className="h-4 w-4" />
@@ -195,7 +195,7 @@ export function StudioMobileFloatingNav() {
                   variant="outline"
                   size="icon-lg"
                   onClick={() => setSubscriptionModalOpen(true)}
-                  className="rounded-full shadow-md bg-background border-border text-foreground text-xs font-medium hover:bg-primary hover:text-primary-foreground hover:border-primary min-w-10 h-10"
+                  className="rounded-full shadow-md bg-background dark:bg-card border-border text-foreground text-xs font-medium hover:bg-primary hover:text-primary-foreground hover:border-primary min-w-10 h-10"
                   aria-label="Credits and subscription"
                 >
                   {creditsLoading ? "…" : creditsRemaining}
@@ -220,8 +220,8 @@ export function StudioMobileFloatingNav() {
                       onClick={() => !item.locked && setView(item.view)}
                       disabled={item.locked}
                       className={cn(
-                        "h-12 w-12 rounded-full shadow-md bg-background border-border text-foreground hover:bg-primary hover:text-primary-foreground hover:border-primary",
-                        isSelected && "bg-primary text-primary-foreground border-primary ring-2 ring-primary ring-offset-2 ring-offset-background",
+                        "h-12 w-12 rounded-full shadow-md bg-background dark:bg-card border-border text-foreground hover:bg-primary hover:text-primary-foreground hover:border-primary",
+                        isSelected && "bg-primary text-primary-foreground border-primary ring-2 ring-primary ring-offset-2 ring-offset-background dark:ring-offset-card",
                         item.locked && "cursor-not-allowed"
                       )}
                       aria-label={item.label}
