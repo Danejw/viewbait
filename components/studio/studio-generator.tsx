@@ -26,16 +26,16 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useStudio } from "./studio-provider";
-import { StudioChatPanel } from "./studio-chat";
+import { useStudio } from "@/components/studio/studio-provider";
+import { StudioChatPanel } from "@/components/studio/studio-chat";
 import { useFaces } from "@/lib/hooks/useFaces";
 import { FaceThumbnail, FaceThumbnailSkeleton } from "./face-thumbnail";
 import { useStyles } from "@/lib/hooks/useStyles";
 import { usePalettes } from "@/lib/hooks/usePalettes";
-import { StyleEditor } from "./style-editor";
-import { PaletteColorStrip } from "./palette-thumbnail-card";
+import { StyleEditor } from "@/components/studio/style-editor";
+import { PaletteColorStrip } from "@/components/studio/palette-thumbnail-card";
 import { cn } from "@/lib/utils";
-import { DROP_ZONE_IDS, type DragData } from "./studio-dnd-context";
+import { DROP_ZONE_IDS, type DragData } from "@/components/studio/studio-dnd-context";
 import type { StyleInsert, StyleUpdate, DbStyle } from "@/lib/types/database";
 
 const MAX_STYLE_REFERENCES = 10;
@@ -129,7 +129,7 @@ export function StudioGeneratorCustomInstructions() {
   } = useStudio();
 
   return (
-    <div className="mb-6">
+    <div className="my-3">
       <label className="mb-2 block text-sm font-medium">Custom Instructions</label>
       <Textarea
         ref={customInstructionsRef}
@@ -278,15 +278,15 @@ export function StudioGeneratorStyleReferences() {
     <div
       ref={setNodeRef}
       className={cn(
-        "mb-6 rounded-lg p-3 -mx-3 transition-all duration-200",
+        "my-4 rounded-lg px-1 transition-all duration-200",
         // Drop zone visual feedback for thumbnail dragging
         isThumbnailBeingDragged && hasRoom && "border-2 border-dashed",
         isThumbnailBeingDragged && hasRoom && !isOver && "border-primary/30 bg-primary/5",
         isThumbnailBeingDragged && hasRoom && isOver && "border-primary bg-primary/10 drop-zone-active"
       )}
     >
-      <div className="mb-2 flex items-baseline gap-1.5">
-        <label className="text-sm font-medium">Style References</label>
+      <div className="flex items-baseline gap-1.5">
+        <label className="my-2 text-sm font-medium">Style References</label>
         <span className="text-xs text-muted-foreground">(max {MAX_STYLE_REFERENCES})</span>
         {/* Drop hint when dragging thumbnail */}
         {isThumbnailBeingDragged && hasRoom && (
@@ -498,16 +498,16 @@ export function StudioGeneratorStyleSelection() {
     <div
       ref={setNodeRef}
       className={cn(
-        "mb-6 rounded-lg p-3 -mx-3 transition-all duration-200",
+        "rounded-lg px-1 transition-all duration-200",
         // Drop zone visual feedback
         isStyleBeingDragged && "border-2 border-dashed",
         isStyleBeingDragged && !isOver && "border-primary/30 bg-primary/5",
         isStyleBeingDragged && isOver && "border-primary bg-primary/10 drop-zone-active"
       )}
     >
-      <div className="mb-4 flex items-center justify-between">
+      <div className=" flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <label className="text-sm font-medium">Style Selection</label>
+          <label className="my-2 text-sm font-medium">Style Selection</label>
           {/* Drop hint when dragging */}
           {isStyleBeingDragged && (
             <span className="text-xs text-primary animate-pulse">
@@ -660,16 +660,16 @@ export function StudioGeneratorPalette() {
     <div
       ref={setNodeRef}
       className={cn(
-        "mb-6 rounded-lg p-3 -mx-3 transition-all duration-200",
+        "rounded-lg px-1 transition-all duration-200",
         // Drop zone visual feedback
         isPaletteBeingDragged && "border-2 border-dashed",
         isPaletteBeingDragged && !isOver && "border-primary/30 bg-primary/5",
         isPaletteBeingDragged && isOver && "border-primary bg-primary/10 drop-zone-active"
       )}
     >
-      <div className="mb-4 flex items-center justify-between">
+      <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <label className="text-sm font-medium">Color Palette</label>
+          <label className="my-2 text-sm font-medium">Color Palette</label>
           {/* Drop hint when dragging */}
           {isPaletteBeingDragged && (
             <span className="text-xs text-primary animate-pulse">
@@ -747,7 +747,7 @@ export function StudioGeneratorAspectRatio() {
   } = useStudio();
 
   return (
-    <div>
+    <div className="mt-4 ml-1">
       <label className="mb-2 block text-sm font-medium">Aspect Ratio</label>
       <div className="flex flex-wrap gap-2">
         {ASPECT_RATIO_OPTIONS.map((ratio) => (
@@ -777,7 +777,7 @@ export function StudioGeneratorResolution() {
   } = useStudio();
 
   return (
-    <div>
+    <div className="mt-4">
       <label className="mb-2 block text-sm font-medium">Resolution</label>
       <div className="flex flex-wrap gap-2">
         {RESOLUTION_OPTIONS.map((res) => (
@@ -820,7 +820,7 @@ export function StudioGeneratorVariations() {
   } = useStudio();
 
   return (
-    <div className="mb-6">
+    <div className="mb-6 ml-1">
       <label className="mb-2 block text-sm font-medium">Variations</label>
       <div className="flex flex-wrap gap-2">
         {VARIATIONS_OPTIONS.map((n) => (
@@ -874,16 +874,16 @@ export function StudioGeneratorFaces() {
     <div
       ref={setNodeRef}
       className={cn(
-        "mb-6 rounded-lg p-3 -mx-3 transition-all duration-200",
+        "rounded-lg px-1 transition-all duration-200",
         // Drop zone visual feedback
         isFaceBeingDragged && "border-2 border-dashed",
         isFaceBeingDragged && !isOver && "border-primary/30 bg-primary/5",
         isFaceBeingDragged && isOver && "border-primary bg-primary/10 drop-zone-active"
       )}
     >
-      <div className="mb-4 flex items-center justify-between">
+      <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <label className="text-sm font-medium">Include Faces</label>
+          <label className="my-2 text-sm font-medium">Include Faces</label>
           {/* Drop hint when dragging */}
           {isFaceBeingDragged && (
             <span className="text-xs text-primary animate-pulse">
@@ -896,7 +896,7 @@ export function StudioGeneratorFaces() {
 
       {includeFaces && (
         <>
-          <div className="mb-4 max-h-[22rem] overflow-y-auto hide-scrollbar">
+          <div className="max-h-[22rem] overflow-y-auto hide-scrollbar">
             <div className="grid grid-cols-3 gap-1">
               {isLoading ? (
                 // Loading state – same tight grid as style selection
@@ -943,7 +943,7 @@ export function StudioGeneratorFaces() {
 
           {/* Expression and Pose selectors (only show when faces are selected) */}
           {selectedFaces.length > 0 && (
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-4 m-2">
               <div>
                 <label className="mb-2 block text-xs text-muted-foreground">
                   Expression
