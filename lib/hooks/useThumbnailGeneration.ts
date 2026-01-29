@@ -63,8 +63,18 @@ export interface UseThumbnailGenerationReturn {
   generate: (request: GenerationRequest) => Promise<GenerationResult[]>;
   clearGeneratingItems: () => void;
   removeGeneratingItem: (id: string) => void;
+  /** Remove all generating items whose id (key or item.id) is in the given set. Used to clear placeholders only when thumbnails appear in the list. */
+  removeGeneratingItemsByIds: (ids: Set<string> | string[]) => void;
   clearError: () => void;
   isPending: boolean;
+}
+
+/**
+ * Hook options: cooldown duration for the generate button (tier-based).
+ */
+export interface UseThumbnailGenerationOptions {
+  /** Cooldown in ms before the generate button is re-enabled after a submission. Default 12000. */
+  cooldownMs?: number;
 }
 
 /**
@@ -110,10 +120,18 @@ function mapRequestToApiOptions(request: GenerationRequest): GenerateThumbnailOp
   };
 }
 
+const DEFAULT_COOLDOWN_MS = 12000;
+
 /**
  * Thumbnail generation hook with optimistic UI support
  */
-export function useThumbnailGeneration(): UseThumbnailGenerationReturn {
+export function useThumbnailGeneration(
+  options?: UseThumbnailGenerationOptions
+): UseThumbnailGenerationReturn {
+  const cooldownMs = options?.cooldownMs ?? DEFAULT_COOLDOWN_MS;
+  const cooldownMsRef = useRef(cooldownMs);
+  cooldownMsRef.current = cooldownMs;
+
   const [state, setState] = useState<ThumbnailGenerationState>({
     isGenerating: false,
     isButtonDisabled: false,
@@ -172,11 +190,11 @@ export function useThumbnailGeneration(): UseThumbnailGenerationReturn {
       });
     });
 
-    // Re-enable button after 12 seconds for queuing
+    // Re-enable button after tier-based cooldown
     buttonTimeoutRef.current = setTimeout(() => {
       setState(prev => ({ ...prev, isButtonDisabled: false }));
       buttonTimeoutRef.current = null;
-    }, 12000);
+    }, cooldownMsRef.current);
 
     // Map request to API options
     const apiOptions = mapRequestToApiOptions(request);
@@ -332,6 +350,30 @@ export function useThumbnailGeneration(): UseThumbnailGenerationReturn {
   }, []);
 
   /**
+   * Remove all generating items whose id (key or item.id) is in the given set.
+   * Used to clear placeholders only when those thumbnails appear in the fetched list (data-driven clear).
+   */
+  const removeGeneratingItemsByIds = useCallback((ids: Set<string> | string[]) => {
+    const idSet = ids instanceof Set ? ids : new Set(ids);
+    if (idSet.size === 0) return;
+    startTransition(() => {
+      setState(prev => {
+        const newItems = new Map(prev.generatingItems);
+        for (const [key, item] of prev.generatingItems.entries()) {
+          if (idSet.has(key) || idSet.has(item.id)) {
+            newItems.delete(key);
+          }
+        }
+        return {
+          ...prev,
+          generatingItems: newItems,
+          isGenerating: newItems.size > 0,
+        };
+      });
+    });
+  }, []);
+
+  /**
    * Clear error state
    */
   const clearError = useCallback(() => {
@@ -343,6 +385,7 @@ export function useThumbnailGeneration(): UseThumbnailGenerationReturn {
     generate,
     clearGeneratingItems,
     removeGeneratingItem,
+    removeGeneratingItemsByIds,
     clearError,
     isPending,
   };

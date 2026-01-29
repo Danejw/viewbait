@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useRef, useCallback } from "react";
 import { useThumbnailGeneration } from "@/lib/hooks/useThumbnailGeneration";
+import { getGenerateCooldownMs } from "@/lib/constants/subscription-tiers";
 import { useThumbnails, useDeleteThumbnail, useToggleFavorite } from "@/lib/hooks/useThumbnails";
 import { useFaces } from "@/lib/hooks/useFaces";
 import { useAuth } from "@/lib/hooks/useAuth";
@@ -77,6 +78,8 @@ export interface StudioState {
   styleReferences: string[];
   // Loading state
   isGenerating: boolean;
+  // Generate button disabled during tier-based cooldown after submission
+  isButtonDisabled: boolean;
   // Generation error
   generationError: string | null;
   // Modal state
@@ -277,15 +280,18 @@ export function usePaletteActions() {
 export function StudioProvider({ children }: { children: React.ReactNode }) {
   // Auth hook for user context
   const { user, isAuthenticated } = useAuth();
-  
-  // Thumbnail generation hook
+  const { canCreateCustomAssets, hasWatermark, tier } = useSubscription();
+
+  // Thumbnail generation hook (cooldown duration based on subscription tier)
+  const cooldownMs = getGenerateCooldownMs(tier);
   const {
     state: generationState,
     generate,
     clearGeneratingItems,
     removeGeneratingItem,
+    removeGeneratingItemsByIds,
     clearError: clearGenerationError,
-  } = useThumbnailGeneration();
+  } = useThumbnailGeneration({ cooldownMs });
 
   // Thumbnails data hook (React Query)
   // Uses default sorting (created_at desc) for the generator results view
@@ -308,8 +314,6 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
   // Faces data hook (React Query)
   // Used to look up face image URLs when generating
   const { faces } = useFaces();
-
-  const { canCreateCustomAssets, hasWatermark } = useSubscription();
 
   // Mutation hooks
   const deleteMutation = useDeleteThumbnail();
@@ -344,6 +348,7 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
     includeStyleReferences: false,
     styleReferences: [],
     isGenerating: false,
+    isButtonDisabled: false,
     generationError: null,
     // Modal state
     deleteModalOpen: false,
@@ -365,29 +370,37 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
     faceToView: null,
   });
 
-  // Sync generation state
+  // Sync generation state (including cooldown so button stays disabled during tier-based interval)
   React.useEffect(() => {
     setState((s) => ({
       ...s,
       isGenerating: generationState.isGenerating,
+      isButtonDisabled: generationState.isButtonDisabled,
       generationError: generationState.error,
     }));
-  }, [generationState.isGenerating, generationState.error]);
+  }, [generationState.isGenerating, generationState.isButtonDisabled, generationState.error]);
 
   const thumbnailTextRef = useRef<HTMLInputElement>(null);
   const customInstructionsRef = useRef<HTMLTextAreaElement>(null);
 
   // Memoized refresh function
   // Uses invalidateAllThumbnails to refresh ALL thumbnail queries (including gallery with different sorting)
+  // Placeholders are cleared only when thumbnails appear in the list (see effect below), not on a timer
   const refreshThumbnails = useCallback(async () => {
-    // Invalidate all thumbnail queries to refresh both generator view and gallery view
     await invalidateAllThumbnails();
-    // Clear generating items after refresh so they don't show as duplicates
-    // Wait a bit for React Query cache to propagate
-    setTimeout(() => {
-      clearGeneratingItems();
-    }, 500);
-  }, [invalidateAllThumbnails, clearGeneratingItems]);
+  }, [invalidateAllThumbnails]);
+
+  // Clear generating placeholders only when the corresponding thumbnail is in the fetched list.
+  // Keeps placeholders visible until the real thumbnail appears, regardless of refetch timing.
+  React.useEffect(() => {
+    if (generationState.generatingItems.size === 0) return;
+    const thumbnailIds = new Set(thumbnails.map((t) => t.id));
+    const idsToRemove: string[] = [];
+    for (const item of generationState.generatingItems.values()) {
+      if (thumbnailIds.has(item.id)) idsToRemove.push(item.id);
+    }
+    if (idsToRemove.length > 0) removeGeneratingItemsByIds(idsToRemove);
+  }, [thumbnails, generationState.generatingItems, removeGeneratingItemsByIds]);
 
   // Generate thumbnails action
   const generateThumbnails = useCallback(async () => {

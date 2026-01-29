@@ -136,11 +136,24 @@ A powerful style management system:
 | Storage | 30 days | Permanent | Permanent | Permanent |
 | Priority Generation | No | No | Yes | Yes |
 | Early Access | No | No | No | Yes |
+| Generate cooldown | 12 s | 8 s | 4 s | 2 s |
 
 ### Credit System
 - **1K resolution** = 1 credit
 - **2K resolution** = 2 credits
 - **4K resolution** = 4 credits
+
+### Generate thumbnail cooldown
+After each "Generate" submission, the generate button is disabled for a tier-dependent cooldown to prevent rapid repeated submissions. The cooldown duration is:
+
+| Tier | Cooldown |
+|------|----------|
+| **Free** | 12 seconds |
+| **Starter** | 8 seconds |
+| **Advanced** | 4 seconds |
+| **Pro** | 2 seconds |
+
+The button stays disabled for this interval regardless of how quickly generation completes. Regenerate (from the edit modal) uses the same cooldown.
 
 ### Aspect ratios by tier
 Allowed aspect ratios for image generation, by subscription tier (used for tier-gating in the generator and API validation):

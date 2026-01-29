@@ -1111,13 +1111,13 @@ export function StudioGeneratorFaces() {
  */
 export function StudioGeneratorSubmit() {
   const {
-    state: { isGenerating, thumbnailText, variations, selectedResolution },
+    state: { isGenerating, isButtonDisabled, thumbnailText, variations, selectedResolution },
     actions: { generateThumbnails },
   } = useStudio();
   const { getResolutionCost } = useSubscription();
 
-  // Basic validation
-  const isDisabled = isGenerating || !thumbnailText.trim();
+  // Disabled during generation, tier-based cooldown, or when text is empty
+  const isDisabled = isGenerating || isButtonDisabled || !thumbnailText.trim();
 
   const creditCost = getResolutionCost(selectedResolution as "1K" | "2K" | "4K");
   const totalCost = creditCost * variations;

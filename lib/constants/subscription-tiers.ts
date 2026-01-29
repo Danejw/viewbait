@@ -42,6 +42,25 @@ export const ASPECT_RATIOS_BY_TIER: Record<TierName, readonly string[]> = {
   pro: [...ALL_ASPECT_RATIOS],
 }
 
+/**
+ * Generate thumbnail button cooldown (seconds) per tier.
+ * Prevents multiple submissions within this interval; button is disabled during cooldown.
+ */
+export const GENERATE_COOLDOWN_SECONDS_BY_TIER: Record<TierName, number> = {
+  free: 12,
+  starter: 8,
+  advanced: 4,
+  pro: 2,
+}
+
+/**
+ * Get generate thumbnail cooldown in milliseconds for a tier.
+ */
+export function getGenerateCooldownMs(tier: TierName): number {
+  const seconds = GENERATE_COOLDOWN_SECONDS_BY_TIER[tier] ?? 12
+  return seconds * 1000
+}
+
 export interface TierConfig {
   name: string
   product_id: string | null
