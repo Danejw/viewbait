@@ -88,7 +88,10 @@ export async function POST(request: Request) {
       operation: 'storage-cleanup-start',
     })
 
-    let storageResult = { deleted: 0, errors: [] }
+    let storageResult: Awaited<ReturnType<typeof deleteAllUserStorage>> = {
+      deleted: 0,
+      errors: [],
+    }
     try {
       storageResult = await deleteAllUserStorage(user.id)
 
@@ -99,7 +102,7 @@ export async function POST(request: Request) {
           userId: user.id,
           operation: 'storage-cleanup-partial-failure',
           deletedFiles: storageResult.deleted,
-          errors: storageResult.errors.map((e) => ({ bucket: e.bucket, message: e.error.message })),
+          errors: (storageResult.errors as Array<{ bucket: string; error: Error }>).map((e) => ({ bucket: e.bucket, message: e.error.message })),
         })
       } else {
         logInfo('Storage cleanup completed successfully', {

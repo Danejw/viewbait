@@ -1023,6 +1023,8 @@ export function StudioGeneratorFaces() {
                     <SelectItem value="Surprised">Surprised</SelectItem>
                     <SelectItem value="Confident">Confident</SelectItem>
                     <SelectItem value="Thoughtful">Thoughtful</SelectItem>
+                    <SelectItem value="Sad">Sad</SelectItem>
+                    <SelectItem value="Angry">Angry</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
