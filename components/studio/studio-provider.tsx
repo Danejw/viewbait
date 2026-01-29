@@ -35,6 +35,12 @@ export interface StudioState {
   // Sidebar collapse states
   leftSidebarCollapsed: boolean;
   rightSidebarCollapsed: boolean;
+  // Left sidebar width (px) when expanded; user can resize via drag
+  leftSidebarWidth: number;
+  // Right settings panel width (px) when expanded; user can resize via drag
+  rightSidebarWidth: number;
+  // Mobile layout: which panel is visible (results = center content, settings = right sidebar content)
+  mobilePanel: "results" | "settings";
   // Chat assistant state
   chatAssistant: {
     isOpen: boolean;
@@ -64,6 +70,7 @@ export interface StudioState {
   selectedAspectRatio: string;
   selectedResolution: string;
   variations: number;
+  includeStyleReferences: boolean;
   styleReferences: string[];
   // Loading state
   isGenerating: boolean;
@@ -98,6 +105,10 @@ export interface StudioActions {
   // Sidebar collapse
   toggleLeftSidebar: () => void;
   toggleRightSidebar: () => void;
+  setLeftSidebarWidth: (width: number) => void;
+  setRightSidebarWidth: (width: number) => void;
+  // Mobile panel (results | settings)
+  setMobilePanel: (panel: "results" | "settings") => void;
   // Chat assistant
   openChatAssistant: () => void;
   closeChatAssistant: () => void;
@@ -116,6 +127,7 @@ export interface StudioActions {
   setSelectedAspectRatio: (ratio: string) => void;
   setSelectedResolution: (resolution: string) => void;
   setVariations: (count: number) => void;
+  setIncludeStyleReferences: (include: boolean) => void;
   setStyleReferences: (references: string[]) => void;
   addStyleReference: (url: string) => void;
   removeStyleReference: (index: number) => void;
@@ -303,6 +315,9 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
     mode: "manual",
     leftSidebarCollapsed: false,
     rightSidebarCollapsed: false,
+    leftSidebarWidth: 256, // 16rem default (w-64)
+    rightSidebarWidth: 384, // 24rem default (w-96)
+    mobilePanel: "results",
     chatAssistant: {
       isOpen: false,
       conversationHistory: [],
@@ -321,6 +336,7 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
     selectedAspectRatio: "16:9",
     selectedResolution: "1K",
     variations: 1,
+    includeStyleReferences: false,
     styleReferences: [],
     isGenerating: false,
     generationError: null,
@@ -407,7 +423,10 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
       selectedAspectRatio: state.selectedAspectRatio,
       selectedResolution: state.selectedResolution,
       variations: state.variations,
-      styleReferences: state.styleReferences.length > 0 ? state.styleReferences : undefined,
+      styleReferences:
+        state.includeStyleReferences && state.styleReferences.length > 0
+          ? state.styleReferences
+          : undefined,
       faceCharacters,
       expression: state.includeFaces && state.faceExpression !== "None" ? state.faceExpression : null,
       pose: state.includeFaces && state.facePose !== "None" ? state.facePose : null,
@@ -635,6 +654,12 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
       setState((s) => ({ ...s, leftSidebarCollapsed: !s.leftSidebarCollapsed })),
     toggleRightSidebar: () =>
       setState((s) => ({ ...s, rightSidebarCollapsed: !s.rightSidebarCollapsed })),
+    setLeftSidebarWidth: (width) =>
+      setState((s) => ({ ...s, leftSidebarWidth: width })),
+    setRightSidebarWidth: (width) =>
+      setState((s) => ({ ...s, rightSidebarWidth: width })),
+    setMobilePanel: (panel) =>
+      setState((s) => ({ ...s, mobilePanel: panel })),
     openChatAssistant: () =>
       setState((s) => ({
         ...s,
@@ -667,7 +692,7 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
           selectedFaces: state.selectedFaces,
           expression: state.faceExpression !== "None" ? state.faceExpression : null,
           pose: state.facePose !== "None" ? state.facePose : null,
-          styleReferences: state.styleReferences,
+          styleReferences: state.includeStyleReferences ? state.styleReferences : [],
           selectedStyle: state.selectedStyle,
           selectedColor: state.includePalettes ? state.selectedPalette : null,
           selectedAspectRatio: state.selectedAspectRatio,
@@ -756,6 +781,8 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
     setSelectedResolution: (resolution) =>
       setState((s) => ({ ...s, selectedResolution: resolution })),
     setVariations: (count) => setState((s) => ({ ...s, variations: count })),
+    setIncludeStyleReferences: (include) =>
+      setState((s) => ({ ...s, includeStyleReferences: include })),
     setStyleReferences: (references) => setState((s) => ({ ...s, styleReferences: references })),
     addStyleReference: (url) =>
       setState((s) =>
@@ -805,6 +832,9 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
         if (updates.expression !== undefined)
           newState.faceExpression = updates.expression || "None";
         if (updates.pose !== undefined) newState.facePose = updates.pose || "None";
+        if (updates.includeStyleReferences !== undefined)
+          newState.includeStyleReferences = updates.includeStyleReferences;
+        if (updates.styleReferences !== undefined) newState.styleReferences = updates.styleReferences;
         return newState;
       });
     },
@@ -831,6 +861,7 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
               selectedAspectRatio: "16:9",
               selectedResolution: "1K",
               variations: 1,
+              includeStyleReferences: false,
               styleReferences: [] as string[],
             }
           : {}),

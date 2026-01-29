@@ -297,59 +297,53 @@ export const StudioViewBrowse = memo(function StudioViewBrowse() {
         <p className="text-muted-foreground">Discover public content from the community</p>
       </div>
 
-      {/* Tabs */}
+      {/* Tabs: primary button look (matches Results/Settings); icon-only on very small screens */}
       <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
-        <TabsList variant="line" className="w-full justify-start border-b border-border">
+        <TabsList variant="default" className="w-full flex gap-2 p-1">
           <TabsTrigger
             value="thumbnails"
+            title="Thumbnails"
+            aria-label="Thumbnails"
             onMouseEnter={() => handleTabHover("thumbnails")}
             onFocus={() => handleTabHover("thumbnails")}
             className={cn(
-              "gap-2 px-4 py-2 text-sm font-medium transition-all",
-              "data-[state=active]:text-foreground data-[state=active]:font-semibold",
-              "data-[state=active]:border-b-2 data-[state=active]:border-primary",
-              "data-[state=active]:bg-primary/5 dark:data-[state=active]:bg-primary/10",
-              "data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground",
-              "rounded-t-md rounded-b-none border-b-2 border-transparent",
-              "-mb-[2px]"
+              "flex-1 gap-1 rounded-lg px-2 py-2.5 sm:gap-2 sm:px-4 text-sm font-medium transition-colors",
+              "data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:hover:bg-primary/80",
+              "data-[state=inactive]:bg-muted data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:bg-primary/10 data-[state=inactive]:hover:text-primary"
             )}
           >
-            <ImageIcon className="h-4 w-4" />
-            Thumbnails
+            <ImageIcon className="h-4 w-4 shrink-0" />
+            <span className="hidden sm:inline">Thumbnails</span>
           </TabsTrigger>
           <TabsTrigger
             value="styles"
+            title="Styles"
+            aria-label="Styles"
             onMouseEnter={() => handleTabHover("styles")}
             onFocus={() => handleTabHover("styles")}
             className={cn(
-              "gap-2 px-4 py-2 text-sm font-medium transition-all",
-              "data-[state=active]:text-foreground data-[state=active]:font-semibold",
-              "data-[state=active]:border-b-2 data-[state=active]:border-primary",
-              "data-[state=active]:bg-primary/5 dark:data-[state=active]:bg-primary/10",
-              "data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground",
-              "rounded-t-md rounded-b-none border-b-2 border-transparent",
-              "-mb-[2px]"
+              "flex-1 gap-1 rounded-lg px-2 py-2.5 sm:gap-2 sm:px-4 text-sm font-medium transition-colors",
+              "data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:hover:bg-primary/80",
+              "data-[state=inactive]:bg-muted data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:bg-primary/10 data-[state=inactive]:hover:text-primary"
             )}
           >
-            <Palette className="h-4 w-4" />
-            Styles
+            <Palette className="h-4 w-4 shrink-0" />
+            <span className="hidden sm:inline">Styles</span>
           </TabsTrigger>
           <TabsTrigger
             value="palettes"
+            title="Palettes"
+            aria-label="Palettes"
             onMouseEnter={() => handleTabHover("palettes")}
             onFocus={() => handleTabHover("palettes")}
             className={cn(
-              "gap-2 px-4 py-2 text-sm font-medium transition-all",
-              "data-[state=active]:text-foreground data-[state=active]:font-semibold",
-              "data-[state=active]:border-b-2 data-[state=active]:border-primary",
-              "data-[state=active]:bg-primary/5 dark:data-[state=active]:bg-primary/10",
-              "data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground",
-              "rounded-t-md rounded-b-none border-b-2 border-transparent",
-              "-mb-[2px]"
+              "flex-1 gap-1 rounded-lg px-2 py-2.5 sm:gap-2 sm:px-4 text-sm font-medium transition-colors",
+              "data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:hover:bg-primary/80",
+              "data-[state=inactive]:bg-muted data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:bg-primary/10 data-[state=inactive]:hover:text-primary"
             )}
           >
-            <Droplets className="h-4 w-4" />
-            Palettes
+            <Droplets className="h-4 w-4 shrink-0" />
+            <span className="hidden sm:inline">Palettes</span>
           </TabsTrigger>
         </TabsList>
 

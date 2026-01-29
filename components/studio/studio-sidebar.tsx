@@ -33,9 +33,10 @@ import { useStudio, type StudioView } from "./studio-provider";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useSubscription } from "@/lib/hooks/useSubscription";
 import SubscriptionModal from "@/components/subscription-modal";
+import ReferralModal from "@/components/referral-modal";
 import { NotificationBell } from "@/components/notifications";
 
-interface NavItem {
+export interface NavItem {
   label: string;
   view: StudioView;
   icon: React.ComponentType<{ className?: string }>;
@@ -88,7 +89,7 @@ function ViewBaitLogo({ className }: { className?: string }) {
   );
 }
 
-const navItems: NavItem[] = [
+export const navItems: NavItem[] = [
   { label: "Generator", view: "generator", icon: Zap },
   { label: "Gallery", view: "gallery", icon: Grid3x3 },
   { label: "Browse", view: "browse", icon: FolderOpen },
@@ -271,6 +272,7 @@ export function StudioSidebarUser() {
   } = useStudio();
   const { user, profile, signOut, isLoading: authLoading } = useAuth();
   const router = useRouter();
+  const [referralModalOpen, setReferralModalOpen] = useState(false);
 
   // Derive display values
   const displayName =
@@ -313,7 +315,7 @@ export function StudioSidebarUser() {
             </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon-sm">
+                <Button variant="ghost" size="icon-sm" onClick={() => setReferralModalOpen(true)}>
                   <Gift className="h-4 w-4" />
                 </Button>
               </TooltipTrigger>
@@ -329,6 +331,7 @@ export function StudioSidebarUser() {
             </Tooltip>
           </div>
         </div>
+        <ReferralModal isOpen={referralModalOpen} onClose={() => setReferralModalOpen(false)} />
       </TooltipProvider>
     );
   }
@@ -348,7 +351,7 @@ export function StudioSidebarUser() {
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon-sm">
+              <Button variant="ghost" size="icon-sm" onClick={() => setReferralModalOpen(true)}>
                 <Gift className="h-4 w-4" />
               </Button>
             </TooltipTrigger>
@@ -386,10 +389,11 @@ export function StudioSidebarUser() {
           )}
         </div>
       </div>
-      <Button variant="outline" size="sm" className="w-full">
+      {/* <Button variant="outline" size="sm" className="w-full">
         <Download className="mr-2 h-4 w-4" />
         Export All Data
-      </Button>
+      </Button> */}
+        <ReferralModal isOpen={referralModalOpen} onClose={() => setReferralModalOpen(false)} />
     </div>
     </TooltipProvider>
   );

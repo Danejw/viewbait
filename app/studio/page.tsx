@@ -1,48 +1,41 @@
 "use client";
 
-import { StudioProvider, useStudio } from "@/components/studio/studio-provider";
-import { StudioDndContext } from "@/components/studio/studio-dnd-context";
 import {
+  StudioProvider,
   StudioFrame,
-  StudioLayout,
-  StudioMainPanel,
-  StudioSettingsPanel,
-  StudioSidebar as StudioSidebarFrame,
-} from "@/components/studio/studio-frame";
-import { StudioSidebar } from "@/components/studio/studio-sidebar";
-import { StudioMainContent } from "@/components/studio/studio-views";
-// import { StudioChatAssistant, StudioChatToggle } from "@/components/studio/studio-chat";
-import { StudioSettingsSidebar } from "@/components/studio/studio-settings-sidebar";
+  StudioLayoutResponsive,
+  StudioSidebarFrame,
+  StudioSidebar,
+  StudioMainContent,
+  StudioSettingsSidebar,
+  StudioMobileFloatingNav,
+} from "@/components/studio";
+import { StudioDndContext } from "@/components/studio/studio-dnd-context";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 /**
  * StudioPageContent
- * Inner component that uses the studio context for layout state
+ * Inner component that uses the studio context for layout state.
+ * Desktop: three-column layout (left sidebar, main, right settings).
+ * Mobile: single column with Results | Settings tabs; left nav becomes floating button.
  */
 function StudioPageContent() {
-  const {
-    state: { leftSidebarCollapsed, rightSidebarCollapsed },
-  } = useStudio();
+  const isMobile = useIsMobile();
 
   return (
     <StudioFrame>
-      <StudioLayout>
-        {/* Left sidebar - navigation */}
-        <StudioSidebarFrame collapsed={leftSidebarCollapsed}>
-          <StudioSidebar />
-        </StudioSidebarFrame>
-
-        {/* Center - main content (gallery/results based on view) */}
-        <StudioMainPanel>
-          <StudioMainContent />
-        </StudioMainPanel>
-
-        {/* Right sidebar - settings/generator form */}
-        <StudioSettingsPanel collapsed={rightSidebarCollapsed}>
-          <StudioSettingsSidebar />
-        </StudioSettingsPanel>
-      </StudioLayout>
-      {/* <StudioChatAssistant />
-      <StudioChatToggle /> */}
+      <StudioLayoutResponsive
+        left={
+          isMobile ? null : (
+            <StudioSidebarFrame>
+              <StudioSidebar />
+            </StudioSidebarFrame>
+          )
+        }
+        main={<StudioMainContent />}
+        right={<StudioSettingsSidebar />}
+      />
+      {isMobile && <StudioMobileFloatingNav />}
     </StudioFrame>
   );
 }

@@ -10,18 +10,19 @@ export {
   type StudioMeta,
   type StudioData,
   type StudioContextValue,
-} from "./studio-provider";
+} from "@/components/studio/studio-provider";
 
 // Studio Frame Components
 export {
   StudioFrame,
   StudioHeader as StudioHeaderFrame,
   StudioLayout,
+  StudioLayoutResponsive,
   StudioSidebar as StudioSidebarFrame,
   StudioMainPanel,
   StudioSettingsPanel,
   StudioResultsPanel,
-} from "./studio-frame";
+} from "@/components/studio/studio-frame";
 
 // Studio Header Components
 export {
@@ -30,7 +31,7 @@ export {
   StudioHeaderTitle,
   StudioHeaderCredits,
   StudioHeaderUser,
-} from "./studio-header";
+} from "@/components/studio/studio-header";
 
 // Studio Sidebar Components (left navigation)
 export {
@@ -39,7 +40,12 @@ export {
   StudioSidebarCredits,
   StudioSidebarUser,
   StudioSidebarToggle,
-} from "./studio-sidebar";
+  navItems,
+  type NavItem,
+} from "@/components/studio/studio-sidebar";
+
+// Studio Mobile Floating Nav (mobile-only)
+export { StudioMobileFloatingNav } from "@/components/studio/studio-mobile-floating-nav";
 
 // Studio Settings Sidebar Components (right panel)
 export {
@@ -47,7 +53,7 @@ export {
   StudioSettingsSidebarHeader,
   StudioSettingsSidebarCollapsed,
   StudioSettingsSidebarContent,
-} from "./studio-settings-sidebar";
+} from "@/components/studio/studio-settings-sidebar";
 
 // Studio Generator Components
 export {
@@ -64,7 +70,7 @@ export {
   StudioGeneratorVariations,
   StudioGeneratorFaces,
   StudioGeneratorSubmit,
-} from "./studio-generator";
+} from "@/components/studio/studio-generator";
 
 // Studio Results Components
 export {
@@ -73,7 +79,7 @@ export {
   StudioResultsError,
   StudioResultsGrid,
   StudioResultsLoadMore,
-} from "./studio-results";
+} from "@/components/studio/studio-results";
 
 // Thumbnail Components (optimized)
 export {
@@ -81,13 +87,13 @@ export {
   ThumbnailCardSkeleton,
   ThumbnailCardEmpty,
   type ThumbnailCardProps,
-} from "./thumbnail-card";
+} from "@/components/studio/thumbnail-card";
 
 export {
   ThumbnailGrid,
   ThumbnailGridSkeleton,
   type ThumbnailGridProps,
-} from "./thumbnail-grid";
+} from "@/components/studio/thumbnail-grid";
 
 // Face Components
 export {
@@ -95,24 +101,24 @@ export {
   FaceCardCompact,
   FaceCardSkeleton,
   type FaceCardProps,
-} from "./face-card";
+} from "@/components/studio/face-card";
 
 export {
   FaceEditor,
   type FaceEditorProps,
-} from "./face-editor";
+} from "@/components/studio/face-editor";
 
 // Gallery Controls
 export {
   GalleryControls,
   type GalleryControlsProps,
-} from "./gallery-controls";
+} from "@/components/studio/gallery-controls";
 
 // Browse Controls
 export {
   BrowseControls,
   type BrowseControlsProps,
-} from "./browse-controls";
+} from "@/components/studio/browse-controls";
 
 // Style Components (for both browse and my styles views)
 export {
@@ -120,44 +126,44 @@ export {
   StyleCardSkeleton,
   StyleCardEmpty,
   type StyleCardProps,
-} from "./style-card";
+} from "@/components/studio/style-card";
 
 export {
   StyleThumbnailCard,
   StyleThumbnailCardSkeleton,
   StyleThumbnailCardEmpty,
   type StyleThumbnailCardProps,
-} from "./style-thumbnail-card";
+} from "@/components/studio/style-thumbnail-card";
 
 export {
   StyleGrid,
   StyleGridSkeleton,
   type StyleGridProps,
-} from "./style-grid";
+} from "@/components/studio/style-grid";
 
 // Palette Components (for browse and manage views)
 export {
   PaletteThumbnailCard,
   PaletteColorStrip,
   type PaletteThumbnailCardProps,
-} from "./palette-thumbnail-card";
+} from "@/components/studio/palette-thumbnail-card";
 export {
   PaletteCard,
   PaletteCardSkeleton,
   PaletteCardEmpty,
   type PaletteCardProps,
-} from "./palette-card";
+} from "@/components/studio/palette-card";
 
 export {
   PaletteGrid,
   PaletteGridSkeleton,
   type PaletteGridProps,
-} from "./palette-grid";
+} from "@/components/studio/palette-grid";
 
 // Browse Tab Components
-export { BrowseThumbnails } from "./browse-thumbnails";
-export { BrowseStyles, type BrowseStylesProps } from "./browse-styles";
-export { BrowsePalettes, type BrowsePalettesProps } from "./browse-palettes";
+export { BrowseThumbnails } from "@/components/studio/browse-thumbnails";
+export { BrowseStyles, type BrowseStylesProps } from "@/components/studio/browse-styles";
+export { BrowsePalettes, type BrowsePalettesProps } from "@/components/studio/browse-palettes";
 
 // Studio Views Components
 export {
@@ -169,4 +175,4 @@ export {
   StudioViewPalettes,
   StudioViewFaces,
   StudioViewYouTube,
-} from "./studio-views";
+} from "@/components/studio/studio-views";

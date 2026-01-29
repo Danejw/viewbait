@@ -3,10 +3,8 @@
 import * as React from "react"
 import * as DialogPrimitive from "@radix-ui/react-dialog"
 import { cva, type VariantProps } from "class-variance-authority"
-import { XIcon } from "lucide-react"
-
 import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
+import { CloseButton } from "@/components/ui/close-button"
 
 /**
  * Modal size variants
@@ -64,7 +62,7 @@ function ModalOverlay({
     <DialogPrimitive.Overlay
       data-slot="modal-overlay"
       className={cn(
-        "data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 bg-black/80 duration-300 supports-backdrop-filter:backdrop-blur-xs fixed inset-0 isolate z-50",
+        "data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 bg-white/80 dark:bg-black/80 duration-300 supports-backdrop-filter:backdrop-blur-xs fixed inset-0 isolate z-50",
         className
       )}
       {...props}
@@ -93,14 +91,7 @@ function ModalContent({
         {children}
         {showCloseButton && (
           <DialogPrimitive.Close data-slot="modal-close" asChild>
-            <Button
-              variant="ghost"
-              className="absolute top-2 right-2"
-              size="icon-sm"
-            >
-              <XIcon />
-              <span className="sr-only">Close</span>
-            </Button>
+            <CloseButton className="absolute top-2 right-2" />
           </DialogPrimitive.Close>
         )}
       </DialogPrimitive.Content>

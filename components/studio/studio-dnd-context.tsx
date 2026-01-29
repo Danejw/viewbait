@@ -143,7 +143,8 @@ export function StudioDndContext({ children }: StudioDndContextProps) {
 
     // Handle thumbnail drop to style references
     if (overId === DROP_ZONE_IDS.STYLE_REFERENCES && data.type === "thumbnail") {
-      // Add the thumbnail's image URL as a style reference
+      // Auto-enable style references so the section expands and shows the new reference
+      actions.setIncludeStyleReferences(true);
       if (data.imageUrl) {
         actions.addStyleReference(data.imageUrl);
       }

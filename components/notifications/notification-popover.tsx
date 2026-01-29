@@ -8,9 +8,10 @@
  */
 
 import { useMemo } from "react";
-import { CheckCheck, Loader2, Bell } from "lucide-react";
+import { CheckCheck, Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useNotifications } from "@/lib/hooks/useNotifications";
@@ -104,29 +105,39 @@ export function NotificationPopover({ onClose }: NotificationPopoverProps) {
         )}
       </div>
 
-      {/* Tabs */}
+      {/* Tabs: primary button look (matches Browse and Results/Settings) */}
       <Tabs defaultValue="unread" className="w-full">
-        <TabsList className="w-full justify-start rounded-none border-b bg-transparent p-0">
+        <TabsList variant="default" className="w-full flex gap-2 p-1 mx-3 mt-2">
           <TabsTrigger
             value="unread"
-            className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent"
+            className={cn(
+              "flex-1 rounded-lg py-2 text-sm font-medium transition-colors",
+              "data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:hover:bg-primary/80",
+              "data-[state=inactive]:bg-muted data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:bg-primary/10 data-[state=inactive]:hover:text-primary"
+            )}
           >
             Unread
             {unreadCount > 0 && (
-              <span className="ml-1 text-xs text-muted-foreground">
-                ({unreadCount})
-              </span>
+              <span className="ml-1 text-xs opacity-90">({unreadCount})</span>
             )}
           </TabsTrigger>
           <TabsTrigger
             value="all"
-            className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent"
+            className={cn(
+              "flex-1 rounded-lg py-2 text-sm font-medium transition-colors",
+              "data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:hover:bg-primary/80",
+              "data-[state=inactive]:bg-muted data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:bg-primary/10 data-[state=inactive]:hover:text-primary"
+            )}
           >
             All
           </TabsTrigger>
           <TabsTrigger
             value="archived"
-            className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent"
+            className={cn(
+              "flex-1 rounded-lg py-2 text-sm font-medium transition-colors",
+              "data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:hover:bg-primary/80",
+              "data-[state=inactive]:bg-muted data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:bg-primary/10 data-[state=inactive]:hover:text-primary"
+            )}
           >
             Archived
           </TabsTrigger>

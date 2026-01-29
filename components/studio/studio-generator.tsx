@@ -151,8 +151,8 @@ export function StudioGeneratorCustomInstructions() {
  */
 export function StudioGeneratorStyleReferences() {
   const {
-    state: { styleReferences },
-    actions: { addStyleReference, removeStyleReference },
+    state: { includeStyleReferences, styleReferences },
+    actions: { setIncludeStyleReferences, addStyleReference, removeStyleReference },
   } = useStudio();
   const [isDraggingFile, setIsDraggingFile] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -235,6 +235,19 @@ export function StudioGeneratorStyleReferences() {
     [addFiles]
   );
 
+  /** When toggle is off, dropping files on the header row turns the toggle on and adds the files */
+  const handleOuterFileDrop = useCallback(
+    (e: React.DragEvent) => {
+      if (!includeStyleReferences && e.dataTransfer?.files?.length) {
+        e.preventDefault();
+        setIsDraggingFile(false);
+        setIncludeStyleReferences(true);
+        addFiles(e.dataTransfer.files);
+      }
+    },
+    [includeStyleReferences, setIncludeStyleReferences, addFiles]
+  );
+
   const handlePaste = useCallback(
     (e: React.ClipboardEvent) => {
       const items = e.clipboardData?.items;
@@ -269,99 +282,125 @@ export function StudioGeneratorStyleReferences() {
     [addFiles]
   );
 
-  // Determine if any drag is happening (file or thumbnail)
-  const isDragging = isDraggingFile || isThumbnailBeingDragged;
-  const isDropTarget = isOver && isThumbnailBeingDragged;
   const hasRoom = styleReferences.length < MAX_STYLE_REFERENCES;
+  const isDropTarget = isOver && isThumbnailBeingDragged;
+  const showDropFeedback =
+    (isThumbnailBeingDragged && hasRoom) || (isDraggingFile && hasRoom);
 
   return (
     <div
       ref={setNodeRef}
-      className={cn(
-        "my-4 rounded-lg px-1 transition-all duration-200",
-        // Drop zone visual feedback for thumbnail dragging
-        isThumbnailBeingDragged && hasRoom && "border-2 border-dashed",
-        isThumbnailBeingDragged && hasRoom && !isOver && "border-primary/30 bg-primary/5",
-        isThumbnailBeingDragged && hasRoom && isOver && "border-primary bg-primary/10 drop-zone-active"
-      )}
-    >
-      <div className="flex items-baseline gap-1.5">
-        <label className="my-2 text-sm font-medium">Style References</label>
-        <span className="text-xs text-muted-foreground">(max {MAX_STYLE_REFERENCES})</span>
-        {/* Drop hint when dragging thumbnail */}
-        {isThumbnailBeingDragged && hasRoom && (
-          <span className="ml-auto text-xs text-primary animate-pulse">
-            {isOver ? "Release to add" : "Drop thumbnail here"}
-          </span>
-        )}
-        {isThumbnailBeingDragged && !hasRoom && (
-          <span className="ml-auto text-xs text-muted-foreground">
-            Max references reached
-          </span>
-        )}
-      </div>
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*"
-        multiple
-        className="hidden"
-        onChange={handleFileInputChange}
-      />
-      <div
-        tabIndex={0}
-        role="button"
-        onDrop={handleFileDrop}
-        onDragOver={(e) => {
+      onDrop={handleOuterFileDrop}
+      onDragOver={(e) => {
+        if (e.dataTransfer.types.includes("Files")) {
           e.preventDefault();
           setIsDraggingFile(true);
-        }}
-        onDragLeave={() => setIsDraggingFile(false)}
-        onPaste={handlePaste}
-        className={cn(
-          "grid grid-cols-3 gap-1 rounded-md border-2 border-dashed p-2 transition-colors",
-          isDraggingFile ? "border-primary bg-primary/5" : "border-border hover:border-primary/50",
-          isDropTarget && "border-primary bg-primary/10"
-        )}
-      >
-        {styleReferences.map((url, index) => (
-          <div
-            key={`${url}-${index}`}
-            className="group relative aspect-square overflow-hidden rounded-md border-2 border-border transition-all hover:border-primary/50"
-          >
-            <img src={url} alt="" className="absolute inset-0 h-full w-full object-cover" />
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                removeStyleReference(index);
-              }}
-              className="absolute right-0.5 top-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-destructive text-destructive-foreground opacity-0 transition-opacity hover:opacity-100 group-hover:opacity-100"
-              aria-label="Remove reference"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
-          </div>
-        ))}
-        {hasRoom && (
-          <button
-            type="button"
-            onClick={handleAddCellClick}
-            disabled={isUploading}
-            className={cn(
-              "flex aspect-square items-center justify-center rounded-md border-2 border-dashed border-border text-muted-foreground transition-colors hover:border-primary hover:text-primary disabled:opacity-50",
-              isDropTarget && "border-primary text-primary"
-            )}
-          >
-            {isUploading ? (
-              <span className="text-xs">...</span>
-            ) : (
-              <ImagePlus className="h-5 w-5" />
-            )}
-          </button>
-        )}
+        }
+      }}
+      onDragLeave={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+          setIsDraggingFile(false);
+        }
+      }}
+      className={cn(
+        "rounded-lg px-1 transition-all duration-200",
+        // Drop zone visual feedback (thumbnail DnD or file drag)
+        showDropFeedback && "border-2 border-dashed",
+        showDropFeedback &&
+          !isOver &&
+          !isDraggingFile &&
+          "border-primary/30 bg-primary/5",
+        showDropFeedback &&
+          (isOver || isDraggingFile) &&
+          "border-primary bg-primary/10 drop-zone-active"
+      )}
+    >
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <label className="my-2 text-sm font-medium">Style References</label>
+          <span className="text-xs text-muted-foreground">(max {MAX_STYLE_REFERENCES})</span>
+          {/* Drop hint when dragging thumbnail */}
+          {isThumbnailBeingDragged && hasRoom && (
+            <span className="text-xs text-primary animate-pulse">
+              {isOver ? "Release to add" : "Drop thumbnail here"}
+            </span>
+          )}
+          {isThumbnailBeingDragged && !hasRoom && (
+            <span className="text-xs text-muted-foreground">Max references reached</span>
+          )}
+        </div>
+        <Switch
+          checked={includeStyleReferences}
+          onCheckedChange={setIncludeStyleReferences}
+        />
       </div>
-      {uploadError && <p className="mt-1 text-xs text-destructive">{uploadError}</p>}
+
+      {includeStyleReferences && (
+        <>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            className="hidden"
+            onChange={handleFileInputChange}
+          />
+          <div
+            tabIndex={0}
+            role="button"
+            onDrop={handleFileDrop}
+            onDragOver={(e) => {
+              e.preventDefault();
+              setIsDraggingFile(true);
+            }}
+            onDragLeave={() => setIsDraggingFile(false)}
+            onPaste={handlePaste}
+            className={cn(
+              "grid grid-cols-3 gap-1 rounded-md border-2 border-dashed p-2 transition-colors",
+              isDraggingFile ? "border-primary bg-primary/5" : "border-border hover:border-primary/50",
+              isDropTarget && "border-primary bg-primary/10"
+            )}
+          >
+            {styleReferences.map((url, index) => (
+              <div
+                key={`${url}-${index}`}
+                className="group relative aspect-square overflow-hidden rounded-md border-2 border-border transition-all hover:border-primary/50"
+              >
+                <img src={url} alt="" className="absolute inset-0 h-full w-full object-cover" />
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    removeStyleReference(index);
+                  }}
+                  className="absolute right-0.5 top-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-destructive text-destructive-foreground opacity-0 transition-opacity hover:opacity-100 group-hover:opacity-100"
+                  aria-label="Remove reference"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ))}
+            {hasRoom && (
+              <button
+                type="button"
+                onClick={handleAddCellClick}
+                disabled={isUploading}
+                className={cn(
+                  "flex aspect-square items-center justify-center rounded-md border-2 border-dashed border-border text-muted-foreground transition-colors hover:border-primary hover:text-primary disabled:opacity-50",
+                  isDropTarget && "border-primary text-primary"
+                )}
+              >
+                {isUploading ? (
+                  <span className="text-xs">...</span>
+                ) : (
+                  <ImagePlus className="h-5 w-5" />
+                )}
+              </button>
+            )}
+          </div>
+          {uploadError && <p className="mt-1 text-xs text-destructive">{uploadError}</p>}
+        </>
+      )}
     </div>
   );
 }

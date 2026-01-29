@@ -20,10 +20,12 @@ export interface UseReferralsReturn {
   referralCode: string | null;
   stats: ReferralStats | null;
   isLoading: boolean;
+  isCreating: boolean;
   error: Error | null;
 
   // Actions
   applyReferralCode: (code: string) => Promise<{ success: boolean; message: string }>;
+  createReferralCode: () => Promise<{ success: boolean; code: string | null; message: string }>;
   refresh: () => Promise<void>;
 }
 
@@ -113,6 +115,21 @@ export function useReferrals(): UseReferralsReturn {
     },
   });
 
+  // Mutation for creating referral code
+  const createMutation = useMutation({
+    mutationFn: async () => {
+      const response = await fetch('/api/referrals/create', { method: 'POST' });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to create referral code');
+      }
+      return { code: data.code, message: data.message };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: codeQueryKey });
+    },
+  });
+
   // Apply referral code wrapper
   const applyReferralCode = async (
     code: string
@@ -128,6 +145,28 @@ export function useReferrals(): UseReferralsReturn {
     }
   };
 
+  // Create referral code wrapper
+  const createReferralCode = async (): Promise<{
+    success: boolean;
+    code: string | null;
+    message: string;
+  }> => {
+    try {
+      const result = await createMutation.mutateAsync();
+      return {
+        success: true,
+        code: result.code ?? null,
+        message: result.message ?? 'Referral code created',
+      };
+    } catch (error) {
+      return {
+        success: false,
+        code: null,
+        message: error instanceof Error ? error.message : 'Failed to create referral code',
+      };
+    }
+  };
+
   // Refresh data
   const refresh = async () => {
     await Promise.all([refetchCode(), refetchStats()]);
@@ -137,8 +176,10 @@ export function useReferrals(): UseReferralsReturn {
     referralCode: codeData?.code || null,
     stats: statsData?.stats || null,
     isLoading: isLoadingCode || isLoadingStats || applyMutation.isPending,
-    error: (codeError || statsError || applyMutation.error) as Error | null,
+    isCreating: createMutation.isPending,
+    error: (codeError || statsError || applyMutation.error || createMutation.error) as Error | null,
     applyReferralCode,
+    createReferralCode,
     refresh,
   };
 }

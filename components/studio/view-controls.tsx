@@ -37,7 +37,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 
 /**
@@ -225,17 +224,16 @@ export const ViewControls = memo(function ViewControls({
     [onSortChange]
   );
 
-  // Handle favorites toggle
-  const handleFavoritesToggle = useCallback(
-    (checked: boolean) => {
-      onFavoritesToggle?.(checked);
-    },
-    [onFavoritesToggle]
-  );
+  // Handle favorites toggle (toggle on click)
+  const handleFavoritesToggleClick = useCallback(() => {
+    onFavoritesToggle?.(!favoritesOnly);
+  }, [favoritesOnly, onFavoritesToggle]);
 
   // Determine if we should show text labels based on container width
   const showText = !isCompact;
   const showFullText = !isCompact && !isMedium;
+  /** Filter/Sort show label only on large; compact and medium show icons only */
+  const showDropdownLabel = showFullText;
 
   return (
     <div
@@ -296,30 +294,30 @@ export const ViewControls = memo(function ViewControls({
           isCompact ? "gap-1" : isMedium ? "gap-1.5" : "gap-2 md:gap-3"
         )}
       >
-        {/* Filter Dropdown - Adapts based on container width */}
+        {/* Filter Dropdown - Click trigger to open options */}
         {showFilter && filterOptions.length > 0 && onFilterChange && (
           <div className="flex shrink-0 items-center">
-            <Select value={filterValue} onValueChange={handleFilterChange}>
-              <SelectTrigger 
+            <Select
+              value={filterValue ?? filterOptions[0]?.value ?? ""}
+              onValueChange={handleFilterChange}
+            >
+              <SelectTrigger
+                type="button"
                 className={cn(
-                  "gap-1 text-xs",
-                  isCompact 
-                    ? "h-8 w-auto px-1.5" 
-                    : isMedium 
-                    ? "h-9 w-[100px] px-2 text-sm" 
-                    : "h-10 w-[130px] px-3"
+                  "gap-1 text-xs cursor-pointer",
+                  showDropdownLabel ? "h-10 w-[180px] px-3" : "h-8 min-h-8 min-w-8 w-auto px-1.5"
                 )}
-                title={filterOptions.find(opt => opt.value === filterValue)?.label || "Filter"}
+                title={filterOptions.find(opt => opt.value === (filterValue ?? filterOptions[0]?.value))?.label || "Filter"}
               >
-                <Filter className="h-3.5 w-3.5 shrink-0" />
-                {showText && (
-                  <SelectValue 
-                    placeholder="Filter..." 
+                <Filter className="h-3.5 w-3.5 shrink-0 pointer-events-none" />
+                {showDropdownLabel && (
+                  <SelectValue
+                    placeholder="Filter..."
                     className="inline-flex"
                   />
                 )}
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent position="popper" sideOffset={6}>
                 {filterOptions.map((option) => (
                   <SelectItem key={option.value} value={option.value}>
                     {option.label}
@@ -330,30 +328,30 @@ export const ViewControls = memo(function ViewControls({
           </div>
         )}
 
-        {/* Sort Dropdown - Adapts based on container width */}
+        {/* Sort Dropdown - Click trigger to open options */}
         {showSort && sortOptions.length > 0 && onSortChange && (
           <div className="flex shrink-0 items-center">
-            <Select value={sortValue} onValueChange={handleSortChange}>
-              <SelectTrigger 
+            <Select
+              value={sortValue ?? sortOptions[0]?.value ?? "newest"}
+              onValueChange={handleSortChange}
+            >
+              <SelectTrigger
+                type="button"
                 className={cn(
-                  "gap-1 text-xs",
-                  isCompact 
-                    ? "h-8 w-auto px-1.5" 
-                    : isMedium 
-                    ? "h-9 w-[100px] px-2 text-sm" 
-                    : "h-10 w-[130px] px-3"
+                  "gap-1 text-xs cursor-pointer",
+                  showDropdownLabel ? "h-10 w-[180px] px-3" : "h-8 min-h-8 min-w-8 w-auto px-1.5"
                 )}
-                title={sortOptions.find(opt => opt.value === sortValue)?.label || "Sort"}
+                title={sortOptions.find(opt => opt.value === (sortValue ?? sortOptions[0]?.value))?.label || "Sort"}
               >
-                <ArrowUpDown className="h-3.5 w-3.5 shrink-0" />
-                {showText && (
-                  <SelectValue 
-                    placeholder="Sort..." 
+                <ArrowUpDown className="h-3.5 w-3.5 shrink-0 pointer-events-none" />
+                {showDropdownLabel && (
+                  <SelectValue
+                    placeholder="Sort..."
                     className="inline-flex"
                   />
                 )}
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent position="popper" sideOffset={6}>
                 {sortOptions.map((option) => (
                   <SelectItem key={option.value} value={option.value}>
                     {option.label}
@@ -364,58 +362,45 @@ export const ViewControls = memo(function ViewControls({
           </div>
         )}
 
-        {/* Favorites Toggle - Adapts based on container width */}
+        {/* Favorites - Heart icon toggles favorites on/off */}
         {showFavorites && onFavoritesToggle && (
-          <div 
-            className={cn(
-              "flex shrink-0 items-center rounded-md border border-border",
-              isCompact 
-                ? "gap-1 px-1.5 py-1" 
-                : isMedium 
-                ? "gap-1.5 px-2 py-1.5" 
-                : "gap-2 px-3"
-            )}
-          >
-            <Switch
-              id="favorites-filter"
-              checked={favoritesOnly}
-              onCheckedChange={handleFavoritesToggle}
-              size="sm"
-              className={cn(isCompact && "scale-90")}
-            />
-            <Label
-              htmlFor="favorites-filter"
-              className="flex cursor-pointer items-center gap-1"
-              title="Favorites only"
-            >
-              <Heart
-                className={cn(
-                  "h-3.5 w-3.5 shrink-0 transition-colors",
-                  favoritesOnly ? "fill-red-500 text-red-500" : "text-muted-foreground"
-                )}
-              />
-              {showFullText && (
-                <span className="text-xs sm:text-sm">Favorites</span>
-              )}
-            </Label>
-          </div>
-        )}
-
-        {/* Refresh Button - Always icon only */}
-        {showRefresh && onRefresh && (
           <Button
+            type="button"
             variant="outline"
             size="icon"
-            onClick={onRefresh}
+            onClick={handleFavoritesToggleClick}
+            title={favoritesOnly ? "Show all" : "Favorites only"}
+            className={cn(
+              "shrink-0 cursor-pointer",
+              isCompact ? "h-8 w-8" : isMedium ? "h-9 w-9" : "h-10 w-10"
+            )}
+          >
+            <Heart
+              className={cn(
+                "pointer-events-none h-3.5 w-3.5 shrink-0 transition-colors",
+                favoritesOnly ? "fill-red-500 text-red-500" : "text-muted-foreground"
+              )}
+            />
+          </Button>
+        )}
+
+        {/* Refresh Button - Click to refresh */}
+        {showRefresh && onRefresh && (
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            onClick={() => onRefresh()}
             disabled={isRefreshing}
             title="Refresh"
             className={cn(
-              "shrink-0",
+              "shrink-0 cursor-pointer",
               isCompact ? "h-8 w-8" : isMedium ? "h-9 w-9" : "h-10 w-10"
             )}
           >
             <RefreshCw
               className={cn(
+                "pointer-events-none",
                 isCompact ? "h-3.5 w-3.5" : "h-4 w-4",
                 isRefreshing && "animate-spin"
               )}
@@ -425,19 +410,20 @@ export const ViewControls = memo(function ViewControls({
 
         {/* Add Button - Adapts based on container width */}
         {showAdd && onAdd && (
-          <Button 
-            onClick={onAdd} 
+          <Button
+            type="button"
+            onClick={() => onAdd()}
             className={cn(
-              "shrink-0",
-              isCompact 
-                ? "h-8 gap-1 px-1.5" 
-                : isMedium 
-                ? "h-9 gap-1.5 px-2" 
+              "shrink-0 cursor-pointer",
+              isCompact
+                ? "h-8 gap-1 px-1.5"
+                : isMedium
+                ? "h-9 gap-1.5 px-2"
                 : "h-10 gap-2 px-3"
             )}
             title={addLabel}
           >
-            <Plus className={cn("h-3.5 w-3.5 shrink-0", !isCompact && "h-4 w-4")} />
+            <Plus className={cn("pointer-events-none h-3.5 w-3.5 shrink-0", !isCompact && "h-4 w-4")} />
             {showFullText && (
               <span className="text-xs sm:text-sm">{addLabel}</span>
             )}

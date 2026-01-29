@@ -1,8 +1,9 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { MessageSquare, Send, RotateCcw, X } from "lucide-react";
+import { MessageSquare, Send, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { CloseButton } from "@/components/ui/close-button";
 import { Input } from "@/components/ui/input";
 import { useStudio } from "./studio-provider";
 import { useStyles } from "@/lib/hooks/useStyles";
@@ -79,6 +80,7 @@ export function StudioChatPanel() {
       selectedFaces,
       faceExpression,
       facePose,
+      includeStyleReferences,
       styleReferences,
       selectedStyle,
       selectedPalette,
@@ -145,6 +147,7 @@ export function StudioChatPanel() {
       selectedFaces: selectedFaces ?? [],
       expression: faceExpression !== "None" ? faceExpression : null,
       pose: facePose !== "None" ? facePose : null,
+      includeStyleReferences: includeStyleReferences ?? false,
       styleReferences: styleReferences ?? [],
       selectedStyle: selectedStyle ?? null,
       selectedColor: selectedPalette ?? null,
@@ -159,6 +162,7 @@ export function StudioChatPanel() {
       selectedFaces,
       faceExpression,
       facePose,
+      includeStyleReferences,
       styleReferences,
       selectedStyle,
       selectedPalette,
@@ -477,9 +481,7 @@ export function StudioChatAssistant() {
             <MessageSquare className="h-4 w-4" />
             <h3 className="font-semibold">AI Assistant</h3>
           </div>
-          <Button variant="ghost" size="icon-sm" onClick={closeChatAssistant}>
-            <X className="h-4 w-4" />
-          </Button>
+          <CloseButton onClick={closeChatAssistant} />
         </div>
         <div className="flex-1 overflow-y-auto p-4 hide-scrollbar">
           {chatAssistant.conversationHistory.length === 0 ? (

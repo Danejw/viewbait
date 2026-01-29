@@ -31,8 +31,6 @@ export function StudioSettingsSidebarHeader() {
   return (
     <TooltipProvider delayDuration={0}>
       <div className="p-2">
-        <Tooltip>
-          <TooltipTrigger asChild>
             <button
               type="button"
               onClick={toggleRightSidebar}
@@ -44,9 +42,6 @@ export function StudioSettingsSidebarHeader() {
               </div>
               <h2 className="text-sm font-semibold">Settings</h2>
             </button>
-          </TooltipTrigger>
-          <TooltipContent side="left">Collapse settings</TooltipContent>
-        </Tooltip>
       </div>
     </TooltipProvider>
   );
@@ -78,8 +73,6 @@ export function StudioSettingsSidebarCollapsed() {
       <div className="flex h-full flex-col">
         {/* Header: expand button only (matches left sidebar header pattern) */}
         <div className="p-2">
-          <Tooltip>
-            <TooltipTrigger asChild>
               <Button
                 variant="ghost"
                 size="icon-lg"
@@ -89,9 +82,6 @@ export function StudioSettingsSidebarCollapsed() {
               >
                 <Settings className="h-4 w-4" />
               </Button>
-            </TooltipTrigger>
-            <TooltipContent side="left">Expand settings</TooltipContent>
-          </Tooltip>
         </div>
         {/* Divider below header (same as left sidebar) */}
         <div className="border-t border-sidebar-border" />

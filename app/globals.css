@@ -25,6 +25,7 @@
   --color-input: var(--input);
   --color-border: var(--border);
   --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
@@ -62,6 +63,7 @@
   --accent: oklch(0.97 0 0);
   --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.58 0.22 27);
+  --destructive-foreground: oklch(0.969 0.015 12.422);
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
   --ring: oklch(0.708 0 0);
@@ -97,6 +99,7 @@
   --accent: oklch(0.371 0 0);
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.704 0.191 22.216);
+  --destructive-foreground: oklch(0.969 0.015 12.422);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.556 0 0);
@@ -126,34 +129,60 @@
 
 /* ============================================
    Global: hide scrollbars, keep scrolling
-   Applies to document and primary scroll areas.
+   Applies everywhere (document, modals, panels, etc.).
    ============================================ */
 
-/* 1. WebKit (Chrome, Safari, Edge, Opera) */
-html::-webkit-scrollbar,
-body::-webkit-scrollbar {
+/* 1. WebKit (Chrome, Safari, Edge, Opera) – every element */
+*::-webkit-scrollbar {
   display: none;
 }
 
-/* 2. Firefox */
-html,
-body {
+/* 2. Firefox – every element */
+* {
   scrollbar-width: none;
 }
 
-/* 3. IE / legacy Edge */
-html,
-body {
+/* 3. IE / legacy Edge – every element */
+* {
   -ms-overflow-style: none;
 }
 
-/* Utility: hide scrollbar on any scroll container (reuse globally) */
+/* 4. Radix ScrollArea: hide the custom scrollbar UI (viewport still scrolls) */
+[data-slot="scroll-area-scrollbar"] {
+  display: none;
+}
+
+/* Utility: hide scrollbar on any scroll container (reuse when needed) */
 .hide-scrollbar::-webkit-scrollbar {
   display: none;
 }
 .hide-scrollbar {
   scrollbar-width: none;
   -ms-overflow-style: none;
+}
+
+/* ============================================
+   Global: text selection – primary background, white text
+   Applies to all selectable text across the app.
+   ============================================ */
+::selection {
+  background-color: var(--primary);
+  color: white;
+}
+
+/* ============================================
+   Global: link hover – primary color
+   All links (text, numbers, icons using currentColor) turn primary on hover/focus
+   so it’s clear they’re clickable and consistent with the design.
+   ============================================ */
+
+a {
+  transition: color 0.15s ease;
+}
+
+a:hover,
+a:focus-visible {
+  color: var(--primary);
 }
 
 /* ============================================

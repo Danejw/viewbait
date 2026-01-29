@@ -46,6 +46,7 @@ function AuthForm() {
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [referralCode, setReferralCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -127,8 +128,18 @@ function AuthForm() {
       if (error) {
         setError(error.message || "Failed to create account");
       } else {
-        // Check if email confirmation is required
-        // For now, assume instant login and redirect
+        // Apply referral code if provided (don't block signup on failure)
+        if (referralCode.trim()) {
+          try {
+            await fetch("/api/referrals/apply", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ code: referralCode.trim().toUpperCase() }),
+            });
+          } catch (err) {
+            console.error("Failed to apply referral code:", err);
+          }
+        }
         setMessage("Account created successfully! Redirecting...");
         setTimeout(() => {
           router.push(redirectTo);
@@ -332,6 +343,18 @@ function AuthForm() {
                       minLength={8}
                       disabled={loading}
                       autoComplete="new-password"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="signup-referral">Referral Code (optional)</Label>
+                    <Input
+                      id="signup-referral"
+                      type="text"
+                      placeholder="ABCD1234"
+                      value={referralCode}
+                      onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+                      maxLength={12}
+                      disabled={loading}
                     />
                   </div>
                   <Button type="submit" className="w-full" size="lg" disabled={loading}>
