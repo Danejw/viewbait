@@ -26,9 +26,10 @@ interface PaletteAnalysisResult {
 }
 
 export async function POST(request: Request) {
+  let user: Awaited<ReturnType<typeof requireAuth>> | undefined
   try {
     const supabase = await createClient()
-    const user = await requireAuth(supabase)
+    user = await requireAuth(supabase)
 
     const tier = await getTierForUser(supabase, user.id)
     if (!tier.can_create_custom) {
