@@ -7,6 +7,7 @@ import {
   MessageSquare,
   Link as LinkIcon,
   ImagePlus,
+  Lock,
   Palette,
   Plus,
   Sparkles,
@@ -27,6 +28,7 @@ import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ViewBaitLogo } from "@/components/ui/viewbait-logo";
 import { useStudio } from "@/components/studio/studio-provider";
+import { useSubscription } from "@/lib/hooks/useSubscription";
 import { StudioChatPanel } from "@/components/studio/studio-chat";
 import { useFaces } from "@/lib/hooks/useFaces";
 import { FaceThumbnail, FaceThumbnailSkeleton } from "./face-thumbnail";
@@ -35,11 +37,12 @@ import { usePalettes } from "@/lib/hooks/usePalettes";
 import { StyleEditor } from "@/components/studio/style-editor";
 import { PaletteColorStrip } from "@/components/studio/palette-thumbnail-card";
 import { cn } from "@/lib/utils";
+import SubscriptionModal from "@/components/subscription-modal";
 import { DROP_ZONE_IDS, type DragData } from "@/components/studio/studio-dnd-context";
 import type { StyleInsert, StyleUpdate, DbStyle } from "@/lib/types/database";
+import { ASPECT_RATIO_DISPLAY_ORDER } from "@/lib/constants/subscription-tiers";
 
 const MAX_STYLE_REFERENCES = 10;
-const ASPECT_RATIO_OPTIONS = ["16:9", "1:1", "4:3", "9:16"] as const;
 const RESOLUTION_OPTIONS = ["1K", "2K", "4K"] as const;
 const VARIATIONS_OPTIONS = [1, 2, 3, 4] as const;
 
@@ -798,29 +801,47 @@ export function StudioGeneratorPalette() {
 
 /**
  * StudioGeneratorAspectRatio
- * Aspect ratio selector: 16:9, 1:1, 4:3, 9:16
+ * Aspect ratio selector: all 10 options; disallowed by tier shown disabled with lock icon.
  */
 export function StudioGeneratorAspectRatio() {
   const {
     state: { selectedAspectRatio },
     actions: { setSelectedAspectRatio },
   } = useStudio();
+  const { canUseAspectRatio } = useSubscription();
+
+  const allowedRatios = useMemo(
+    () => ASPECT_RATIO_DISPLAY_ORDER.filter((ratio) => canUseAspectRatio(ratio)),
+    [canUseAspectRatio]
+  );
+  const firstAllowed = allowedRatios[0] ?? "16:9";
+  React.useEffect(() => {
+    if (allowedRatios.length > 0 && !(allowedRatios as readonly string[]).includes(selectedAspectRatio)) {
+      setSelectedAspectRatio(firstAllowed);
+    }
+  }, [allowedRatios, firstAllowed, selectedAspectRatio, setSelectedAspectRatio]);
 
   return (
     <div className="mt-4 ml-1">
       <label className="mb-2 block text-sm font-medium">Aspect Ratio</label>
       <div className="flex flex-wrap gap-2">
-        {ASPECT_RATIO_OPTIONS.map((ratio) => (
-          <Button
-            key={ratio}
-            type="button"
-            variant={selectedAspectRatio === ratio ? "default" : "outline"}
-            size="sm"
-            onClick={() => setSelectedAspectRatio(ratio)}
-          >
-            {ratio}
-          </Button>
-        ))}
+        {ASPECT_RATIO_DISPLAY_ORDER.map((ratio) => {
+          const allowed = canUseAspectRatio(ratio);
+          return (
+            <Button
+              key={ratio}
+              type="button"
+              variant={selectedAspectRatio === ratio ? "default" : "outline"}
+              size="sm"
+              disabled={!allowed}
+              onClick={() => allowed && setSelectedAspectRatio(ratio)}
+              className="gap-1"
+            >
+              {!allowed && <Lock className="h-3 w-3 shrink-0" />}
+              {ratio}
+            </Button>
+          );
+        })}
       </div>
     </div>
   );
@@ -828,29 +849,48 @@ export function StudioGeneratorAspectRatio() {
 
 /**
  * StudioGeneratorResolution
- * Resolution selector: 1K, 2K, 4K
+ * Resolution selector: 1K, 2K, 4K. Disallowed options shown disabled with lock icon.
  */
 export function StudioGeneratorResolution() {
   const {
     state: { selectedResolution },
     actions: { setSelectedResolution },
   } = useStudio();
+  const { canUseResolution } = useSubscription();
+
+  const allowedResolutions = useMemo(
+    () => RESOLUTION_OPTIONS.filter((res) => canUseResolution(res)),
+    [canUseResolution]
+  );
+
+  const firstAllowed = allowedResolutions[0] ?? "1K";
+  React.useEffect(() => {
+    if (allowedResolutions.length > 0 && !allowedResolutions.includes(selectedResolution as "1K" | "2K" | "4K")) {
+      setSelectedResolution(firstAllowed);
+    }
+  }, [allowedResolutions, firstAllowed, selectedResolution, setSelectedResolution]);
 
   return (
     <div className="mt-4">
       <label className="mb-2 block text-sm font-medium">Resolution</label>
       <div className="flex flex-wrap gap-2">
-        {RESOLUTION_OPTIONS.map((res) => (
-          <Button
-            key={res}
-            type="button"
-            variant={selectedResolution === res ? "default" : "outline"}
-            size="sm"
-            onClick={() => setSelectedResolution(res)}
-          >
-            {res}
-          </Button>
-        ))}
+        {RESOLUTION_OPTIONS.map((res) => {
+          const allowed = canUseResolution(res);
+          return (
+            <Button
+              key={res}
+              type="button"
+              variant={selectedResolution === res ? "default" : "outline"}
+              size="sm"
+              disabled={!allowed}
+              onClick={() => allowed && setSelectedResolution(res)}
+              className="gap-1"
+            >
+              {!allowed && <Lock className="h-3 w-3 shrink-0" />}
+              {res}
+            </Button>
+          );
+        })}
       </div>
     </div>
   );
@@ -871,29 +911,44 @@ export function StudioGeneratorAspectAndResolution() {
 
 /**
  * StudioGeneratorVariations
- * Number of variations to generate (1-4)
+ * Number of variations (1–4). Options above tier max shown disabled with lock icon.
  */
 export function StudioGeneratorVariations() {
   const {
     state: { variations },
     actions: { setVariations },
   } = useStudio();
+  const { getMaxVariations } = useSubscription();
+
+  const maxVariations = getMaxVariations();
+
+  React.useEffect(() => {
+    if (variations > maxVariations) {
+      setVariations(maxVariations);
+    }
+  }, [maxVariations, variations, setVariations]);
 
   return (
     <div className="mb-6 ml-1">
       <label className="mb-2 block text-sm font-medium">Variations</label>
       <div className="flex flex-wrap gap-2">
-        {VARIATIONS_OPTIONS.map((n) => (
-          <Button
-            key={n}
-            type="button"
-            variant={variations === n ? "default" : "outline"}
-            size="sm"
-            onClick={() => setVariations(n)}
-          >
-            {n}
-          </Button>
-        ))}
+        {VARIATIONS_OPTIONS.map((n) => {
+          const allowed = n <= maxVariations;
+          return (
+            <Button
+              key={n}
+              type="button"
+              variant={variations === n ? "default" : "outline"}
+              size="sm"
+              disabled={!allowed}
+              onClick={() => allowed && setVariations(n)}
+              className="gap-1"
+            >
+              {!allowed && <Lock className="h-3 w-3 shrink-0" />}
+              {n}
+            </Button>
+          );
+        })}
       </div>
     </div>
   );
@@ -1059,16 +1114,12 @@ export function StudioGeneratorSubmit() {
     state: { isGenerating, thumbnailText, variations, selectedResolution },
     actions: { generateThumbnails },
   } = useStudio();
+  const { getResolutionCost } = useSubscription();
 
   // Basic validation
   const isDisabled = isGenerating || !thumbnailText.trim();
-  
-  // Calculate credit cost for display
-  const creditCost = {
-    "1K": 1,
-    "2K": 2,
-    "4K": 4,
-  }[selectedResolution] || 1;
+
+  const creditCost = getResolutionCost(selectedResolution as "1K" | "2K" | "4K");
   const totalCost = creditCost * variations;
 
   return (
@@ -1109,12 +1160,16 @@ export function StudioGeneratorChat() {
 
 /**
  * StudioGenerator
- * Complete generator composition - switches between Manual and Chat modes
+ * Complete generator composition - switches between Manual and Chat modes.
+ * Style, palette, and face sections are always visible; Free tier sees them disabled with lock + "Upgrade to unlock".
  */
 export function StudioGenerator() {
   const {
     state: { mode },
   } = useStudio();
+  const { canCreateCustomAssets, tier, productId } = useSubscription();
+  const [subscriptionModalOpen, setSubscriptionModalOpen] = useState(false);
+  const locked = !canCreateCustomAssets();
 
   if (mode === "chat") {
     return (
@@ -1133,16 +1188,47 @@ export function StudioGenerator() {
       <div className="flex-1 min-h-0 overflow-y-auto hide-scrollbar">
         <StudioGeneratorThumbnailText />
         <StudioGeneratorCustomInstructions />
-        <StudioGeneratorStyleReferences />
-        <StudioGeneratorFaces />
-        <StudioGeneratorStyleSelection />
-        <StudioGeneratorPalette />
+        <div className={cn(locked && "relative")}>
+          {locked && (
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                <Lock className="h-3.5 w-3.5 shrink-0" />
+                Starter+ to unlock
+              </span>
+              <Button
+                type="button"
+                variant="link"
+                size="sm"
+                className="h-auto p-0 text-primary"
+                onClick={() => setSubscriptionModalOpen(true)}
+              >
+                Upgrade to unlock
+              </Button>
+            </div>
+          )}
+          <div
+            className={cn(
+              locked && "pointer-events-none select-none opacity-60"
+            )}
+          >
+            <StudioGeneratorStyleReferences />
+            <StudioGeneratorFaces />
+            <StudioGeneratorStyleSelection />
+            <StudioGeneratorPalette />
+          </div>
+        </div>
         <StudioGeneratorAspectAndResolution />
         <StudioGeneratorVariations />
       </div>
       <div className="flex-shrink-0 pt-2">
         <StudioGeneratorSubmit />
       </div>
+      <SubscriptionModal
+        isOpen={subscriptionModalOpen}
+        onClose={() => setSubscriptionModalOpen(false)}
+        currentTier={tier}
+        currentProductId={productId}
+      />
     </div>
   );
 }

@@ -10,6 +10,7 @@ import { createServiceClient } from '@/lib/supabase/service'
 import { NextResponse } from 'next/server'
 import { type Resolution } from '@/lib/constants/subscription-tiers'
 import { getTierByProductId, getResolutionCredits } from '@/lib/server/data/subscription-tiers'
+import { getTierForUser } from '@/lib/server/utils/tier'
 import { callGeminiImageGeneration } from '@/lib/services/ai-core'
 import { getEmotionDescription, getPoseDescription } from '@/lib/utils/ai-helpers'
 import { logError } from '@/lib/server/utils/logger'
@@ -353,28 +354,48 @@ export async function POST(request: Request) {
       return validationErrorResponse('Variations must be between 1 and 4')
     }
 
-    // Get user subscription
-    const { data: subscription, error: subError } = await supabase
-      .from('user_subscriptions')
-      .select('*')
-      .eq('user_id', user.id)
-      .single()
+    // Get user tier and subscription (tier for limits, subscription for credits)
+    const [tier, subscriptionResult] = await Promise.all([
+      getTierForUser(supabase, user.id),
+      supabase.from('user_subscriptions').select('*').eq('user_id', user.id).maybeSingle(),
+    ])
 
-    if (subError && subError.code !== 'PGRST116') {
+    if (subscriptionResult.error) {
       return subscriptionErrorResponse('Failed to fetch subscription')
     }
 
-    // Default to free tier if no subscription
-    const tier = subscription 
-      ? await getTierByProductId(subscription.product_id)
-      : await getTierByProductId(null)
-    
+    const subscription = subscriptionResult.data
     const creditsRemaining = subscription?.credits_remaining ?? 10
+
+    // Cap variations by tier
+    if (variations > tier.max_variations) {
+      return tierLimitResponse(
+        `Your plan allows up to ${tier.max_variations} variation(s). Upgrade for more.`
+      )
+    }
+
+    // Restrict custom style/palette/face usage to Starter+
+    const hasCustomAssets =
+      !!body.style ||
+      !!body.palette ||
+      (body.faceCharacters?.length ?? 0) > 0 ||
+      (body.faceImages?.length ?? 0) > 0
+    if (!tier.can_create_custom && hasCustomAssets) {
+      return tierLimitResponse(
+        'Custom styles, palettes, and face references require Starter or higher.'
+      )
+    }
 
     // Validate resolution access
     const requestedResolution = (body.resolution || '1K') as Resolution
     if (!tier.allowed_resolutions.includes(requestedResolution)) {
       return tierLimitResponse(`Resolution ${requestedResolution} not available for your tier`)
+    }
+
+    // Validate aspect ratio access
+    const requestedAspectRatio = body.aspectRatio || '16:9'
+    if (!tier.allowed_aspect_ratios.includes(requestedAspectRatio)) {
+      return tierLimitResponse(`Aspect ratio ${requestedAspectRatio} not available for your tier`)
     }
 
     // Check credits for batch (total cost = cost per variation * number of variations)
@@ -427,7 +448,7 @@ export async function POST(request: Request) {
       style: body.style || null,
       palette: body.palette || null,
       emotion: body.emotion || null,
-      aspect_ratio: body.aspectRatio || '16:9',
+      aspect_ratio: requestedAspectRatio,
       resolution: requestedResolution,
       has_watermark: tier.has_watermark,
       liked: false,
@@ -468,7 +489,7 @@ export async function POST(request: Request) {
       allFaceImages = body.faceImages
     }
 
-    const aspectRatio = body.aspectRatio || '16:9'
+    const aspectRatio = requestedAspectRatio
     const characterCount = faceCharacters.length
 
     // Look up palette name if provided

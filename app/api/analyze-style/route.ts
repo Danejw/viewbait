@@ -15,7 +15,9 @@ import {
   configErrorResponse,
   aiServiceErrorResponse,
   serverErrorResponse,
+  tierLimitResponse,
 } from '@/lib/server/utils/error-handler'
+import { getTierForUser } from '@/lib/server/utils/tier'
 
 export interface AnalyzeStyleRequest {
   imageUrls?: string[]
@@ -26,6 +28,11 @@ export async function POST(request: Request) {
   try {
     const supabase = await createClient()
     const user = await requireAuth(supabase)
+
+    const tier = await getTierForUser(supabase, user.id)
+    if (!tier.can_create_custom) {
+      return tierLimitResponse('Custom styles, palettes, and faces require Starter or higher.')
+    }
 
     let imageUrls: string[]
 

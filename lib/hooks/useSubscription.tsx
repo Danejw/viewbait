@@ -43,6 +43,7 @@ export interface SubscriptionContextType {
 
   // Feature checks
   canUseResolution: (resolution: Resolution) => boolean;
+  canUseAspectRatio: (ratio: string) => boolean;
   canUseEnhance: () => boolean;
   hasCredits: (amount?: number) => boolean;
   getResolutionCost: (resolution: Resolution) => number;
@@ -232,6 +233,16 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
   );
 
   /**
+   * Check if user can use a specific aspect ratio
+   */
+  const canUseAspectRatio = useCallback(
+    (ratio: string): boolean => {
+      return tierConfig.allowed_aspect_ratios?.includes(ratio) ?? false;
+    },
+    [tierConfig]
+  );
+
+  /**
    * Check if user can use AI title enhancement
    */
   const canUseEnhance = useCallback((): boolean => {
@@ -384,6 +395,7 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
     isLoading,
     productId,
     canUseResolution,
+    canUseAspectRatio,
     canUseEnhance,
     hasCredits,
     getResolutionCost,
@@ -404,6 +416,7 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
     isLoading,
     productId,
     canUseResolution,
+    canUseAspectRatio,
     canUseEnhance,
     hasCredits,
     getResolutionCost,

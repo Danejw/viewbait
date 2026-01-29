@@ -46,9 +46,8 @@ export interface NavItem {
 
 export const navItems: NavItem[] = [
   { label: "Generator", view: "generator", icon: Zap },
-
   { label: "Browse", view: "browse", icon: FolderOpen },
-  { label: "Gallery", view: "gallery", icon: Grid3x3 },
+  { label: "My Thumbnails", view: "gallery", icon: Grid3x3 },
   { label: "My Styles", view: "styles", icon: Palette },
   { label: "My Palettes", view: "palettes", icon: Droplets },
   { label: "My Faces", view: "faces", icon: User },

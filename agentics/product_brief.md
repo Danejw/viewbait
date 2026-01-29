@@ -142,6 +142,18 @@ A powerful style management system:
 - **2K resolution** = 2 credits
 - **4K resolution** = 4 credits
 
+### Aspect ratios by tier
+Allowed aspect ratios for image generation, by subscription tier (used for tier-gating in the generator and API validation):
+
+| Tier     | Allowed aspect ratios |
+|----------|------------------------|
+| **Free** | `16:9` |
+| **Starter** | `1:1`, `3:2`, `3:4`, `9:16`, `16:9` |
+| **Advanced** | `1:1`, `2:3`, `3:2`, `3:4`, `4:3`, `4:5`, `5:4`, `9:16`, `16:9`, `21:9` |
+| **Pro** | `1:1`, `2:3`, `3:2`, `3:4`, `4:3`, `4:5`, `5:4`, `9:16`, `16:9`, `21:9` |
+
+Full set of supported ratios (in display order by unlock tier): **16:9** (Free) → **1:1**, **3:2**, **3:4**, **9:16** (Starter) → **2:3**, **4:3**, **4:5**, **5:4**, **21:9** (Advanced/Pro).
+
 ---
 
 ## Technical Architecture

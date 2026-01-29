@@ -24,6 +24,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { useSubscription } from "@/lib/hooks/useSubscription";
+import { useWatermarkedImage } from "@/lib/hooks/useWatermarkedImage";
 import type { Thumbnail } from "@/lib/types/database";
 
 export interface ThumbnailEditData {
@@ -48,6 +50,12 @@ export function ThumbnailEditModal({
 }: ThumbnailEditModalProps) {
   const [title, setTitle] = useState("");
   const [customPrompt, setCustomPrompt] = useState("");
+  const { hasWatermark } = useSubscription();
+  const previewImageUrl = (thumbnail?.thumbnail800wUrl || thumbnail?.imageUrl) ?? null;
+  const { url: watermarkedUrl } = useWatermarkedImage(previewImageUrl, {
+    enabled: hasWatermark() && !!thumbnail,
+  });
+  const displaySrc = watermarkedUrl ?? previewImageUrl ?? undefined;
 
   // Reset form when thumbnail changes or modal opens
   useEffect(() => {
@@ -89,7 +97,7 @@ export function ThumbnailEditModal({
           <div className="mx-auto w-full max-w-md overflow-hidden rounded-lg border bg-muted">
             <div className="relative aspect-video">
               <img
-                src={thumbnail.thumbnail800wUrl || thumbnail.imageUrl}
+                src={displaySrc ?? thumbnail.thumbnail800wUrl ?? thumbnail.imageUrl}
                 alt={thumbnail.name}
                 className="h-full w-full object-cover"
               />

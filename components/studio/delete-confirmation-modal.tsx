@@ -10,6 +10,8 @@
 import React from "react";
 import { AlertTriangle } from "lucide-react";
 import { ViewBaitLogo } from "@/components/ui/viewbait-logo";
+import { useSubscription } from "@/lib/hooks/useSubscription";
+import { useWatermarkedImage } from "@/lib/hooks/useWatermarkedImage";
 import {
   Modal,
   ModalContent,
@@ -37,6 +39,13 @@ export function DeleteConfirmationModal({
   onConfirm,
   isDeleting = false,
 }: DeleteConfirmationModalProps) {
+  const { hasWatermark } = useSubscription();
+  const previewImageUrl = (thumbnail?.thumbnail400wUrl || thumbnail?.imageUrl) ?? null;
+  const { url: watermarkedUrl } = useWatermarkedImage(previewImageUrl, {
+    enabled: hasWatermark() && !!thumbnail,
+  });
+  const displaySrc = watermarkedUrl ?? previewImageUrl ?? undefined;
+
   if (!thumbnail) return null;
 
   const handleConfirm = () => {
@@ -67,7 +76,7 @@ export function DeleteConfirmationModal({
           <div className="mx-auto w-full max-w-[200px] overflow-hidden rounded-lg border">
             <div className="relative aspect-video bg-muted">
               <img
-                src={thumbnail.thumbnail400wUrl || thumbnail.imageUrl}
+                src={displaySrc ?? thumbnail.thumbnail400wUrl ?? thumbnail.imageUrl}
                 alt={thumbnail.name}
                 className="h-full w-full object-cover"
               />

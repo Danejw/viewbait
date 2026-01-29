@@ -28,8 +28,7 @@ import {
   storageErrorResponse,
   serverErrorResponse,
 } from '@/lib/server/utils/error-handler'
-
-const EDIT_CREDIT_COST = 2
+import { getEditCreditCost } from '@/lib/server/data/subscription-tiers'
 
 export interface EditThumbnailRequest {
   thumbnailId: string
@@ -79,10 +78,11 @@ export async function POST(request: Request) {
     }
 
     const creditsRemaining = subscription?.credits_remaining ?? 10
+    const editCreditCost = await getEditCreditCost()
 
     // Check credits
-    if (creditsRemaining < EDIT_CREDIT_COST) {
-      return insufficientCreditsResponse(creditsRemaining, EDIT_CREDIT_COST)
+    if (creditsRemaining < editCreditCost) {
+      return insufficientCreditsResponse(creditsRemaining, editCreditCost)
     }
 
     // Sanitize edit prompt (remove control characters)
@@ -143,7 +143,7 @@ Requirements:
     const creditResult = await decrementCreditsAtomic(
       supabaseService,
       user.id,
-      EDIT_CREDIT_COST,
+      editCreditCost,
       idempotencyKey,
       null, // Will be set after thumbnail is created
       `Editing thumbnail: ${sanitizedPrompt.substring(0, 50)}`,
@@ -153,7 +153,7 @@ Requirements:
     // Handle atomic function results
     if (!creditResult.success) {
       if (creditResult.reason === 'INSUFFICIENT') {
-        return insufficientCreditsResponse(creditsRemaining, EDIT_CREDIT_COST)
+        return insufficientCreditsResponse(creditsRemaining, editCreditCost)
       }
       
       logError(new Error(`Credit deduction failed: ${creditResult.reason}`), {
@@ -192,7 +192,7 @@ Requirements:
       const refundResult = await incrementCreditsAtomic(
         supabaseService,
         user.id,
-        EDIT_CREDIT_COST,
+        editCreditCost,
         refundIdempotencyKey,
         `Refund for failed thumbnail edit: ${timeoutOccurred ? 'timeout' : 'generation error'}`,
         'refund'
@@ -212,7 +212,7 @@ Requirements:
         
         // Track refund failure to notify user
         refundFailureWarning = {
-          amount: EDIT_CREDIT_COST,
+          amount: editCreditCost,
           reason: refundResult.reason || 'UNKNOWN',
           requestId: idempotencyKey,
         }
@@ -236,7 +236,7 @@ Requirements:
       const refundResult = await incrementCreditsAtomic(
         supabaseService,
         user.id,
-        EDIT_CREDIT_COST,
+        editCreditCost,
         refundIdempotencyKey,
         'Refund for failed thumbnail edit: no result',
         'refund'
@@ -254,7 +254,7 @@ Requirements:
         
         // Track refund failure to notify user
         refundFailureWarning = {
-          amount: EDIT_CREDIT_COST,
+          amount: editCreditCost,
           reason: refundResult.reason || 'UNKNOWN',
           requestId: idempotencyKey,
         }
@@ -327,7 +327,7 @@ Requirements:
       const refundResult = await incrementCreditsAtomic(
         supabaseService,
         user.id,
-        EDIT_CREDIT_COST,
+        editCreditCost,
         refundIdempotencyKey,
         'Refund for failed thumbnail edit: storage upload failed',
         'refund'
@@ -345,7 +345,7 @@ Requirements:
         
         // Track refund failure to notify user
         refundFailureWarning = {
-          amount: EDIT_CREDIT_COST,
+          amount: editCreditCost,
           reason: refundResult.reason || 'UNKNOWN',
           requestId: idempotencyKey,
         }
@@ -446,7 +446,7 @@ Requirements:
       const refundResult = await incrementCreditsAtomic(
         supabaseService,
         user.id,
-        EDIT_CREDIT_COST,
+        editCreditCost,
         refundIdempotencyKey,
         'Refund for failed thumbnail edit: URL creation failed',
         'refund'
@@ -464,7 +464,7 @@ Requirements:
         
         // Track refund failure to notify user
         refundFailureWarning = {
-          amount: EDIT_CREDIT_COST,
+          amount: editCreditCost,
           reason: refundResult.reason || 'UNKNOWN',
           requestId: idempotencyKey,
         }
@@ -565,13 +565,13 @@ Requirements:
     }
 
     // Credits were already deducted upfront, so we just use the remaining credits from that deduction
-    const newCreditsRemaining = creditResult.remaining ?? creditsRemaining - EDIT_CREDIT_COST
+    const newCreditsRemaining = creditResult.remaining ?? creditsRemaining - editCreditCost
 
     return NextResponse.json({
       imageUrl: newImageUrl,
       thumbnailId: newThumbnailId, // Return new thumbnail ID
       originalThumbnailId: body.thumbnailId, // Also return original ID for reference
-      creditsUsed: EDIT_CREDIT_COST,
+      creditsUsed: editCreditCost,
       creditsRemaining: newCreditsRemaining,
     })
   } catch (error) {

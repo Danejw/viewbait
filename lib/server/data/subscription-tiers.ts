@@ -9,6 +9,7 @@ import { cache } from 'react'
 import { createServiceClient } from '@/lib/supabase/service'
 import type { SubscriptionTier, SubscriptionSetting } from '@/lib/types/database'
 import type { TierConfig, TierName, Resolution } from '@/lib/constants/subscription-tiers'
+import { ASPECT_RATIOS_BY_TIER } from '@/lib/constants/subscription-tiers'
 import { logError } from '@/lib/server/utils/logger'
 
 // ============================================================================
@@ -86,6 +87,7 @@ function dbTierToTierConfig(tier: SubscriptionTier | any): TierConfig {
     price_id: priceId,
     credits_per_month: tier.credits_per_month,
     allowed_resolutions: tier.allowed_resolutions as Resolution[],
+    allowed_aspect_ratios: (tier as { allowed_aspect_ratios?: string[] }).allowed_aspect_ratios ?? ASPECT_RATIOS_BY_TIER[tier.tier_name as TierName] ?? ['16:9'],
     has_watermark: tier.has_watermark,
     has_enhance: tier.has_enhance,
     persistent_storage: tier.persistent_storage,
@@ -138,6 +140,7 @@ async function fetchTiersFromDB(): Promise<Map<string, TierConfig>> {
       price_id: null,
       credits_per_month: 10,
       allowed_resolutions: ['1K'],
+      allowed_aspect_ratios: ['16:9'],
       has_watermark: true,
       has_enhance: false,
       persistent_storage: false,
@@ -203,6 +206,7 @@ async function getTiersFromCache(): Promise<Map<string, TierConfig>> {
       price_id: null,
       credits_per_month: 10,
       allowed_resolutions: ['1K'],
+      allowed_aspect_ratios: ['16:9'],
       has_watermark: true,
       has_enhance: false,
       persistent_storage: false,
@@ -239,6 +243,7 @@ export async function getTierByProductId(productId: string | null): Promise<Tier
       price_id: null,
       credits_per_month: 10,
       allowed_resolutions: ['1K'],
+      allowed_aspect_ratios: ['16:9'],
       has_watermark: true,
       has_enhance: false,
       persistent_storage: false,
@@ -280,6 +285,7 @@ export async function getTierByProductId(productId: string | null): Promise<Tier
       price_id: null,
       credits_per_month: 10,
       allowed_resolutions: ['1K'],
+      allowed_aspect_ratios: ['16:9'],
       has_watermark: true,
       has_enhance: false,
       persistent_storage: false,
@@ -307,6 +313,7 @@ export const getTierByName = cache(async (tierName: TierName): Promise<TierConfi
     price_id: null,
     credits_per_month: 10,
     allowed_resolutions: ['1K'],
+    allowed_aspect_ratios: ['16:9'],
     has_watermark: true,
     has_enhance: false,
     persistent_storage: false,
@@ -361,6 +368,7 @@ export const getAllTiers = cache(async (): Promise<Record<TierName, TierConfig>>
       price_id: null,
       credits_per_month: 10,
       allowed_resolutions: ['1K'],
+      allowed_aspect_ratios: ['16:9'],
       has_watermark: true,
       has_enhance: false,
       persistent_storage: false,

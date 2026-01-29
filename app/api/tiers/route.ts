@@ -17,6 +17,7 @@ export interface TiersResponse {
     price_id: string | null
     credits_per_month: number
     allowed_resolutions: Resolution[]
+    allowed_aspect_ratios: string[]
     has_watermark: boolean
     has_enhance: boolean
     persistent_storage: boolean

@@ -23,6 +23,7 @@ import { Heart, Download, Share2, Copy, Pencil, Trash2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ViewBaitLogo } from "@/components/ui/viewbait-logo";
 import {
   HoverCard,
   HoverCardContent,
@@ -35,6 +36,8 @@ import {
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { useIntersectionObserver } from "@/lib/hooks/useIntersectionObserver";
+import { useWatermarkedImage } from "@/lib/hooks/useWatermarkedImage";
+import { useSubscription } from "@/lib/hooks/useSubscription";
 import { useThumbnailActions } from "@/components/studio/studio-provider";
 import type { Thumbnail } from "@/lib/types/database";
 import type { DragData } from "./studio-dnd-context";
@@ -71,8 +74,8 @@ function ResolutionBadge({
 }
 
 /**
- * Skeleton card for loading/generating state
- * Uses shimmer animation from Skeleton component - no spinner needed
+ * Skeleton card for loading state (initial fetch, empty slots).
+ * Uses shimmer animation from Skeleton component.
  */
 export function ThumbnailCardSkeleton({ text }: { text?: string }) {
   return (
@@ -82,6 +85,25 @@ export function ThumbnailCardSkeleton({ text }: { text?: string }) {
         {text && (
           <div className="absolute inset-x-0 bottom-0 p-2">
             <Skeleton className="h-4 w-3/4" />
+          </div>
+        )}
+      </div>
+    </Card>
+  );
+}
+
+/**
+ * Card shown while a thumbnail is being generated.
+ * Displays ViewBait logo as loading spinner (pulse) instead of skeleton.
+ */
+function ThumbnailCardGenerating({ text }: { text?: string }) {
+  return (
+    <Card className="group relative overflow-hidden p-0">
+      <div className="relative flex aspect-video w-full items-center justify-center bg-muted/50">
+        <ViewBaitLogo className="h-12 w-12 animate-pulse text-primary" />
+        {text && (
+          <div className="absolute inset-x-0 bottom-0 p-2">
+            <p className="truncate text-xs text-muted-foreground">{text}</p>
           </div>
         )}
       </div>
@@ -251,6 +273,15 @@ export const ThumbnailCard = memo(function ThumbnailCard({
     authorId,
   } = thumbnail;
 
+  const { hasWatermark } = useSubscription();
+  const { url: watermarkedUrl } = useWatermarkedImage(imageUrl, {
+    enabled: hasWatermark(),
+  });
+  const showWatermark = hasWatermark();
+  const displaySrc = showWatermark ? (watermarkedUrl ?? imageUrl) : imageUrl;
+  const display400w = showWatermark ? displaySrc : thumbnail400wUrl;
+  const display800w = showWatermark ? displaySrc : thumbnail800wUrl;
+
   // Setup draggable - pass thumbnail data for drop handling
   const dragData: DragData = {
     type: "thumbnail",
@@ -268,9 +299,9 @@ export const ThumbnailCard = memo(function ThumbnailCard({
   // Check if current user owns this thumbnail
   const isOwner = currentUserId && authorId && currentUserId === authorId;
 
-  // Show skeleton for generating items
+  // Show logo loading state for items currently being generated
   if (generating) {
-    return <ThumbnailCardSkeleton text={name} />;
+    return <ThumbnailCardGenerating text={name} />;
   }
 
   // Memoize handlers to prevent re-renders
@@ -387,9 +418,9 @@ export const ThumbnailCard = memo(function ThumbnailCard({
             {/* Image with scale animation on hover */}
             <div className="h-full w-full transition-transform duration-300 group-hover:scale-105">
               <ProgressiveImage
-                src={imageUrl}
-                src400w={thumbnail400wUrl}
-                src800w={thumbnail800wUrl}
+                src={displaySrc}
+                src400w={display400w}
+                src800w={display800w}
                 alt={name}
                 priority={priority}
               />

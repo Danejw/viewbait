@@ -22,6 +22,7 @@ import {
   Search,
   ArrowUpDown,
   Heart,
+  Lock,
   Plus,
   RefreshCw,
   Filter,
@@ -107,6 +108,12 @@ export interface ViewControlsProps {
   addLabel?: string;
   /** Whether to show add button */
   showAdd?: boolean;
+  /** When true, add button is disabled (tier-locked) */
+  addDisabled?: boolean;
+  /** When true and addDisabled, show lock icon on add button */
+  addLockIcon?: boolean;
+  /** When add is disabled, callback for "Upgrade to unlock" button */
+  onUpgradeClick?: () => void;
 
   /** Callback when refresh button is clicked */
   onRefresh?: () => void;
@@ -155,6 +162,9 @@ export const ViewControls = memo(function ViewControls({
   onAdd,
   addLabel = "Add New",
   showAdd = false,
+  addDisabled = false,
+  addLockIcon = false,
+  onUpgradeClick,
 
   onRefresh,
   isRefreshing = false,
@@ -421,26 +431,45 @@ export const ViewControls = memo(function ViewControls({
           </Button>
         )}
 
-        {/* Add Button - Adapts based on container width */}
-        {showAdd && onAdd && (
-          <Button
-            type="button"
-            onClick={() => onAdd()}
-            className={cn(
-              "shrink-0 cursor-pointer",
-              isCompact
-                ? "h-8 gap-1 px-1.5"
-                : isMedium
-                ? "h-9 gap-1.5 px-2"
-                : "h-10 gap-2 px-3"
+        {/* Add Button - Adapts based on container width; can be disabled with lock (tier-gated) */}
+        {showAdd && (onAdd || addDisabled) && (
+          <>
+            <Button
+              type="button"
+              disabled={addDisabled}
+              onClick={() => !addDisabled && onAdd?.()}
+              className={cn(
+                "shrink-0",
+                !addDisabled && "cursor-pointer",
+                isCompact
+                  ? "h-8 gap-1 px-1.5"
+                  : isMedium
+                  ? "h-9 gap-1.5 px-2"
+                  : "h-10 gap-2 px-3"
+              )}
+              title={addLabel}
+            >
+              {addDisabled && addLockIcon ? (
+                <Lock className={cn("pointer-events-none h-3.5 w-3.5 shrink-0", !isCompact && "h-4 w-4")} />
+              ) : (
+                <Plus className={cn("pointer-events-none h-3.5 w-3.5 shrink-0", !isCompact && "h-4 w-4")} />
+              )}
+              {showFullText && (
+                <span className="text-xs sm:text-sm">{addLabel}</span>
+              )}
+            </Button>
+            {addDisabled && onUpgradeClick && (
+              <Button
+                type="button"
+                variant="link"
+                size="sm"
+                className="h-auto shrink-0 p-0 text-xs text-primary sm:text-sm"
+                onClick={onUpgradeClick}
+              >
+                Upgrade to unlock
+              </Button>
             )}
-            title={addLabel}
-          >
-            <Plus className={cn("pointer-events-none h-3.5 w-3.5 shrink-0", !isCompact && "h-4 w-4")} />
-            {showFullText && (
-              <span className="text-xs sm:text-sm">{addLabel}</span>
-            )}
-          </Button>
+          </>
         )}
       </div>
     </div>

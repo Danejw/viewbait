@@ -32,7 +32,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Grid3x3, FolderOpen, Palette, Droplets, User, Youtube, RefreshCw, ChevronDown, Plus, Trash2, ImageIcon } from "lucide-react";
+import { Grid3x3, FolderOpen, Lock, Palette, Droplets, User, Youtube, RefreshCw, ChevronDown, Plus, Trash2, ImageIcon } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BrowseThumbnails } from "./browse-thumbnails";
 import { BrowseStyles } from "./browse-styles";
@@ -45,7 +45,9 @@ import { usePalettes } from "@/lib/hooks/usePalettes";
 import type { ThumbnailSortOption, SortDirection } from "@/lib/hooks/useThumbnails";
 import type { Thumbnail, DbFace, DbStyle, DbPalette, StyleInsert, StyleUpdate, PaletteInsert, PaletteUpdate } from "@/lib/types/database";
 import { useAuth } from "@/lib/hooks/useAuth";
+import { useSubscription } from "@/lib/hooks/useSubscription";
 import { ViewBaitLogo } from "@/components/ui/viewbait-logo";
+import SubscriptionModal from "@/components/subscription-modal";
 
 /**
  * StudioViewGallery
@@ -388,6 +390,7 @@ const STYLE_SORT_OPTIONS: SortOption[] = [
 export const StudioViewStyles = memo(function StudioViewStyles() {
   const { user } = useAuth();
   const { actions } = useStudio();
+  const { canCreateCustomAssets, tier } = useSubscription();
   const {
     styles,
     publicStyles,
@@ -413,6 +416,7 @@ export const StudioViewStyles = memo(function StudioViewStyles() {
   const [styleToDelete, setStyleToDelete] = useState<DbStyle | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [subscriptionModalOpen, setSubscriptionModalOpen] = useState(false);
 
   // Filter, sort, and search state
   const [filter, setFilter] = useState<StyleFilter>("all");
@@ -719,6 +723,9 @@ export const StudioViewStyles = memo(function StudioViewStyles() {
         onAdd={handleAddNew}
         addLabel="Add Style"
         showAdd={true}
+        addDisabled={!canCreateCustomAssets()}
+        addLockIcon={true}
+        onUpgradeClick={() => setSubscriptionModalOpen(true)}
         className="mb-6"
       />
 
@@ -758,10 +765,28 @@ export const StudioViewStyles = memo(function StudioViewStyles() {
                 : "Browse other filter options to find styles."}
             </p>
             {!searchQuery && !favoritesOnly && (filter === "all" || filter === "mine") && (
-              <Button onClick={handleAddNew} className="gap-2">
-                <Plus className="h-4 w-4" />
-                Create Your First Style
-              </Button>
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                <Button
+                  onClick={canCreateCustomAssets() ? handleAddNew : undefined}
+                  disabled={!canCreateCustomAssets()}
+                  className="gap-2"
+                >
+                  {!canCreateCustomAssets() && <Lock className="h-4 w-4 shrink-0" />}
+                  <Plus className="h-4 w-4" />
+                  Create Your First Style
+                </Button>
+                {!canCreateCustomAssets() && (
+                  <Button
+                    type="button"
+                    variant="link"
+                    size="sm"
+                    className="h-auto p-0 text-primary"
+                    onClick={() => setSubscriptionModalOpen(true)}
+                  >
+                    Upgrade to unlock
+                  </Button>
+                )}
+              </div>
             )}
           </CardContent>
         </Card>
@@ -790,6 +815,12 @@ export const StudioViewStyles = memo(function StudioViewStyles() {
         style={editingStyle}
         onSave={handleSave}
         isLoading={isSaving}
+      />
+
+      <SubscriptionModal
+        isOpen={subscriptionModalOpen}
+        onClose={() => setSubscriptionModalOpen(false)}
+        currentTier={tier}
       />
 
       {/* Delete Confirmation Dialog */}
@@ -861,6 +892,7 @@ const PALETTE_SORT_OPTIONS: SortOption[] = [
 export const StudioViewPalettes = memo(function StudioViewPalettes() {
   const { user } = useAuth();
   const { actions } = useStudio();
+  const { canCreateCustomAssets, tier } = useSubscription();
   const {
     palettes,
     publicPalettes,
@@ -883,6 +915,7 @@ export const StudioViewPalettes = memo(function StudioViewPalettes() {
   const [paletteToDelete, setPaletteToDelete] = useState<DbPalette | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [subscriptionModalOpen, setSubscriptionModalOpen] = useState(false);
 
   // Filter, sort, and search state
   const [filter, setFilter] = useState<PaletteFilter>("all");
@@ -1113,6 +1146,9 @@ export const StudioViewPalettes = memo(function StudioViewPalettes() {
         onAdd={handleAddNew}
         addLabel="Add Palette"
         showAdd={true}
+        addDisabled={!canCreateCustomAssets()}
+        addLockIcon={true}
+        onUpgradeClick={() => setSubscriptionModalOpen(true)}
         className="mb-6"
       />
 
@@ -1161,10 +1197,28 @@ export const StudioViewPalettes = memo(function StudioViewPalettes() {
                 : "Browse other filter options to find palettes."}
             </p>
             {!searchQuery && !favoritesOnly && (filter === "all" || filter === "mine") && (
-              <Button onClick={handleAddNew} className="gap-2">
-                <Plus className="h-4 w-4" />
-                Create Your First Palette
-              </Button>
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                <Button
+                  onClick={canCreateCustomAssets() ? handleAddNew : undefined}
+                  disabled={!canCreateCustomAssets()}
+                  className="gap-2"
+                >
+                  {!canCreateCustomAssets() && <Lock className="h-4 w-4 shrink-0" />}
+                  <Plus className="h-4 w-4" />
+                  Create Your First Palette
+                </Button>
+                {!canCreateCustomAssets() && (
+                  <Button
+                    type="button"
+                    variant="link"
+                    size="sm"
+                    className="h-auto p-0 text-primary"
+                    onClick={() => setSubscriptionModalOpen(true)}
+                  >
+                    Upgrade to unlock
+                  </Button>
+                )}
+              </div>
             )}
           </CardContent>
         </Card>
@@ -1177,6 +1231,12 @@ export const StudioViewPalettes = memo(function StudioViewPalettes() {
         palette={editingPalette}
         onSave={handleSave}
         isLoading={isSaving}
+      />
+
+      <SubscriptionModal
+        isOpen={subscriptionModalOpen}
+        onClose={() => setSubscriptionModalOpen(false)}
+        currentTier={tier}
       />
 
       {/* Delete Confirmation Dialog */}
@@ -1227,6 +1287,7 @@ const FACE_SORT_OPTIONS: SortOption[] = [
 export const StudioViewFaces = memo(function StudioViewFaces() {
   const { user } = useAuth();
   const { actions } = useStudio();
+  const { canCreateCustomAssets, tier } = useSubscription();
   const {
     faces: allFaces,
     isLoading,
@@ -1247,6 +1308,7 @@ export const StudioViewFaces = memo(function StudioViewFaces() {
   const [faceToDelete, setFaceToDelete] = useState<DbFace | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [subscriptionModalOpen, setSubscriptionModalOpen] = useState(false);
 
   // Search and sort state
   const [sortValue, setSortValue] = useState("newest");
@@ -1425,6 +1487,9 @@ export const StudioViewFaces = memo(function StudioViewFaces() {
         onAdd={handleAddNew}
         addLabel="Add Face"
         showAdd={true}
+        addDisabled={!canCreateCustomAssets()}
+        addLockIcon={true}
+        onUpgradeClick={() => setSubscriptionModalOpen(true)}
         className="mb-6"
       />
 
@@ -1450,10 +1515,28 @@ export const StudioViewFaces = memo(function StudioViewFaces() {
                 : "Add face references to maintain consistent character appearances in your generated thumbnails."}
             </p>
             {!searchQuery && (
-              <Button onClick={handleAddNew} className="gap-2">
-                <Plus className="h-4 w-4" />
-                Add Your First Face
-              </Button>
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                <Button
+                  onClick={canCreateCustomAssets() ? handleAddNew : undefined}
+                  disabled={!canCreateCustomAssets()}
+                  className="gap-2"
+                >
+                  {!canCreateCustomAssets() && <Lock className="h-4 w-4 shrink-0" />}
+                  <Plus className="h-4 w-4" />
+                  Add Your First Face
+                </Button>
+                {!canCreateCustomAssets() && (
+                  <Button
+                    type="button"
+                    variant="link"
+                    size="sm"
+                    className="h-auto p-0 text-primary"
+                    onClick={() => setSubscriptionModalOpen(true)}
+                  >
+                    Upgrade to unlock
+                  </Button>
+                )}
+              </div>
             )}
           </CardContent>
         </Card>
@@ -1481,6 +1564,12 @@ export const StudioViewFaces = memo(function StudioViewFaces() {
         face={editingFace}
         onSave={handleSave}
         isLoading={isSaving}
+      />
+
+      <SubscriptionModal
+        isOpen={subscriptionModalOpen}
+        onClose={() => setSubscriptionModalOpen(false)}
+        currentTier={tier}
       />
 
       {/* Delete Confirmation Dialog */}

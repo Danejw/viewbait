@@ -5,6 +5,9 @@ import { useThumbnailGeneration } from "@/lib/hooks/useThumbnailGeneration";
 import { useThumbnails, useDeleteThumbnail, useToggleFavorite } from "@/lib/hooks/useThumbnails";
 import { useFaces } from "@/lib/hooks/useFaces";
 import { useAuth } from "@/lib/hooks/useAuth";
+import { useSubscription } from "@/lib/hooks/useSubscription";
+import { useWatermarkedImage } from "@/lib/hooks/useWatermarkedImage";
+import { applyQrWatermark } from "@/lib/utils/watermarkUtils";
 import type { Thumbnail, PublicStyle, DbStyle, PublicPalette, DbPalette, DbFace } from "@/lib/types/database";
 import { DeleteConfirmationModal } from "@/components/studio/delete-confirmation-modal";
 import { ThumbnailEditModal, type ThumbnailEditData } from "@/components/studio/thumbnail-edit-modal";
@@ -306,6 +309,8 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
   // Used to look up face image URLs when generating
   const { faces } = useFaces();
 
+  const { canCreateCustomAssets, hasWatermark } = useSubscription();
+
   // Mutation hooks
   const deleteMutation = useDeleteThumbnail();
   const favoriteMutation = useToggleFavorite();
@@ -415,28 +420,29 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
+    const allowCustom = canCreateCustomAssets();
     const results = await generate({
       thumbnailText: state.thumbnailText,
       customInstructions: state.customInstructions,
-      selectedStyle: state.includeStyles ? state.selectedStyle : null,
-      selectedPalette: state.includePalettes ? state.selectedPalette : null,
+      selectedStyle: allowCustom && state.includeStyles ? state.selectedStyle : null,
+      selectedPalette: allowCustom && state.includePalettes ? state.selectedPalette : null,
       selectedAspectRatio: state.selectedAspectRatio,
       selectedResolution: state.selectedResolution,
       variations: state.variations,
       styleReferences:
-        state.includeStyleReferences && state.styleReferences.length > 0
+        allowCustom && state.includeStyleReferences && state.styleReferences.length > 0
           ? state.styleReferences
           : undefined,
-      faceCharacters,
-      expression: state.includeFaces && state.faceExpression !== "None" ? state.faceExpression : null,
-      pose: state.includeFaces && state.facePose !== "None" ? state.facePose : null,
+      faceCharacters: allowCustom ? faceCharacters : undefined,
+      expression: allowCustom && state.includeFaces && state.faceExpression !== "None" ? state.faceExpression : null,
+      pose: allowCustom && state.includeFaces && state.facePose !== "None" ? state.facePose : null,
     });
 
     // Refresh thumbnails after generation completes
     if (results.some((r) => r.success)) {
       await refreshThumbnails();
     }
-  }, [state, generate, refreshThumbnails, faces]);
+  }, [state, generate, refreshThumbnails, faces, canCreateCustomAssets]);
 
   // Thumbnail action handlers
   const onFavoriteToggle = useCallback((id: string) => {
@@ -483,16 +489,44 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
     }
   }, [state.thumbnailToDelete?.id, deleteMutation]);
 
-  const onDownloadThumbnail = useCallback((id: string) => {
-    // Find the thumbnail and trigger download
-    const thumbnail = thumbnails.find((t) => t.id === id);
-    if (thumbnail?.imageUrl) {
-      const link = document.createElement("a");
-      link.href = thumbnail.imageUrl;
-      link.download = `${thumbnail.name || "thumbnail"}.png`;
-      link.click();
-    }
-  }, [thumbnails]);
+  const thumbnailToViewImageUrl = state.thumbnailToView?.imageUrl ?? null;
+  const { url: watermarkedThumbnailModalUrl } = useWatermarkedImage(thumbnailToViewImageUrl, {
+    enabled: hasWatermark() && !!state.thumbnailToView,
+  });
+
+  const onDownloadThumbnail = useCallback(
+    async (id: string) => {
+      const thumbnail = thumbnails.find((t) => t.id === id);
+      if (!thumbnail?.imageUrl) return;
+      const filename = `${thumbnail.name || "thumbnail"}.png`;
+      if (!hasWatermark()) {
+        const link = document.createElement("a");
+        link.href = thumbnail.imageUrl;
+        link.download = filename;
+        link.click();
+        return;
+      }
+      try {
+        const res = await fetch(thumbnail.imageUrl, { mode: "cors" });
+        if (!res.ok) throw new Error(`Failed to fetch image: ${res.status}`);
+        const blob = await res.blob();
+        const watermarked = await applyQrWatermark(blob);
+        const objectUrl = URL.createObjectURL(watermarked);
+        const link = document.createElement("a");
+        link.href = objectUrl;
+        link.download = filename;
+        link.click();
+        URL.revokeObjectURL(objectUrl);
+      } catch (err) {
+        console.error("Watermarked download failed:", err);
+        const link = document.createElement("a");
+        link.href = thumbnail.imageUrl;
+        link.download = filename;
+        link.click();
+      }
+    },
+    [thumbnails, hasWatermark]
+  );
 
   const onShareThumbnail = useCallback((id: string) => {
     // Copy URL to clipboard for sharing
@@ -919,7 +953,7 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
           onOpenChange={(open) => {
             if (!open) closeImageModal();
           }}
-          src={state.thumbnailToView.imageUrl}
+          src={watermarkedThumbnailModalUrl ?? state.thumbnailToView.imageUrl}
           alt={state.thumbnailToView.name}
           title={state.thumbnailToView.name}
         />

@@ -10,12 +10,45 @@ export type TierName = 'free' | 'starter' | 'advanced' | 'pro'
 
 export type Resolution = '1K' | '2K' | '4K'
 
+/** All aspect ratio options available for image generation. */
+export const ALL_ASPECT_RATIOS = [
+  '1:1',
+  '2:3',
+  '3:2',
+  '3:4',
+  '4:3',
+  '4:5',
+  '5:4',
+  '9:16',
+  '16:9',
+  '21:9',
+] as const
+
+/**
+ * Aspect ratio display order: Free first (16:9), then Starter unlocks, then Advanced/Pro unlocks.
+ * Improves UX by showing options in the order they unlock by tier.
+ */
+export const ASPECT_RATIO_DISPLAY_ORDER: readonly string[] = [
+  '16:9',   // Free
+  '1:1', '3:2', '3:4', '9:16',   // Starter
+  '2:3', '4:3', '4:5', '5:4', '21:9',   // Advanced / Pro
+]
+
+/** Allowed aspect ratios per tier (code-only; no DB column required). */
+export const ASPECT_RATIOS_BY_TIER: Record<TierName, readonly string[]> = {
+  free: ['16:9'],
+  starter: ['1:1', '3:2', '3:4', '9:16', '16:9'],
+  advanced: [...ALL_ASPECT_RATIOS],
+  pro: [...ALL_ASPECT_RATIOS],
+}
+
 export interface TierConfig {
   name: string
   product_id: string | null
   price_id: string | null
   credits_per_month: number
   allowed_resolutions: Resolution[]
+  allowed_aspect_ratios: string[]
   has_watermark: boolean
   has_enhance: boolean
   persistent_storage: boolean
@@ -60,6 +93,7 @@ export function getTierByProductId(productId: string | null): TierConfig {
     price_id: null,
     credits_per_month: 10,
     allowed_resolutions: ['1K'],
+    allowed_aspect_ratios: ['16:9'],
     has_watermark: true,
     has_enhance: false,
     persistent_storage: false,

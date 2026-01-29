@@ -13,7 +13,9 @@ import {
   validationErrorResponse,
   databaseErrorResponse,
   serverErrorResponse,
+  tierLimitResponse,
 } from '@/lib/server/utils/error-handler'
+import { getTierForUser } from '@/lib/server/utils/tier'
 import { createCachedResponse, addCacheHeaders } from '@/lib/server/utils/cache-headers'
 import { logError } from '@/lib/server/utils/logger'
 import { NextResponse } from 'next/server'
@@ -147,6 +149,11 @@ export async function POST(request: Request) {
   try {
     const supabase = await createClient()
     const user = await requireAuth(supabase)
+
+    const tier = await getTierForUser(supabase, user.id)
+    if (!tier.can_create_custom) {
+      return tierLimitResponse('Custom styles, palettes, and faces require Starter or higher.')
+    }
 
     // Parse request body
     const body: StyleInsert = await request.json()
