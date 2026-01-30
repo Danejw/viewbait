@@ -503,6 +503,7 @@ export interface ThumbnailUpdate {
   aspect_ratio?: string | null
   has_watermark?: boolean
   liked?: boolean
+  project_id?: string | null
 }
 
 export interface StyleUpdate {
@@ -976,6 +977,7 @@ export interface Thumbnail {
   authorId?: string      // maps to user_id
   authorName?: string    // from profiles join
   resolution?: string | null // maps to resolution (1K, 2K, 4K)
+  projectId?: string | null // maps to project_id
 }
 
 /**
@@ -1047,6 +1049,7 @@ export function mapDbThumbnailToThumbnail(db: DbThumbnail): Thumbnail {
     authorId: db.user_id,
     resolution: db.resolution || undefined,
     likeCount: db.like_count || 0,
+    projectId: db.project_id ?? null,
   }
 }
 

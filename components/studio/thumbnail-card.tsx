@@ -19,9 +19,15 @@
 
 import React, { memo, useCallback, useMemo, useState } from "react";
 import { useDraggable } from "@dnd-kit/core";
-import { Heart, Download, Share2, Copy, Pencil, Trash2 } from "lucide-react";
+import { Heart, Download, Share2, Copy, Pencil, Trash2, FolderPlus } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CRTLoadingEffect } from "@/components/ui/crt-loading-effect";
 import {
@@ -252,12 +258,14 @@ export const ThumbnailCard = memo(function ThumbnailCard({
   // Get all actions and currentUserId from context
   const {
     currentUserId,
+    projects,
     onFavoriteToggle,
     onDownload,
     onShare,
     onCopy,
     onEdit,
     onDelete,
+    onAddToProject,
     onView,
   } = useThumbnailActions();
 
@@ -271,6 +279,7 @@ export const ThumbnailCard = memo(function ThumbnailCard({
     generating,
     resolution,
     authorId,
+    projectId,
   } = thumbnail;
 
   const { hasWatermark } = useSubscription();
@@ -299,6 +308,19 @@ export const ThumbnailCard = memo(function ThumbnailCard({
   // Check if current user owns this thumbnail
   const isOwner = currentUserId && authorId && currentUserId === authorId;
 
+  // Controlled HoverCard + project dropdown: keep HoverCard open while dropdown is open
+  // so the action bar (and dropdown trigger) don't unmount when moving to the list
+  const [hoverOpen, setHoverOpen] = useState(false);
+  const [projectDropdownOpen, setProjectDropdownOpen] = useState(false);
+
+  const handleHoverCardOpenChange = useCallback((open: boolean) => {
+    if (open) {
+      setHoverOpen(true);
+    } else if (!projectDropdownOpen) {
+      setHoverOpen(false);
+    }
+  }, [projectDropdownOpen]);
+
   // Show logo loading state for items currently being generated
   if (generating) {
     return <ThumbnailCardGenerating text={name} />;
@@ -316,9 +338,9 @@ export const ThumbnailCard = memo(function ThumbnailCard({
   const handleDownload = useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation();
-      onDownload(thumbnail);
+      onDownload(id);
     },
-    [thumbnail, onDownload]
+    [id, onDownload]
   );
 
   const handleShare = useCallback(
@@ -353,9 +375,21 @@ export const ThumbnailCard = memo(function ThumbnailCard({
     [id, onDelete]
   );
 
+  const handleAddToProject = useCallback(
+    (e: React.MouseEvent, selectedProjectId: string | null) => {
+      e.stopPropagation();
+      if (selectedProjectId === (projectId ?? null)) return; // no-op: same project
+      onAddToProject(id, selectedProjectId);
+    },
+    [id, projectId, onAddToProject]
+  );
+
   const handleClick = useCallback(() => {
     onView(thumbnail);
   }, [thumbnail, onView]);
+
+  const projectActionLabel = projectId == null ? "Add to project" : "Move to project";
+  const hasProjects = projects && projects.length > 0;
 
   /** Action bar content - shared between HoverCard pop-up (keeps design consistent) */
   const actionBar = (
@@ -382,6 +416,44 @@ export const ThumbnailCard = memo(function ThumbnailCard({
         onClick={handleCopy}
       />
       {isOwner && (
+        <DropdownMenu open={projectDropdownOpen} onOpenChange={setProjectDropdownOpen}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  className="h-7 w-7 bg-muted hover:bg-muted"
+                  disabled={!hasProjects}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <FolderPlus className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="text-xs">
+              {hasProjects ? projectActionLabel : "Create a project first"}
+            </TooltipContent>
+          </Tooltip>
+          <DropdownMenuContent align="center" side="top" onClick={(e) => e.stopPropagation()}>
+            <DropdownMenuItem
+              onClick={(e) => handleAddToProject(e as unknown as React.MouseEvent, null)}
+            >
+              No project
+            </DropdownMenuItem>
+            {projects?.map((project) => (
+              <DropdownMenuItem
+                key={project.id}
+                onClick={(e) => handleAddToProject(e as unknown as React.MouseEvent, project.id)}
+              >
+                {project.name}
+                {project.id === projectId ? " (current)" : ""}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
+      {isOwner && (
         <ActionButton
           icon={Pencil}
           label="Edit"
@@ -400,7 +472,12 @@ export const ThumbnailCard = memo(function ThumbnailCard({
   );
 
   return (
-    <HoverCard openDelay={150} closeDelay={100}>
+    <HoverCard
+      open={hoverOpen}
+      onOpenChange={handleHoverCardOpenChange}
+      openDelay={150}
+      closeDelay={100}
+    >
       <HoverCardTrigger asChild>
         <Card
           ref={setNodeRef}

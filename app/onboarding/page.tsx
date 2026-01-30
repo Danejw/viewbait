@@ -16,7 +16,7 @@ import React, {
 } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { ChevronRight, Download, ExternalLink, RefreshCw, Zap } from "lucide-react";
+import { ChevronRight, ExternalLink, RefreshCw, Zap } from "lucide-react";
 import { toast } from "sonner";
 import { OnboardingProvider } from "@/lib/contexts/onboarding-context";
 import { StudioProvider, StudioDndContext, useStudio } from "@/components/studio";
@@ -47,7 +47,8 @@ function OnboardingFlow() {
   const { user } = useAuth();
   const {
     state: { thumbnailText, selectedStyle, includeFaces, selectedFaces, isGenerating },
-    actions: { setIncludeStyles, setThumbnailText, setSelectedStyle, setIncludeFaces },
+    actions: { setIncludeStyles, setThumbnailText, setSelectedStyle, setIncludeFaces, clearLastGeneratedThumbnail },
+    data: { lastGeneratedThumbnail },
   } = useStudio();
   const { thumbnails } = useThumbnails({
     userId: user?.id,
@@ -85,20 +86,32 @@ function OnboardingFlow() {
     if (step !== 2) didExpandFacesRef.current = false;
   }, [step, setIncludeFaces]);
 
-  // Detect generation completion: isGenerating went true then false, thumbnails count increased
-  // When thumbnails list updates after generation, advance to step 5 and set the new thumbnail (newest = thumbnails[0] with created_at desc)
+  // Track when we're generating so we know when to advance
   useEffect(() => {
     if (isGenerating) {
       wasGeneratingRef.current = true;
       prevThumbnailsCountRef.current = thumbnails.length;
     }
-    if (wasGeneratingRef.current && !isGenerating && step === 4) {
-      if (thumbnails.length > prevThumbnailsCountRef.current && thumbnails[0]) {
-        wasGeneratingRef.current = false;
-        setGeneratedThumbnail(thumbnails[0]);
-        setStep(5);
-        toast.success("Your thumbnail is ready!");
-      }
+  }, [isGenerating, thumbnails.length]);
+
+  // Primary: advance to step 5 when generation result is set (from API response – reliable)
+  useEffect(() => {
+    if (step === 4 && wasGeneratingRef.current && lastGeneratedThumbnail?.imageUrl) {
+      wasGeneratingRef.current = false;
+      setGeneratedThumbnail(lastGeneratedThumbnail);
+      setStep(5);
+      clearLastGeneratedThumbnail();
+      toast.success("Your thumbnail is ready!");
+    }
+  }, [step, lastGeneratedThumbnail, clearLastGeneratedThumbnail]);
+
+  // Fallback: advance when list refetch includes the new thumbnail (if lastGeneratedThumbnail wasn't set)
+  useEffect(() => {
+    if (wasGeneratingRef.current && !isGenerating && step === 4 && thumbnails.length > prevThumbnailsCountRef.current && thumbnails[0]) {
+      wasGeneratingRef.current = false;
+      setGeneratedThumbnail(thumbnails[0]);
+      setStep(5);
+      toast.success("Your thumbnail is ready!");
     }
   }, [isGenerating, step, thumbnails]);
 
@@ -131,14 +144,6 @@ function OnboardingFlow() {
     setSelectedStyle(null);
     setIncludeFaces(false);
   }, [setThumbnailText, setSelectedStyle, setIncludeFaces]);
-
-  const handleDownload = useCallback(() => {
-    if (!generatedThumbnail?.imageUrl) return;
-    const link = document.createElement("a");
-    link.href = generatedThumbnail.imageUrl;
-    link.download = `${generatedThumbnail.name || "thumbnail"}.png`;
-    link.click();
-  }, [generatedThumbnail]);
 
   const selectedStyleName =
     selectedStyle &&
@@ -516,14 +521,16 @@ function OnboardingFlow() {
           {step === 5 && generatedThumbnail?.imageUrl && (
             <div className="success-container relative z-[1]">
               <div className="success-preview relative">
-                <Image
-                  src={generatedThumbnail.imageUrl}
-                  alt="Generated thumbnail"
-                  fill
-                  className="object-cover"
-                  unoptimized
-                  sizes="(max-width: 512px) 100vw, 512px"
-                />
+                <div className="relative z-[1] size-full">
+                  <Image
+                    src={generatedThumbnail.imageUrl}
+                    alt="Generated thumbnail"
+                    fill
+                    className="object-cover"
+                    unoptimized
+                    sizes="(max-width: 512px) 100vw, 512px"
+                  />
+                </div>
               </div>
               <div
                 className="text-center mb-6 p-4 rounded-xl border"
@@ -541,17 +548,9 @@ function OnboardingFlow() {
                 </p>
               </div>
               <div className="flex flex-col gap-3">
-                <button
-                  type="button"
-                  className="btn-primary"
-                  onClick={handleDownload}
-                >
-                  <Download className="size-[18px]" strokeWidth={2.5} />
-                  Download Thumbnail
-                </button>
                 <Link
                   href="/studio"
-                  className="btn-secondary w-full inline-flex items-center justify-center gap-2 no-underline"
+                  className="btn-primary w-full inline-flex items-center justify-center gap-2 no-underline"
                 >
                   <ExternalLink className="size-4 shrink-0" strokeWidth={2} />
                   Open in Studio

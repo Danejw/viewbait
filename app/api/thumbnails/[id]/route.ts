@@ -8,6 +8,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import type { ThumbnailUpdate } from '@/lib/types/database'
+import { getProjectById } from '@/lib/server/data/projects'
 import { logError } from '@/lib/server/utils/logger'
 import { requireAuth } from '@/lib/server/utils/auth'
 import { notFoundResponse, validationErrorResponse, databaseErrorResponse, serverErrorResponse } from '@/lib/server/utils/error-handler'
@@ -113,6 +114,14 @@ export async function PATCH(
     // Validate title if provided
     if (body.title !== undefined && (!body.title || !body.title.trim())) {
       return validationErrorResponse('Title cannot be empty')
+    }
+
+    // Validate project_id if provided (must exist and belong to user)
+    if (body.project_id !== undefined && body.project_id !== null) {
+      const { data: project } = await getProjectById(supabase, body.project_id, user.id)
+      if (!project) {
+        return validationErrorResponse('Project not found or access denied')
+      }
     }
 
     // Update thumbnail

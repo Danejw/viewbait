@@ -1227,6 +1227,11 @@ html.lenis body {
   margin-bottom: 24px;
   border: 1px solid rgba(255, 255, 255, 0.1);
 }
+/* Thumbnail image above scanline overlay */
+.landing-page .success-preview > * {
+  position: relative;
+  z-index: 1;
+}
 .landing-page .success-preview::after {
   content: "";
   position: absolute;

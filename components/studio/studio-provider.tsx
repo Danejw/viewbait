@@ -18,6 +18,7 @@ import type {
   DbFace,
   DbProject,
 } from "@/lib/types/database";
+import * as thumbnailsService from "@/lib/services/thumbnails";
 import { useWatermarkedImage } from "@/lib/hooks/useWatermarkedImage";
 import { applyQrWatermark } from "@/lib/utils/watermarkUtils";
 import { DeleteConfirmationModal } from "@/components/studio/delete-confirmation-modal";
@@ -113,6 +114,8 @@ export interface StudioState {
   faceToView: DbFace | null;
   // Active project (null = All thumbnails)
   activeProjectId: string | null;
+  /** Set when generation completes successfully; consumed by onboarding to advance to step 5 */
+  lastGeneratedThumbnail: Thumbnail | null;
 }
 
 /**
@@ -162,6 +165,7 @@ export interface StudioActions {
   onShareThumbnail: (id: string) => void;
   onCopyThumbnail: (id: string) => void;
   onEditThumbnail: (thumbnail: Thumbnail) => void;
+  onAddToProject: (id: string, projectId: string | null) => void;
   // Modal actions
   closeDeleteModal: () => void;
   confirmDelete: () => Promise<void>;
@@ -187,6 +191,8 @@ export interface StudioActions {
   // Project workflow
   setActiveProjectId: (id: string | null) => void;
   saveProjectSettings: () => Promise<void>;
+  /** Clear lastGeneratedThumbnail after onboarding consumes it */
+  clearLastGeneratedThumbnail: () => void;
 }
 
 /**
@@ -217,6 +223,8 @@ export interface StudioData {
   isFetchingNextPage: boolean;
   // Refresh function
   refreshThumbnails: () => Promise<void>;
+  /** Thumbnail from last successful generation; used by onboarding to advance to step 5 */
+  lastGeneratedThumbnail: Thumbnail | null;
   // Projects (for switcher and load defaults)
   projects: DbProject[];
   projectsLoading: boolean;
@@ -257,12 +265,14 @@ export function useThumbnailActions() {
   const { actions, data } = useStudio();
   return {
     currentUserId: data.currentUserId,
+    projects: data.projects,
     onFavoriteToggle: actions.onFavoriteToggle,
     onDownload: actions.onDownloadThumbnail,
     onShare: actions.onShareThumbnail,
     onCopy: actions.onCopyThumbnail,
     onEdit: actions.onEditThumbnail,
     onDelete: actions.onDeleteThumbnail,
+    onAddToProject: actions.onAddToProject,
     onView: actions.onViewThumbnail,
   };
 }
@@ -380,6 +390,7 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
     faceToView: null,
     // Active project (null = All thumbnails); hydrated from localStorage
     activeProjectId: null,
+    lastGeneratedThumbnail: null,
   });
 
   // Thumbnails data hook (React Query); filter by activeProjectId when set
@@ -535,6 +546,25 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
 
     // Refresh thumbnails after generation completes
     if (results.some((r) => r.success)) {
+      const firstSuccess = results.find((r) => r.success && r.thumbnailId && r.imageUrl);
+      const thumbId = firstSuccess?.thumbnailId;
+      const thumbUrl = firstSuccess?.imageUrl;
+      if (thumbId && thumbUrl) {
+        setState((s) => ({
+          ...s,
+          lastGeneratedThumbnail: {
+            id: thumbId,
+            name: state.thumbnailText.trim() || "Thumbnail",
+            imageUrl: thumbUrl,
+            thumbnail400wUrl: null,
+            thumbnail800wUrl: null,
+            prompt: state.thumbnailText.trim() || "",
+            isFavorite: false,
+            isPublic: false,
+            createdAt: new Date(),
+          },
+        }));
+      }
       await refreshThumbnails();
     }
   }, [state, generate, refreshThumbnails, faces, canCreateCustomAssets]);
@@ -648,6 +678,18 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
       thumbnailToEdit: thumbnail,
     }));
   }, []);
+
+  const onAddToProject = useCallback(
+    async (thumbnailId: string, projectId: string | null) => {
+      const { error } = await thumbnailsService.updateThumbnail(thumbnailId, {
+        project_id: projectId,
+      });
+      if (!error) {
+        await invalidateAllThumbnails();
+      }
+    },
+    [invalidateAllThumbnails]
+  );
 
   const closeEditModal = useCallback(() => {
     setState((s) => ({
@@ -960,6 +1002,7 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
     onShareThumbnail,
     onCopyThumbnail,
     onEditThumbnail,
+    onAddToProject,
     closeDeleteModal,
     confirmDelete,
     closeEditModal,
@@ -975,6 +1018,8 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
     clearError,
     setActiveProjectId,
     saveProjectSettings,
+    clearLastGeneratedThumbnail: () =>
+      setState((s) => ({ ...s, lastGeneratedThumbnail: null })),
     applyFormStateUpdates: (updates) => {
       setState((s) => {
         const newState = { ...s };
@@ -1046,6 +1091,7 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
     fetchNextPage,
     isFetchingNextPage,
     refreshThumbnails,
+    lastGeneratedThumbnail: state.lastGeneratedThumbnail,
     projects,
     projectsLoading,
     activeProjectId: state.activeProjectId,
