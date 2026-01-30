@@ -416,8 +416,8 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
   });
 
   // Faces data hook (React Query)
-  // Used to look up face image URLs when generating
-  const { faces } = useFaces();
+  // Used to look up face image URLs when generating; refresh used when agent adds a new face
+  const { faces, refresh: refreshFaces } = useFaces();
 
   // Mutation hooks
   const deleteMutation = useDeleteThumbnail();
@@ -1107,8 +1107,21 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
         if (updates.includeStyleReferences !== undefined)
           newState.includeStyleReferences = updates.includeStyleReferences;
         if (updates.styleReferences !== undefined) newState.styleReferences = updates.styleReferences;
+        if (updates.selectedFaces !== undefined) newState.selectedFaces = updates.selectedFaces;
         return newState;
       });
+      // When agent created a new face from an attached image, refetch faces then select it
+      if (updates.newFaceId !== undefined) {
+        refreshFaces().then(() => {
+          setState((s) => ({
+            ...s,
+            includeFaces: true,
+            selectedFaces: s.selectedFaces?.includes(updates.newFaceId!)
+              ? s.selectedFaces
+              : [...(s.selectedFaces ?? []), updates.newFaceId!],
+          }));
+        });
+      }
     },
     resetChat: (clearForm) => {
       setState((s) => ({

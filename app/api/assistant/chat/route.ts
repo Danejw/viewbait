@@ -12,9 +12,11 @@ import { callGeminiWithFunctionCalling, type FunctionCallingWithGroundingResult 
 import { processGroundingCitations } from '@/lib/utils/citation-processor'
 import { logError } from '@/lib/server/utils/logger'
 import { getExpressionValues, getPoseValues, formatExpressionsForPrompt, formatPosesForPrompt } from '@/lib/constants/face-options'
+import { getTierForUser } from '@/lib/server/utils/tier'
 
 const MAX_STYLE_REFERENCES = 10
 const STYLE_REFERENCES_BUCKET = 'style-references'
+const FACES_BUCKET = 'faces'
 const SIGNED_URL_EXPIRY_SECONDS = 31536000 // 1 year
 
 /**
@@ -70,12 +72,93 @@ async function enrichFormStateWithAttachedStyleReferences(
   return out
 }
 
-/** Remove server-only flag from form_state_updates before sending to client. */
-function stripAddAttachedFlag(
+/**
+ * Upload a base64-encoded image to the faces bucket for a given face and return a signed URL.
+ * Used when the user asks the agent to add an attached image as a new face.
+ */
+async function uploadBase64ToFaceImage(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  faceId: string,
+  base64: string,
+  mimeType: string,
+  index: number
+): Promise<string | null> {
+  const ext = mimeType === 'image/png' ? 'png' : mimeType === 'image/webp' ? 'webp' : mimeType === 'image/gif' ? 'gif' : 'jpg'
+  const path = `${userId}/${faceId}/${index}.${ext}`
+  const buffer = Buffer.from(base64, 'base64')
+  const { error: uploadError } = await supabase.storage
+    .from(FACES_BUCKET)
+    .upload(path, buffer, { contentType: mimeType, cacheControl: '3600', upsert: true })
+  if (uploadError) return null
+  const { data: urlData, error: urlError } = await supabase.storage
+    .from(FACES_BUCKET)
+    .createSignedUrl(path, SIGNED_URL_EXPIRY_SECONDS)
+  if (urlError || !urlData?.signedUrl) return null
+  return urlData.signedUrl
+}
+
+/**
+ * If the agent set add_attached_image_as_new_face and the user attached an image,
+ * create a new face, upload the first image, and merge newFaceId/selectedFaces/includeFace into form_state_updates.
+ */
+async function enrichFormStateWithNewFaceFromAttachedImage(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  currentSelectedFaces: string[],
+  attachedImages: Array<{ data: string; mimeType: string }>,
+  formStateUpdates: Record<string, unknown> | undefined
+): Promise<Record<string, unknown> | undefined> {
+  const addAsFace = formStateUpdates && (formStateUpdates as { add_attached_image_as_new_face?: boolean }).add_attached_image_as_new_face === true
+  if (!addAsFace || attachedImages.length === 0) return formStateUpdates
+
+  const tier = await getTierForUser(supabase, userId)
+  if (!tier.can_create_custom) return formStateUpdates
+
+  const nameRaw = (formStateUpdates as { new_face_name?: string }).new_face_name
+  const name = (typeof nameRaw === 'string' && nameRaw.trim()) ? nameRaw.trim() : 'My face'
+
+  const { data: face, error: insertError } = await supabase
+    .from('faces')
+    .insert({ user_id: userId, name, image_urls: [] })
+    .select('id')
+    .single()
+
+  if (insertError || !face?.id) return formStateUpdates
+
+  const url = await uploadBase64ToFaceImage(supabase, userId, face.id, attachedImages[0].data, attachedImages[0].mimeType, 0)
+  if (!url) return formStateUpdates
+
+  const { error: updateError } = await supabase
+    .from('faces')
+    .update({ image_urls: [url] })
+    .eq('id', face.id)
+
+  if (updateError) return formStateUpdates
+
+  const existing = currentSelectedFaces ?? []
+  const merged: Record<string, unknown> = {
+    ...formStateUpdates,
+    newFaceId: face.id,
+    includeFace: true,
+    selectedFaces: [...existing, face.id],
+  }
+  delete merged.add_attached_image_as_new_face
+  delete merged.new_face_name
+  return merged
+}
+
+/** Remove server-only keys from form_state_updates before sending to client. */
+function stripServerOnlyFormUpdates(
   updates: Record<string, unknown> | undefined
 ): AssistantChatResponse['form_state_updates'] {
   if (!updates || typeof updates !== 'object') return undefined
-  const { add_attached_images_to_style_references: _, ...rest } = updates
+  const {
+    add_attached_images_to_style_references: _1,
+    add_attached_image_as_new_face: _2,
+    new_face_name: _3,
+    ...rest
+  } = updates
   return Object.keys(rest).length > 0 ? (rest as AssistantChatResponse['form_state_updates']) : undefined
 }
 
@@ -135,6 +218,8 @@ export interface AssistantChatResponse {
     customInstructions?: string
     includeStyleReferences?: boolean
     styleReferences?: string[]
+    newFaceId?: string
+    selectedFaces?: string[]
   }
   suggestions?: string[]
 }
@@ -238,6 +323,14 @@ const assistantToolDefinition = {
       add_attached_images_to_style_references: {
         type: 'boolean',
         description: 'Set to true when the user has attached one or more images to this message AND asks to add them to style references (e.g. "add this to my style references", "use this as a style reference"). Surface StyleReferencesSection and set includeStyleReferences to true. The backend will upload the attached images and add their URLs to style references.',
+      },
+      add_attached_image_as_new_face: {
+        type: 'boolean',
+        description: 'Set to true when the user has attached an image to this message AND asks to add it as their face (e.g. "add this as my face", "use this as my face", "register this as a face"). Surface IncludeFaceSection or RegisterNewFaceCard. The backend will create a new face and upload the first attached image. Use only the first attached image; one face per message.',
+      },
+      new_face_name: {
+        type: 'string',
+        description: 'Optional name for the new face when add_attached_image_as_new_face is true. E.g. "Me", "Host", or leave unset for default "My face".',
       },
       suggestions: {
         type: 'array',
@@ -367,7 +460,7 @@ INSTRUCTIONS:
 8. Generate 2-3 relevant suggestions for what the user might want to do next.
 
 PRE-FILL MAPPING (when surfacing these components, set these values):
-- IncludeFaceSection -> set includeFace: true when user wants to add their face
+- IncludeFaceSection -> set includeFace: true when user wants to add their face. If the user has ATTACHED an image and asks to add it as their face (e.g. "add this as my face", "use this as my face"), also set add_attached_image_as_new_face: true and optionally new_face_name (e.g. "Me"); the backend will create a new face and upload the first attached image.
 - ThumbnailTextSection -> set thumbnailText to the user's title/text
 - CustomInstructionsSection -> set customInstructions to the user's instruction verbatim
 - StyleSelectionSection -> set selectedStyle when user names a style
@@ -394,7 +487,7 @@ IMPORTANT:
     }
     const imageDataForGemini = attachedImages.length > 0 ? attachedImages : null
     const systemPromptWithImages = imageDataForGemini
-      ? `${systemPrompt}\n\nThe user has attached one or more images to this message. Use them as visual reference for style, composition, or content when responding. If the user asks to add the attached image(s) to their style references (e.g. "add this to my style references", "use this as a style reference"), surface StyleReferencesSection, set add_attached_images_to_style_references to true and includeStyleReferences to true.`
+      ? `${systemPrompt}\n\nThe user has attached one or more images to this message. Use them as visual reference for style, composition, or content when responding. If the user asks to add the attached image(s) to their style references (e.g. "add this to my style references", "use this as a style reference"), surface StyleReferencesSection, set add_attached_images_to_style_references to true and includeStyleReferences to true. If the user asks to add the attached image as their face (e.g. "add this as my face", "use this as my face"), surface IncludeFaceSection or RegisterNewFaceCard, set add_attached_image_as_new_face to true and optionally new_face_name (e.g. "Me"); the backend will create a new face from the first attached image.`
       : systemPrompt
 
     // Build user prompt from conversation history
@@ -573,14 +666,22 @@ IMPORTANT:
             // If agent asked to add attached images to style references, upload and merge URLs
             let formStateUpdates = functionCallResult.form_state_updates
             if (user && attachedImages.length > 0) {
-              const enriched = await enrichFormStateWithAttachedStyleReferences(
+              const styleEnriched = await enrichFormStateWithAttachedStyleReferences(
                 supabase,
                 user.id,
                 body.formState.styleReferences ?? [],
                 attachedImages,
                 formStateUpdates
               )
-              if (enriched) formStateUpdates = enriched as typeof functionCallResult.form_state_updates
+              if (styleEnriched) formStateUpdates = styleEnriched as typeof functionCallResult.form_state_updates
+              const faceEnriched = await enrichFormStateWithNewFaceFromAttachedImage(
+                supabase,
+                user.id,
+                body.formState.selectedFaces ?? [],
+                attachedImages,
+                formStateUpdates
+              )
+              if (faceEnriched) formStateUpdates = faceEnriched as typeof functionCallResult.form_state_updates
             }
 
             const response: AssistantChatResponse = {
@@ -606,7 +707,7 @@ IMPORTANT:
                     ].includes(comp)
                   )
                 : [],
-              form_state_updates: stripAddAttachedFlag(formStateUpdates as Record<string, unknown>),
+              form_state_updates: stripServerOnlyFormUpdates(formStateUpdates as Record<string, unknown>),
               suggestions: Array.isArray(functionCallResult.suggestions) 
                 ? functionCallResult.suggestions 
                 : [],
@@ -757,17 +858,25 @@ IMPORTANT:
     console.log('[API] form_state_updates from AI:', functionCallResult.form_state_updates);
     console.log('[API] customInstructions in form_state_updates:', functionCallResult.form_state_updates?.customInstructions);
 
-    // If agent asked to add attached images to style references, upload and merge URLs
+    // If agent asked to add attached images to style references or as new face, upload and merge
     let formStateUpdates = functionCallResult.form_state_updates
     if (user && attachedImages.length > 0) {
-      const enriched = await enrichFormStateWithAttachedStyleReferences(
+      const styleEnriched = await enrichFormStateWithAttachedStyleReferences(
         supabase,
         user.id,
         body.formState.styleReferences ?? [],
         attachedImages,
         formStateUpdates
       )
-      if (enriched) formStateUpdates = enriched as typeof functionCallResult.form_state_updates
+      if (styleEnriched) formStateUpdates = styleEnriched as typeof functionCallResult.form_state_updates
+      const faceEnriched = await enrichFormStateWithNewFaceFromAttachedImage(
+        supabase,
+        user.id,
+        body.formState.selectedFaces ?? [],
+        attachedImages,
+        formStateUpdates
+      )
+      if (faceEnriched) formStateUpdates = faceEnriched as typeof functionCallResult.form_state_updates
     }
 
     const response: AssistantChatResponse = {
@@ -793,7 +902,7 @@ IMPORTANT:
             ].includes(comp)
           )
         : [],
-      form_state_updates: stripAddAttachedFlag(formStateUpdates as Record<string, unknown>),
+      form_state_updates: stripServerOnlyFormUpdates(formStateUpdates as Record<string, unknown>),
       suggestions: Array.isArray(functionCallResult.suggestions) 
         ? functionCallResult.suggestions 
         : [],
