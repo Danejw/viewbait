@@ -18,6 +18,8 @@ export interface ThumbnailsQueryOptions {
   orderBy?: 'created_at' | 'title'
   orderDirection?: 'asc' | 'desc'
   favoritesOnly?: boolean
+  /** When set, filter thumbnails by this project. Omit or null = All thumbnails */
+  projectId?: string | null
 }
 
 export interface ThumbnailsQueryResponse {
@@ -46,6 +48,7 @@ export async function getThumbnails(
     orderBy = 'created_at',
     orderDirection = 'desc',
     favoritesOnly = false,
+    projectId,
   } = options
 
   try {
@@ -55,6 +58,7 @@ export async function getThumbnails(
       orderDirection,
       ...(favoritesOnly && { favoritesOnly: 'true' }),
       ...(cursor && { cursor }),
+      ...(projectId && { projectId }),
     })
     const url = `/api/thumbnails?${params.toString()}`;
     const response = await fetch(url)
@@ -82,6 +86,8 @@ export async function getThumbnails(
     return {
       thumbnails: [],
       count: 0,
+      nextCursor: null,
+      hasNextPage: false,
       error: error instanceof Error ? error : new Error('Network error'),
     }
   }
@@ -398,6 +404,8 @@ export interface GenerateThumbnailOptions {
   customStyle?: string
   thumbnailText?: string
   variations?: number // Number of variations to generate (1-4, default: 1)
+  /** Optional project id; thumbnail will be associated with this project if valid */
+  project_id?: string | null
 }
 
 export interface GenerateThumbnailResult {

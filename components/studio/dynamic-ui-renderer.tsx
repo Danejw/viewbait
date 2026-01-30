@@ -3,7 +3,7 @@
 import React from "react";
 import { User, Palette, Droplets } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useStudio } from "./studio-provider";
+import { useStudio } from "@/components/studio/studio-provider";
 import {
   StudioGeneratorThumbnailText,
   StudioGeneratorCustomInstructions,
@@ -16,7 +16,8 @@ import {
   StudioGeneratorVariations,
   StudioGeneratorFaces,
   StudioGeneratorSubmit,
-} from "./studio-generator";
+} from "@/components/studio/studio-generator";
+import { ProjectSelector } from "@/components/studio/project-selector";
 
 /**
  * UI component names returned by the assistant chat API.
@@ -34,12 +35,20 @@ export type UIComponentName =
   | "VariationsSection"
   | "CustomInstructionsSection"
   | "GenerateThumbnailButton"
+  | "ProjectSelectorSection"
   | "RegisterNewFaceCard"
   | "RegisterNewStyleCard"
   | "RegisterNewPaletteCard";
 
 export interface DynamicUIRendererProps {
   components: UIComponentName[];
+}
+
+/**
+ * Project selector for chat: form variant so it renders inline in the chat.
+ */
+function ProjectSelectorSection() {
+  return <ProjectSelector variant="form" label="Project" showHelperText />;
 }
 
 /**
@@ -111,6 +120,7 @@ const COMPONENT_MAP: Record<UIComponentName, React.ComponentType> = {
   VariationsSection: StudioGeneratorVariations,
   CustomInstructionsSection: StudioGeneratorCustomInstructions,
   GenerateThumbnailButton: StudioGeneratorSubmit,
+  ProjectSelectorSection: ProjectSelectorSection,
   RegisterNewFaceCard: RegisterNewFaceCard,
   RegisterNewStyleCard: RegisterNewStyleCard,
   RegisterNewPaletteCard: RegisterNewPaletteCard,

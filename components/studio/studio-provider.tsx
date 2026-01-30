@@ -1,15 +1,25 @@
 "use client";
 
-import React, { createContext, useContext, useState, useRef, useCallback } from "react";
+import React, { createContext, useContext, useState, useRef, useCallback, useEffect } from "react";
 import { useThumbnailGeneration } from "@/lib/hooks/useThumbnailGeneration";
 import { getGenerateCooldownMs } from "@/lib/constants/subscription-tiers";
 import { useThumbnails, useDeleteThumbnail, useToggleFavorite } from "@/lib/hooks/useThumbnails";
 import { useFaces } from "@/lib/hooks/useFaces";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useSubscription } from "@/lib/hooks/useSubscription";
+import { useProjects } from "@/lib/hooks/useProjects";
+import type {
+  ProjectDefaultSettings,
+  Thumbnail,
+  PublicStyle,
+  DbStyle,
+  PublicPalette,
+  DbPalette,
+  DbFace,
+  DbProject,
+} from "@/lib/types/database";
 import { useWatermarkedImage } from "@/lib/hooks/useWatermarkedImage";
 import { applyQrWatermark } from "@/lib/utils/watermarkUtils";
-import type { Thumbnail, PublicStyle, DbStyle, PublicPalette, DbPalette, DbFace } from "@/lib/types/database";
 import { DeleteConfirmationModal } from "@/components/studio/delete-confirmation-modal";
 import { ThumbnailEditModal, type ThumbnailEditData } from "@/components/studio/thumbnail-edit-modal";
 import { ImageModal, PaletteViewModal } from "@/components/ui/modal";
@@ -22,6 +32,7 @@ export type StudioView =
   | "generator"
   | "gallery"
   | "browse"
+  | "projects"
   | "styles"
   | "palettes"
   | "faces"
@@ -97,6 +108,11 @@ export interface StudioState {
   // Palette view modal state
   paletteViewModalOpen: boolean;
   paletteToView: PublicPalette | DbPalette | null;
+  // Face view modal state
+  faceImageModalOpen: boolean;
+  faceToView: DbFace | null;
+  // Active project (null = All thumbnails)
+  activeProjectId: string | null;
 }
 
 /**
@@ -168,6 +184,9 @@ export interface StudioActions {
   applyFormStateUpdates: (updates: Record<string, any>) => void;
   // Reset chat and optionally form state (e.g. when user clicks Reset in chat panel)
   resetChat: (clearForm?: boolean) => void;
+  // Project workflow
+  setActiveProjectId: (id: string | null) => void;
+  saveProjectSettings: () => Promise<void>;
 }
 
 /**
@@ -175,8 +194,8 @@ export interface StudioActions {
  * Defines metadata and refs for studio components
  */
 export interface StudioMeta {
-  thumbnailTextRef: React.RefObject<HTMLInputElement>;
-  customInstructionsRef: React.RefObject<HTMLTextAreaElement>;
+  thumbnailTextRef: React.RefObject<HTMLInputElement | null>;
+  customInstructionsRef: React.RefObject<HTMLTextAreaElement | null>;
 }
 
 /**
@@ -198,6 +217,11 @@ export interface StudioData {
   isFetchingNextPage: boolean;
   // Refresh function
   refreshThumbnails: () => Promise<void>;
+  // Projects (for switcher and load defaults)
+  projects: DbProject[];
+  projectsLoading: boolean;
+  activeProjectId: string | null;
+  isSavingProjectSettings: boolean;
 }
 
 /**
@@ -293,32 +317,18 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
     clearError: clearGenerationError,
   } = useThumbnailGeneration({ cooldownMs });
 
-  // Thumbnails data hook (React Query)
-  // Uses default sorting (created_at desc) for the generator results view
+  // Projects data hook (for switcher and default_settings)
   const {
-    thumbnails,
-    isLoading: thumbnailsLoading,
-    isError,
-    error: thumbnailsError,
-    hasNextPage,
-    fetchNextPage,
-    isFetchingNextPage,
-    refreshFirstPage,
-    invalidateAll: invalidateAllThumbnails,
-  } = useThumbnails({
-    userId: user?.id,
-    enabled: isAuthenticated,
-    limit: 24,
-  });
+    projects,
+    isLoading: projectsLoading,
+    createProject: createProjectFn,
+    updateProject: updateProjectFn,
+    deleteProject: deleteProjectFn,
+    isUpdating: isSavingProjectSettings,
+    refetch: refetchProjects,
+  } = useProjects();
 
-  // Faces data hook (React Query)
-  // Used to look up face image URLs when generating
-  const { faces } = useFaces();
-
-  // Mutation hooks
-  const deleteMutation = useDeleteThumbnail();
-  const favoriteMutation = useToggleFavorite();
-
+  // Studio state (declared before useThumbnails so projectId can be passed)
   const [state, setState] = useState<StudioState>({
     currentView: "generator",
     mode: "manual",
@@ -368,7 +378,78 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
     // Face view modal state
     faceImageModalOpen: false,
     faceToView: null,
+    // Active project (null = All thumbnails); hydrated from localStorage
+    activeProjectId: null,
   });
+
+  // Thumbnails data hook (React Query); filter by activeProjectId when set
+  const {
+    thumbnails,
+    isLoading: thumbnailsLoading,
+    isError,
+    error: thumbnailsError,
+    hasNextPage,
+    fetchNextPage,
+    isFetchingNextPage,
+    refreshFirstPage,
+    invalidateAll: invalidateAllThumbnails,
+  } = useThumbnails({
+    userId: user?.id,
+    enabled: isAuthenticated,
+    limit: 24,
+    projectId: state.activeProjectId,
+  });
+
+  // Faces data hook (React Query)
+  // Used to look up face image URLs when generating
+  const { faces } = useFaces();
+
+  // Mutation hooks
+  const deleteMutation = useDeleteThumbnail();
+  const favoriteMutation = useToggleFavorite();
+
+  // Hydrate activeProjectId from localStorage on mount
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const stored = localStorage.getItem("studio-active-project-id");
+    if (stored) {
+      setState((s) => ({ ...s, activeProjectId: stored }));
+    }
+  }, []);
+
+  // When activeProjectId changes, apply project default_settings to form once (if any)
+  const lastAppliedProjectIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    const projectId = state.activeProjectId;
+    if (!projectId || !projects.length) {
+      lastAppliedProjectIdRef.current = null;
+      return;
+    }
+    if (lastAppliedProjectIdRef.current === projectId) return;
+    lastAppliedProjectIdRef.current = projectId;
+    const project = projects.find((p) => p.id === projectId);
+    const settings = project?.default_settings;
+    if (!settings || typeof settings !== "object") return;
+    setState((s) => {
+      const next = { ...s };
+      if (settings.thumbnailText !== undefined) next.thumbnailText = settings.thumbnailText ?? "";
+      if (settings.customInstructions !== undefined) next.customInstructions = settings.customInstructions ?? "";
+      if (settings.includeStyles !== undefined) next.includeStyles = settings.includeStyles ?? false;
+      if (settings.selectedStyle !== undefined) next.selectedStyle = settings.selectedStyle ?? null;
+      if (settings.includePalettes !== undefined) next.includePalettes = settings.includePalettes ?? false;
+      if (settings.selectedPalette !== undefined) next.selectedPalette = settings.selectedPalette ?? null;
+      if (settings.selectedAspectRatio !== undefined) next.selectedAspectRatio = settings.selectedAspectRatio ?? "16:9";
+      if (settings.selectedResolution !== undefined) next.selectedResolution = settings.selectedResolution ?? "1K";
+      if (settings.variations !== undefined) next.variations = settings.variations ?? 1;
+      if (settings.includeStyleReferences !== undefined) next.includeStyleReferences = settings.includeStyleReferences ?? false;
+      if (settings.styleReferences !== undefined) next.styleReferences = Array.isArray(settings.styleReferences) ? settings.styleReferences : [];
+      if (settings.includeFaces !== undefined) next.includeFaces = settings.includeFaces ?? false;
+      if (settings.selectedFaces !== undefined) next.selectedFaces = Array.isArray(settings.selectedFaces) ? settings.selectedFaces : [];
+      if (settings.faceExpression !== undefined) next.faceExpression = settings.faceExpression ?? "None";
+      if (settings.facePose !== undefined) next.facePose = settings.facePose ?? "None";
+      return next;
+    });
+  }, [state.activeProjectId, projects]);
 
   // Sync generation state (including cooldown so button stays disabled during tier-based interval)
   React.useEffect(() => {
@@ -380,8 +461,8 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
     }));
   }, [generationState.isGenerating, generationState.isButtonDisabled, generationState.error]);
 
-  const thumbnailTextRef = useRef<HTMLInputElement>(null);
-  const customInstructionsRef = useRef<HTMLTextAreaElement>(null);
+  const thumbnailTextRef = useRef<HTMLInputElement | null>(null);
+  const customInstructionsRef = useRef<HTMLTextAreaElement | null>(null);
 
   // Memoized refresh function
   // Uses invalidateAllThumbnails to refresh ALL thumbnail queries (including gallery with different sorting)
@@ -449,6 +530,7 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
       faceCharacters: allowCustom ? faceCharacters : undefined,
       expression: allowCustom && state.includeFaces && state.faceExpression !== "None" ? state.faceExpression : null,
       pose: allowCustom && state.includeFaces && state.facePose !== "None" ? state.facePose : null,
+      project_id: state.activeProjectId ?? undefined,
     });
 
     // Refresh thumbnails after generation completes
@@ -694,6 +776,37 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
     clearGenerationError();
   }, [clearGenerationError]);
 
+  const setActiveProjectId = useCallback((id: string | null) => {
+    setState((s) => ({ ...s, activeProjectId: id }));
+    if (typeof window !== "undefined") {
+      if (id) localStorage.setItem("studio-active-project-id", id);
+      else localStorage.removeItem("studio-active-project-id");
+    }
+  }, []);
+
+  const saveProjectSettings = useCallback(async () => {
+    if (!state.activeProjectId) return;
+    const payload: ProjectDefaultSettings = {
+      thumbnailText: state.thumbnailText,
+      customInstructions: state.customInstructions,
+      includeStyles: state.includeStyles,
+      selectedStyle: state.selectedStyle,
+      includePalettes: state.includePalettes,
+      selectedPalette: state.selectedPalette,
+      selectedAspectRatio: state.selectedAspectRatio,
+      selectedResolution: state.selectedResolution,
+      variations: state.variations,
+      includeStyleReferences: state.includeStyleReferences,
+      styleReferences: state.styleReferences,
+      includeFaces: state.includeFaces,
+      selectedFaces: state.selectedFaces,
+      faceExpression: state.faceExpression,
+      facePose: state.facePose,
+    };
+    await updateProjectFn(state.activeProjectId, { default_settings: payload });
+    await refetchProjects();
+  }, [state.activeProjectId, state.thumbnailText, state.customInstructions, state.includeStyles, state.selectedStyle, state.includePalettes, state.selectedPalette, state.selectedAspectRatio, state.selectedResolution, state.variations, state.includeStyleReferences, state.styleReferences, state.includeFaces, state.selectedFaces, state.faceExpression, state.facePose, updateProjectFn, refetchProjects]);
+
   const actions: StudioActions = {
     setView: (view) => setState((s) => ({ ...s, currentView: view })),
     setMode: (mode) => setState((s) => ({ ...s, mode })),
@@ -860,6 +973,8 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
     onViewFace,
     closeFaceImageModal,
     clearError,
+    setActiveProjectId,
+    saveProjectSettings,
     applyFormStateUpdates: (updates) => {
       setState((s) => {
         const newState = { ...s };
@@ -931,6 +1046,10 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
     fetchNextPage,
     isFetchingNextPage,
     refreshThumbnails,
+    projects,
+    projectsLoading,
+    activeProjectId: state.activeProjectId,
+    isSavingProjectSettings,
   };
 
   return (

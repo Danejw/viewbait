@@ -72,6 +72,12 @@ export {
   StudioGeneratorSubmit,
 } from "@/components/studio/studio-generator";
 
+export {
+  ProjectSelector,
+  PROJECT_NONE_VALUE,
+  type ProjectSelectorProps,
+} from "@/components/studio/project-selector";
+
 // Studio Results Components
 export {
   StudioResults,

@@ -1,6 +1,5 @@
 "use client";
 
-import React from "react";
 import { Settings, MessageSquare, SlidersHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,8 +9,8 @@ import {
   TooltipProvider,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { useStudio } from "./studio-provider";
-import { StudioGenerator } from "./studio-generator";
+import { useStudio } from "@/components/studio/studio-provider";
+import { StudioGenerator } from "@/components/studio/studio-generator";
 
 /**
  * StudioSettingsSidebarHeader

@@ -30,6 +30,7 @@ import {
   serverErrorResponse,
   aiServiceErrorResponse,
 } from '@/lib/server/utils/error-handler'
+import { getProjectById } from '@/lib/server/data/projects'
 
 export interface GenerateThumbnailRequest {
   title: string
@@ -45,6 +46,8 @@ export interface GenerateThumbnailRequest {
   customStyle?: string
   thumbnailText?: string
   variations?: number // Number of variations to generate (1-4, default: 1)
+  /** Optional project id; thumbnail will be associated with this project if valid and owned by user */
+  project_id?: string | null
 }
 
 /**
@@ -440,9 +443,19 @@ export async function POST(request: Request) {
       }
     }
 
+    // Resolve project_id if provided: must exist and belong to user
+    let projectIdForInsert: string | null = null
+    if (body.project_id) {
+      const { data: project } = await getProjectById(supabase, body.project_id, user.id)
+      if (project) {
+        projectIdForInsert = project.id
+      }
+    }
+
     // Prepare initial thumbnail data (image_url will be updated after storage upload)
     const baseThumbnailData = {
       user_id: user.id,
+      project_id: projectIdForInsert,
       title: body.title.trim(),
       image_url: '', // Will be updated after storage upload
       style: body.style || null,

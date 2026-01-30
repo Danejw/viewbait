@@ -17,6 +17,28 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[]
 
+/**
+ * Project default settings (JSONB) – manual generator state saved per project.
+ * All fields optional; new keys can be added without DB migration.
+ */
+export interface ProjectDefaultSettings {
+  thumbnailText?: string
+  customInstructions?: string
+  includeStyles?: boolean
+  selectedStyle?: string | null
+  includePalettes?: boolean
+  selectedPalette?: string | null
+  selectedAspectRatio?: string
+  selectedResolution?: string
+  variations?: number
+  includeStyleReferences?: boolean
+  styleReferences?: string[]
+  includeFaces?: boolean
+  selectedFaces?: string[]
+  faceExpression?: string
+  facePose?: string
+}
+
 // ============================================================================
 // Table Row Types (what you get when selecting)
 // ============================================================================
@@ -58,6 +80,7 @@ export interface CreditTransaction {
 export interface DbThumbnail {
   id: string
   user_id: string
+  project_id?: string | null
   title: string
   image_url: string
   thumbnail_400w_url?: string | null // Optional - column may not exist yet
@@ -72,6 +95,15 @@ export interface DbThumbnail {
   is_public: boolean
   created_at: string
   like_count?: number // Favorite count (added by API)
+}
+
+export interface DbProject {
+  id: string
+  user_id: string
+  name: string
+  created_at: string
+  updated_at: string
+  default_settings: ProjectDefaultSettings | null
 }
 
 /**
@@ -312,6 +344,7 @@ export interface UserPurchaseInsert {
 export interface ThumbnailInsert {
   id?: string
   user_id: string
+  project_id?: string | null
   title: string
   image_url: string
   style?: string | null
@@ -322,6 +355,23 @@ export interface ThumbnailInsert {
   has_watermark?: boolean
   liked?: boolean
   created_at?: string
+}
+
+export interface ProjectInsert {
+  id?: string
+  user_id: string
+  name: string
+  created_at?: string
+  updated_at?: string
+  default_settings?: ProjectDefaultSettings | null
+}
+
+export interface ProjectUpdate {
+  name?: string
+  updated_at?: string
+  default_settings?: ProjectDefaultSettings | null
+  share_slug?: string | null
+  share_mode?: ShareMode | null
 }
 
 export interface StyleInsert {

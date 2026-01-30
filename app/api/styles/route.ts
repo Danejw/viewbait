@@ -120,7 +120,13 @@ export async function GET(request: Request) {
     }
 
     // Refresh signed URLs for reference images (private bucket)
-    const stylesWithUrls = await refreshStyleUrls(supabase, data || [], user.id)
+    // Cast query result to shape with id + reference_images; normalize null -> undefined
+    const rawStyles = (data || []) as Array<{ id: string; reference_images?: string[] | null }>
+    const stylesForRefresh = rawStyles.map((s) => ({
+      ...s,
+      reference_images: s.reference_images ?? undefined,
+    }))
+    const stylesWithUrls = await refreshStyleUrls(supabase, stylesForRefresh, user.id)
 
     // Determine cache strategy based on query type
     const cacheStrategy = defaultsOnly 

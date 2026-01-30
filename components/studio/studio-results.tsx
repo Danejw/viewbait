@@ -4,13 +4,15 @@ import React, { useCallback, memo } from "react";
 import { useStudio } from "./studio-provider";
 import { ThumbnailGrid } from "./thumbnail-grid";
 import { Button } from "@/components/ui/button";
+import { ProjectSelector } from "@/components/studio/project-selector";
 import { AlertCircle, RefreshCw, ChevronDown } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ViewBaitLogo } from "@/components/ui/viewbait-logo";
 
 /**
  * StudioResultsHeader
- * Header for results panel with refresh button
+ * Header for results panel with project selector and refresh button.
+ * Project selection lives here in the generator tab (uses reusable ProjectSelector).
  */
 export const StudioResultsHeader = memo(function StudioResultsHeader() {
   const { data, state } = useStudio();
@@ -22,33 +24,33 @@ export const StudioResultsHeader = memo(function StudioResultsHeader() {
   }, [refreshThumbnails]);
 
   return (
-    <div className="mb-6 flex items-center justify-between">
-      <div>
-        <h2 className="mb-1 text-lg font-semibold">Live Results Feed</h2>
-        <p className="text-sm text-muted-foreground">
-          Your Generated Thumbnails
-          {isGenerating && (
-            <span className="ml-2 inline-flex items-center text-primary">
-              <span className="mr-1 h-2 w-2 animate-pulse rounded-full bg-primary" />
-              Generating...
-            </span>
+    <div className="mb-6 flex flex-col gap-3">
+      <div className="flex items-center justify-left">
+        <h2 className="mb-2 text-2xl font-bold">Create Thumbnails</h2>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleRefresh}
+          disabled={thumbnailsLoading}
+          title="Refresh"
+          className="h-9 w-9 shrink-0 p-0 sm:h-auto sm:w-auto sm:gap-2 sm:px-3 sm:py-2"
+        >
+          {thumbnailsLoading ? (
+            <ViewBaitLogo className="h-4 w-4 animate-spin" />
+          ) : (
+            <RefreshCw className="h-4 w-4 shrink-0" />
           )}
-        </p>
+        </Button>
       </div>
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={handleRefresh}
-        disabled={thumbnailsLoading}
-        className="gap-2"
-      >
-        {thumbnailsLoading ? (
-          <ViewBaitLogo className="h-4 w-4 animate-spin" />
-        ) : (
-          <RefreshCw className="h-4 w-4" />
+      <div className="flex items-center gap-2">
+        <ProjectSelector variant="inline" label="Project" />
+        {isGenerating && (
+          <span className="inline-flex items-center text-sm text-primary">
+            <span className="mr-1 h-2 w-2 animate-pulse rounded-full bg-primary" />
+            Generating...
+          </span>
         )}
-        Refresh
-      </Button>
+      </div>
     </div>
   );
 });
@@ -85,8 +87,8 @@ export const StudioResultsError = memo(function StudioResultsError() {
  * Load more button for pagination
  */
 export const StudioResultsLoadMore = memo(function StudioResultsLoadMore() {
-  const { data } = useStudio();
-  const { hasNextPage, fetchNextPage, isFetchingNextPage } = data;
+  const { data: studioData } = useStudio();
+  const { hasNextPage, fetchNextPage, isFetchingNextPage } = studioData;
 
   if (!hasNextPage) return null;
 
@@ -121,8 +123,8 @@ export const StudioResultsLoadMore = memo(function StudioResultsLoadMore() {
  * ImageModal is rendered globally in StudioProvider
  */
 export const StudioResultsGrid = memo(function StudioResultsGrid() {
-  const { data } = useStudio();
-  const { thumbnails, generatingItems, thumbnailsLoading } = data;
+  const { data: studioData } = useStudio();
+  const { thumbnails, generatingItems, thumbnailsLoading } = studioData;
 
   return (
     <ThumbnailGrid

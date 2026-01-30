@@ -1,0 +1,95 @@
+/**
+ * Projects API Route
+ *
+ * GET: List projects for the authenticated user.
+ * POST: Create a new project.
+ */
+
+import { createClient } from '@/lib/supabase/server'
+import { requireAuth } from '@/lib/server/utils/auth'
+import {
+  validationErrorResponse,
+  databaseErrorResponse,
+  serverErrorResponse,
+} from '@/lib/server/utils/error-handler'
+import { logError } from '@/lib/server/utils/logger'
+import { NextResponse } from 'next/server'
+import type { ProjectInsert, ProjectDefaultSettings } from '@/lib/types/database'
+import { listProjects, createProject } from '@/lib/server/data/projects'
+
+export const revalidate = 60
+
+/**
+ * GET /api/projects
+ * List projects for the authenticated user (id, name, created_at, updated_at, default_settings)
+ */
+export async function GET() {
+  try {
+    const supabase = await createClient()
+    const user = await requireAuth(supabase)
+
+    const { data, error } = await listProjects(supabase, user.id)
+
+    if (error) {
+      logError(error, {
+        route: 'GET /api/projects',
+        userId: user.id,
+        operation: 'list-projects',
+      })
+      return databaseErrorResponse('Failed to fetch projects')
+    }
+
+    return NextResponse.json({ projects: data })
+  } catch (error) {
+    if (error instanceof NextResponse) {
+      return error
+    }
+    return serverErrorResponse(error, 'Failed to fetch projects')
+  }
+}
+
+/**
+ * POST /api/projects
+ * Create a new project. Body: name (required), optional default_settings (JSONB)
+ */
+export async function POST(request: Request) {
+  try {
+    const supabase = await createClient()
+    const user = await requireAuth(supabase)
+
+    const body = await request.json()
+    const name = typeof body.name === 'string' ? body.name.trim() : ''
+    if (!name) {
+      return validationErrorResponse('Project name is required')
+    }
+
+    const default_settings: ProjectDefaultSettings | null =
+      body.default_settings != null && typeof body.default_settings === 'object'
+        ? (body.default_settings as ProjectDefaultSettings)
+        : null
+
+    const insert: ProjectInsert = {
+      user_id: user.id,
+      name,
+      ...(default_settings != null && { default_settings }),
+    }
+
+    const { data, error } = await createProject(supabase, insert)
+
+    if (error) {
+      logError(error, {
+        route: 'POST /api/projects',
+        userId: user.id,
+        operation: 'create-project',
+      })
+      return databaseErrorResponse('Failed to create project')
+    }
+
+    return NextResponse.json({ project: data }, { status: 201 })
+  } catch (error) {
+    if (error instanceof NextResponse) {
+      return error
+    }
+    return serverErrorResponse(error, 'Failed to create project')
+  }
+}

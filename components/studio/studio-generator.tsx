@@ -30,6 +30,7 @@ import { ViewBaitLogo } from "@/components/ui/viewbait-logo";
 import { useStudio } from "@/components/studio/studio-provider";
 import { useSubscription } from "@/lib/hooks/useSubscription";
 import { StudioChatPanel } from "@/components/studio/studio-chat";
+import { ProjectSelector } from "@/components/studio/project-selector";
 import { useFaces } from "@/lib/hooks/useFaces";
 import { FaceThumbnail, FaceThumbnailSkeleton } from "./face-thumbnail";
 import { useStyles } from "@/lib/hooks/useStyles";
@@ -1106,13 +1107,28 @@ export function StudioGeneratorFaces() {
 }
 
 /**
+ * StudioGeneratorProject
+ * Project selector in the generator right panel. Uses reusable ProjectSelector (form variant).
+ */
+// export function StudioGeneratorProject() {
+//   return (
+//     <ProjectSelector
+//       variant="form"
+//       label="Project"
+//       showHelperText={true}
+//     />
+//   );
+// }
+
+/**
  * StudioGeneratorSubmit
- * Generate button with validation and loading state
+ * Generate button with validation and loading state; optional Save settings to project when a project is selected.
  */
 export function StudioGeneratorSubmit() {
   const {
-    state: { isGenerating, isButtonDisabled, thumbnailText, variations, selectedResolution },
-    actions: { generateThumbnails },
+    state: { isGenerating, isButtonDisabled, thumbnailText, variations, selectedResolution, activeProjectId },
+    data: { isSavingProjectSettings },
+    actions: { generateThumbnails, saveProjectSettings },
   } = useStudio();
   const { getResolutionCost } = useSubscription();
 
@@ -1139,9 +1155,21 @@ export function StudioGeneratorSubmit() {
             Generating...
           </span>
         ) : (
-          "GENERATE THUMBNAILS"
+          "CREATE THUMBNAILS"
         )}
       </Button>
+      {activeProjectId && (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="w-full"
+          onClick={saveProjectSettings}
+          disabled={isSavingProjectSettings}
+        >
+          {isSavingProjectSettings ? "Saving..." : "Save current settings to project"}
+        </Button>
+      )}
     </div>
   );
 }

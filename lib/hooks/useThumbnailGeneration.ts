@@ -32,6 +32,8 @@ export interface GenerationRequest {
   faceCharacters?: Array<{ images: string[] }>;
   expression?: string | null;
   pose?: string | null;
+  /** Optional project id; new thumbnails will be associated with this project */
+  project_id?: string | null;
 }
 
 /**
@@ -117,6 +119,7 @@ function mapRequestToApiOptions(request: GenerationRequest): GenerateThumbnailOp
     emotion: request.expression || undefined,
     pose: request.pose && request.pose !== "none" && request.pose !== "None" ? request.pose : undefined,
     thumbnailText: request.thumbnailText.trim(),
+    project_id: request.project_id ?? undefined,
   };
 }
 

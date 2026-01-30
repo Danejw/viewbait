@@ -40,12 +40,14 @@ export async function GET(request: Request) {
     const orderBy = (searchParams.get('orderBy') || 'created_at') as 'created_at' | 'title'
     const orderDirection = searchParams.get('orderDirection') || 'desc'
     const favoritesOnly = searchParams.get('favoritesOnly') === 'true'
+    const projectId = searchParams.get('projectId') || null
 
     // Build query using shared builder
     let query = buildThumbnailsQuery(supabase, user, {
       favoritesOnly,
       orderBy,
       orderDirection: orderDirection as 'asc' | 'desc',
+      projectId: projectId || undefined,
     })
 
     // Apply cursor-based pagination using utility function
