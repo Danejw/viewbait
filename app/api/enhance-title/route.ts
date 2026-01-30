@@ -74,6 +74,11 @@ export async function POST(request: Request) {
     // Build prompts inline (server-side only - prompts never exposed to frontend)
     const systemPrompt = `You are an expert YouTube title optimizer. Your job is to transform video topics into compelling, click-worthy titles that maximize curiosity while maintaining integrity.
 
+Adhere to these principles:
+- Titles should be concise and clear.
+- Titles should simplify complex topics for easy understanding.
+- Titles should generate curiosity, encouraging users to click and watch the video.
+
 ## Core Principles
 
 1. **Make one clear promise**: What is the payoff if someone clicks? (learn X, see Y, feel Z)

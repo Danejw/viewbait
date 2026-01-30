@@ -11,7 +11,7 @@ import { NextResponse, type NextRequest } from "next/server";
 /**
  * Routes that require authentication
  */
-const PROTECTED_ROUTES = ["/studio"];
+const PROTECTED_ROUTES = ["/studio", "/onboarding"];
 
 /**
  * Routes that should redirect authenticated users away

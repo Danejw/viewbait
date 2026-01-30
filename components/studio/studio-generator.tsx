@@ -5,7 +5,6 @@ import { useDroppable, useDndContext } from "@dnd-kit/core";
 import {
   Settings,
   MessageSquare,
-  Link as LinkIcon,
   ImagePlus,
   Lock,
   Palette,
@@ -42,6 +41,7 @@ import SubscriptionModal from "@/components/subscription-modal";
 import { DROP_ZONE_IDS, type DragData } from "@/components/studio/studio-dnd-context";
 import type { StyleInsert, StyleUpdate, DbStyle } from "@/lib/types/database";
 import { ASPECT_RATIO_DISPLAY_ORDER } from "@/lib/constants/subscription-tiers";
+import { enhanceTitle } from "@/lib/services/thumbnails";
 
 const MAX_STYLE_REFERENCES = 10;
 const RESOLUTION_OPTIONS = ["1K", "2K", "4K"] as const;
@@ -95,7 +95,7 @@ export function StudioGeneratorTabs() {
 
 /**
  * StudioGeneratorThumbnailText
- * Text input for thumbnail text
+ * Text input for thumbnail text with optional AI-enhanced title suggestions.
  */
 export function StudioGeneratorThumbnailText() {
   const {
@@ -103,6 +103,41 @@ export function StudioGeneratorThumbnailText() {
     actions: { setThumbnailText },
     meta: { thumbnailTextRef },
   } = useStudio();
+
+  const [isEnhancing, setIsEnhancing] = useState(false);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [enhanceError, setEnhanceError] = useState<string | null>(null);
+
+  const handleEnhanceClick = useCallback(async () => {
+    const text = thumbnailText.trim();
+    if (!text) {
+      setEnhanceError("Enter some text to enhance");
+      setSuggestions([]);
+      return;
+    }
+    setEnhanceError(null);
+    setSuggestions([]);
+    setIsEnhancing(true);
+    const { suggestions: next, error } = await enhanceTitle({ title: text });
+    setIsEnhancing(false);
+    if (error) {
+      setEnhanceError(error.message);
+      setSuggestions([]);
+      return;
+    }
+    setSuggestions(next ?? []);
+  }, [thumbnailText]);
+
+  const handleSelectSuggestion = useCallback(
+    (suggestion: string) => {
+      setThumbnailText(suggestion);
+      setSuggestions([]);
+      setEnhanceError(null);
+    },
+    [setThumbnailText]
+  );
+
+  const canEnhance = !!thumbnailText.trim() && !isEnhancing;
 
   return (
     <div className="mb-6">
@@ -116,13 +151,40 @@ export function StudioGeneratorThumbnailText() {
           className="pr-10"
         />
         <Button
+          type="button"
           variant="ghost"
           size="icon-sm"
           className="absolute right-1 top-1/2 -translate-y-1/2"
+          disabled={!canEnhance}
+          onClick={handleEnhanceClick}
+          aria-label="Enhance title for click-through"
         >
-          <LinkIcon className="h-4 w-4" />
+          <Sparkles className="h-4 w-4" />
         </Button>
       </div>
+      {enhanceError && (
+        <p className="mt-1.5 text-sm text-destructive">{enhanceError}</p>
+      )}
+      {suggestions.length > 0 && (
+        <div className="mt-2">
+          <p className="mb-1.5 text-xs font-medium text-muted-foreground">
+            Suggested titles — click to use
+          </p>
+          <ul className="flex flex-col gap-1">
+            {suggestions.map((s, i) => (
+              <li key={i}>
+                <button
+                  type="button"
+                  className="w-full rounded-md border border-border bg-muted/50 px-3 py-2 text-left text-sm hover:bg-muted hover:text-foreground"
+                  onClick={() => handleSelectSuggestion(s)}
+                >
+                  {s}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }
