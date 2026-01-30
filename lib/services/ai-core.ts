@@ -245,22 +245,37 @@ export interface FunctionCallingWithGroundingResult {
   groundingMetadata?: GroundingMetadata
 }
 
+/**
+ * Multi-tool result: which function was called and its args.
+ * Returned when using multiple tool definitions; also used for single-tool for consistency.
+ */
+export interface FunctionCallingResult {
+  functionName: string
+  functionCallResult: unknown
+  groundingMetadata?: GroundingMetadata
+}
+
 /** Single image payload for Gemini inlineData. */
 export type GeminiImagePayload = { data: string; mimeType: string }
 
 /**
- * Call Google Gemini API with function calling (structured output)
+ * Call Google Gemini API with function calling (structured output).
+ * Supports single tool (object + string) or multiple tools (array + array).
+ * Returns { functionName, functionCallResult, groundingMetadata? } for function calls.
+ *
  * @param imageData - Single image, array of images, or null. When array, all are appended as inlineData parts after text.
+ * @param toolDefinition - Single tool declaration object, or array of tool declarations.
+ * @param toolName - Single tool name, or array of allowed function names (same order as toolDefinition array).
  */
 export async function callGeminiWithFunctionCalling(
   systemPrompt: string | null,
   userPrompt: string,
   imageData: GeminiImagePayload | GeminiImagePayload[] | null,
   toolDefinition: unknown,
-  toolName: string,
+  toolName: string | string[],
   model: string = 'gemini-2.5-flash',
   enableGoogleSearch: boolean = true
-): Promise<unknown> {
+): Promise<FunctionCallingResult | { textResponse: string; groundingMetadata?: GroundingMetadata }> {
   const apiKey = process.env.GEMINI_API_KEY
   if (!apiKey) {
     throw new Error('GEMINI_API_KEY environment variable is not set')
@@ -289,14 +304,12 @@ export async function callGeminiWithFunctionCalling(
   
   parts.push({ text: userPrompt })
 
+  // Normalize to arrays for multi-tool support (single tool = one-element array)
+  const toolDefinitions: unknown[] = Array.isArray(toolDefinition) ? toolDefinition : [toolDefinition]
+  const allowedFunctionNames: string[] = Array.isArray(toolName) ? toolName : [toolName]
+
   // Note: Gemini API does not support using googleSearch tool with function calling in the same request
-  // When Google Search is enabled, we must choose: either use googleSearch OR function calling, not both
-  // For now, we'll prioritize function calling and disable search when function calling is needed
-  // The caller can decide to use search-only mode by not providing a toolDefinition
-  
-  // If Google Search is enabled but we also need function calling, we'll disable search
-  // because they cannot be used together. The caller should handle this decision.
-  const useGoogleSearch = enableGoogleSearch && !toolDefinition
+  const useGoogleSearch = enableGoogleSearch && toolDefinitions.length === 0
   
   type RequestBody = {
     contents: Array<{ role: string; parts: Array<{ text?: string; inlineData?: { mimeType: string; data: string } }> }>
@@ -349,13 +362,13 @@ export async function callGeminiWithFunctionCalling(
       ],
       tools: [
         {
-          functionDeclarations: [toolDefinition],
+          functionDeclarations: toolDefinitions,
         },
       ],
       toolConfig: {
         functionCallingConfig: {
           mode: 'ANY',
-          allowedFunctionNames: [toolName],
+          allowedFunctionNames,
         },
       },
       generationConfig: {
@@ -405,31 +418,29 @@ export async function callGeminiWithFunctionCalling(
       textResponse,
       groundingMetadata,
     }
-  } else {
-    // Extract function call result
-    const functionCall = data.candidates?.[0]?.content?.parts?.find(
-      (part: { functionCall?: { name: string; args: unknown } }) => part.functionCall
-    )
+  }
 
-    if (functionCall?.functionCall?.name === toolName) {
-      const args = functionCall.functionCall.args
-      
-      // Check if this response has grounding metadata (unlikely with function calling alone)
-      const groundingMetadata: GroundingMetadata | undefined = data.candidates?.[0]?.groundingMetadata
+  const functionCall = data.candidates?.[0]?.content?.parts?.find(
+    (part: { functionCall?: { name: string; args: unknown } }) => part.functionCall
+  )
 
-      // Return both function call result and grounding metadata
-      if (groundingMetadata) {
-        return {
-          functionCallResult: args,
-          groundingMetadata,
-        }
-      }
-
-      // Return just function call result for backward compatibility
-      return args
-    }
-
+  if (!functionCall?.functionCall) {
     throw new Error('No function call found in Gemini API response')
+  }
+
+  const name = functionCall.functionCall.name as string
+  const args = functionCall.functionCall.args
+
+  if (!allowedFunctionNames.includes(name)) {
+    throw new Error(`Unexpected function name: ${name}. Allowed: ${allowedFunctionNames.join(', ')}`)
+  }
+
+  const groundingMetadata: GroundingMetadata | undefined = data.candidates?.[0]?.groundingMetadata
+
+  return {
+    functionName: name,
+    functionCallResult: args,
+    groundingMetadata,
   }
 }
 

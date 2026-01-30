@@ -76,9 +76,9 @@ export function StudioSettingsSidebarCollapsed() {
         <div className="p-2">
               <Button
                 variant="ghost"
-                size="icon-lg"
+                size="icon-sm"
                 onClick={toggleRightSidebar}
-                className="w-full"
+                className="w-full justify-center"
                 aria-label="Expand settings"
               >
                 <Settings className="h-4 w-4" />
@@ -86,15 +86,15 @@ export function StudioSettingsSidebarCollapsed() {
         </div>
         {/* Divider below header (same as left sidebar) */}
         <div className="border-t border-sidebar-border" />
-        {/* Icons below: same size as left sidebar nav items (h-8 / size-8) */}
+        {/* Icons below: same size as left sidebar nav items (icon-sm, centered) */}
         <nav className="flex flex-col gap-1 p-2">
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
                 variant="ghost"
-                size="icon-lg"
+                size="icon-sm"
                 onClick={handleManual}
-                className={cn("w-full", mode === "manual" && "bg-sidebar-accent text-sidebar-accent-foreground")}
+                className={cn("w-full justify-center", mode === "manual" && "bg-sidebar-accent text-sidebar-accent-foreground")}
                 aria-label="Manual mode"
               >
                 <SlidersHorizontal className="h-4 w-4" />
@@ -106,9 +106,9 @@ export function StudioSettingsSidebarCollapsed() {
             <TooltipTrigger asChild>
               <Button
                 variant="ghost"
-                size="icon-lg"
+                size="icon-sm"
                 onClick={handleChat}
-                className={cn("w-full", mode === "chat" && "bg-sidebar-accent text-white")}
+                className={cn("w-full justify-center", mode === "chat" && "bg-sidebar-accent text-white")}
                 aria-label="Chat mode"
               >
                 <MessageSquare className="h-4 w-4" />

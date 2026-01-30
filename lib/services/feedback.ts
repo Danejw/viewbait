@@ -1,37 +1,42 @@
 /**
  * Feedback Service
- * 
- * Handles feedback submission via secure API routes.
+ *
+ * Handles feedback submission via the secure POST-only API route.
  * Supports both authenticated and anonymous submissions.
+ * Caller must provide page_url, app_version, and user_agent (or rely on browser User-Agent).
  */
 
-import type { FeedbackCategory, FeedbackSeverity } from '@/lib/types/database'
+import type { FeedbackTableCategory } from '@/lib/types/database'
 
 export interface FeedbackSubmitData {
-  category: FeedbackCategory
+  /** Feedback category (required). */
+  category: FeedbackTableCategory
+  /** Feedback message (required, max ~800 words). */
   message: string
-  severity?: FeedbackSeverity
+  /** User email (optional; for logged-in or follow-up). */
   email?: string
-  name?: string
-  source?: string
-  page_url?: string
-  app_version?: string
-  device?: string
+  /** URL where feedback was submitted (required). */
+  page_url: string
+  /** Application version (required). */
+  app_version: string
+  /** Browser/device info (required; can be omitted and sent via User-Agent header). */
   user_agent?: string
-  metadata?: Record<string, unknown>
-  rating?: number
 }
 
 export interface FeedbackSubmitResponse {
   success: boolean
+  /** Returned feedback row id (when success). */
+  id?: string
+  /** Alias for id for backward compatibility. */
   feedbackId?: string
   error?: string
   message?: string
 }
 
 /**
- * Submit feedback
- * Works for both authenticated and anonymous users
+ * Submit feedback.
+ * Works for both authenticated and anonymous users.
+ * Requires: category, message, page_url, app_version; user_agent from body or browser.
  */
 export async function submitFeedback(
   data: FeedbackSubmitData
@@ -42,7 +47,14 @@ export async function submitFeedback(
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(data),
+      body: JSON.stringify({
+        category: data.category,
+        message: data.message,
+        email: data.email,
+        page_url: data.page_url,
+        app_version: data.app_version,
+        user_agent: data.user_agent,
+      }),
     })
 
     const result = await response.json()
@@ -56,7 +68,8 @@ export async function submitFeedback(
 
     return {
       success: true,
-      feedbackId: result.feedbackId,
+      id: result.id,
+      feedbackId: result.id,
       message: result.message || 'Feedback submitted successfully',
     }
   } catch (error) {
