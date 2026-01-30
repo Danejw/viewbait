@@ -181,7 +181,7 @@ export function StudioSidebar({
     return (
       <aside
         className={cn(
-          "w-16 shrink-0 border-r border-border bg-sidebar overflow-y-auto hide-scrollbar transition-all duration-200",
+          "w-12 shrink-0 border-r border-border bg-sidebar overflow-y-auto hide-scrollbar transition-all duration-200",
           className
         )}
       >
@@ -284,7 +284,7 @@ export function StudioSettingsPanel({
     return (
       <aside
         className={cn(
-          "w-14 shrink-0 border-l border-border bg-card overflow-y-auto hide-scrollbar transition-all duration-200",
+          "w-12 shrink-0 border-l border-border bg-sidebar overflow-y-auto hide-scrollbar transition-all duration-200",
           className
         )}
       >

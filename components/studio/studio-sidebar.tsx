@@ -84,8 +84,8 @@ export function StudioSidebarNav() {
               onClick={() => !item.locked && setView(item.view)}
               disabled={item.locked}
               className={cn(
-                "w-full justify-start text-left",
-                leftSidebarCollapsed ? "shrink-0" : "gap-3",
+                "w-full",
+                leftSidebarCollapsed ? "shrink-0 justify-center" : "justify-start text-left gap-3",
                 isActive
                   ? "bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary hover:text-sidebar-primary-foreground"
                   : "text-sidebar-foreground",
@@ -142,15 +142,15 @@ export function StudioSidebarCredits() {
               <TooltipTrigger asChild>
                 <Button
                   type="button"
-                  variant="ghost"
+                  variant="side"
                   size="icon-sm"
                   onClick={() => setIsModalOpen(true)}
-                  className="w-full flex items-center justify-center hover:opacity-80"
+                  className="w-full flex items-center justify-center"
                 >
                   {isLoading ? (
                     <Skeleton className="h-8 w-8 rounded-md" />
                   ) : (
-                    <span className="flex h-8 w-8 items-center justify-center rounded-md bg-sidebar-accent text-xs font-medium text-sidebar-foreground">
+                    <span className="flex h-8 w-8 items-center justify-center text-xs font-medium">
                       {creditsRemaining}
                     </span>
                   )}
@@ -271,7 +271,14 @@ export function StudioSidebarUser() {
       <TooltipProvider delayDuration={0}>
         <div className="mt-auto border-t border-sidebar-border p-2">
           <div className="flex flex-col items-center gap-2">
-            <NotificationBell size="icon-sm" />
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="inline-flex">
+                  <NotificationBell size="icon-sm" />
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="right">Notifications</TooltipContent>
+            </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
                 <span className="inline-flex">
@@ -395,14 +402,16 @@ export function StudioSidebarToggle() {
 
   return (
     <TooltipProvider delayDuration={0}>
-      <div className={cn("border-t border-sidebar-border", leftSidebarCollapsed ? "p-2" : "p-4")}>
+        <div className={cn("border-t border-sidebar-border", leftSidebarCollapsed ? "p-2" : "p-4")}>
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
               variant="ghost"
               size={leftSidebarCollapsed ? "icon-sm" : "sm"}
               onClick={toggleLeftSidebar}
-              className={cn(!leftSidebarCollapsed && "w-full justify-start")}
+              className={cn(
+                leftSidebarCollapsed ? "w-full justify-center" : "w-full justify-start"
+              )}
             >
               {leftSidebarCollapsed ? (
                 <PanelLeftOpen className="h-4 w-4" />
@@ -442,7 +451,10 @@ export function StudioSidebar() {
                 variant="ghost"
                 size={leftSidebarCollapsed ? "icon-sm" : "sm"}
                 onClick={toggleLeftSidebar}
-                className="w-full justify-start gap-2 text-left hover:bg-sidebar-accent/50 text-sidebar-foreground"
+                className={cn(
+                  "w-full hover:bg-sidebar-accent/50 text-sidebar-foreground",
+                  leftSidebarCollapsed ? "justify-center" : "justify-start gap-2 text-left"
+                )}
                 aria-label={leftSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
               >
                 <div className="flex h-8 w-8 items-center justify-center shrink-0">

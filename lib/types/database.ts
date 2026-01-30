@@ -242,33 +242,27 @@ export interface NotificationPreferences {
   quiet_hours_end: string | null
 }
 
+/** Legacy category type; prefer FeedbackTableCategory for the feedback table. */
 export type FeedbackCategory = 'general' | 'bug_report' | 'feature_request' | 'billing' | 'account' | 'performance' | 'other'
-export type FeedbackStatus = 'new' | 'triaged' | 'in_progress' | 'resolved' | 'closed' | 'spam'
+/** Status values for the feedback table (workflow). */
+export type FeedbackStatus = 'New' | 'Pending' | 'Triage' | 'Resolved'
 export type FeedbackSeverity = 'low' | 'normal' | 'high' | 'urgent'
 
+/** Category values for the feedback table (API submissions). */
+export type FeedbackTableCategory = 'bug' | 'feature request' | 'other' | 'just a message'
+
+/** Row shape for the feedback table (secure submission endpoint). */
 export interface Feedback {
   id: string
-  created_at: string
-  updated_at: string
-  user_id: string | null
   email: string | null
-  name: string | null
-  is_anonymous: boolean
-  category: FeedbackCategory
-  message: string
-  severity: FeedbackSeverity
-  rating: number | null
-  source: string
-  page_url: string | null
-  app_version: string | null
-  device: string | null
-  user_agent: string | null
-  metadata: Json
   status: FeedbackStatus
-  assigned_to: string | null
-  internal_notes: string | null
-  admin_tags: string[]
-  resolved_at: string | null
+  category: FeedbackTableCategory
+  message: string
+  page_url: string | null
+  user_agent: string | null
+  app_version: string | null
+  created_at: string
+  metadata: Json
 }
 
 // ============================================================================
@@ -451,29 +445,18 @@ export interface NotificationPreferencesInsert {
   quiet_hours_end?: string | null
 }
 
+/** Insert shape for the feedback table (API only inserts; no updates from client). */
 export interface FeedbackInsert {
   id?: string
-  user_id?: string | null
   email?: string | null
-  name?: string | null
-  is_anonymous?: boolean
-  category: FeedbackCategory
-  message: string
-  severity?: FeedbackSeverity
-  rating?: number | null
-  source?: string
-  page_url?: string | null
-  app_version?: string | null
-  device?: string | null
-  user_agent?: string | null
-  metadata?: Json
   status?: FeedbackStatus
-  assigned_to?: string | null
-  internal_notes?: string | null
-  admin_tags?: string[]
-  resolved_at?: string | null
+  category: FeedbackTableCategory
+  message: string
+  page_url?: string | null
+  user_agent?: string | null
+  app_version?: string | null
   created_at?: string
-  updated_at?: string
+  metadata?: Json
 }
 
 // ============================================================================
@@ -570,15 +553,9 @@ export interface NotificationPreferencesUpdate {
   updated_at?: string
 }
 
+/** Admin-only updates (e.g. status); API route does not perform updates. */
 export interface FeedbackUpdate {
   status?: FeedbackStatus
-  assigned_to?: string | null
-  internal_notes?: string | null
-  admin_tags?: string[]
-  resolved_at?: string | null
-  category?: FeedbackCategory
-  severity?: FeedbackSeverity
-  updated_at?: string
 }
 
 // ============================================================================

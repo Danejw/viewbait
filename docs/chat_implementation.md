@@ -54,9 +54,10 @@ The agent does **not** call external tools (e.g. generate image). It returns **s
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │  AI CORE (lib/services/ai-core.ts)                                           │
 │  callGeminiWithFunctionCalling(systemPrompt, userPrompt, imageData,          │
-│    toolDefinition, toolName, model, enableGoogleSearch)                      │
-│  • Single tool: generate_assistant_response (human_readable_message,        │
-│    ui_components, form_state_updates, suggestions)                           │
+│    toolDefinitions[], allowedNames[], model, enableGoogleSearch)              │
+│  • Two tools: generate_assistant_response (message, ui_components,           │
+│    form_state_updates, suggestions); create_feedback (message, category)     │
+│    — route executes create_feedback insert and returns synthetic message      │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -100,7 +101,7 @@ The agent does **not** call external tools (e.g. generate image). It returns **s
 
 ### 3.6 Client: StudioProvider form state and actions
 
-- **applyFormStateUpdates(updates)**: Updates studio state for thumbnailText, includeFaces, selectedStyle, selectedPalette, selectedAspectRatio, selectedResolution, variations, customInstructions, expression, pose, includeStyleReferences, styleReferences, selectedFaces, etc. When `updates.newFaceId` is present (agent added a face from an attached image), refetches faces then sets `includeFaces: true` and appends the new face to `selectedFaces`. Keeps chat and manual form in sync.
+- **applyFormStateUpdates(updates)**: Updates studio state for thumbnailText, includeFaces, selectedStyle, selectedPalette, selectedAspectRatio, selectedResolution, variations, customInstructions, expression, pose, includeStyleReferences, styleReferences, etc. Keeps chat and manual form in sync.
 - **resetChat(clearForm?)**: Clears `chatAssistant.conversationHistory` and, if `clearForm` is true, resets all form fields to defaults. Used by chat panel Reset.
 
 ### 3.7 API Route: `app/api/assistant/chat/route.ts`
@@ -108,18 +109,18 @@ The agent does **not** call external tools (e.g. generate image). It returns **s
 - **Auth**: `getOptionalAuth(supabase)`; returns 401 if no user.
 - **Input**: `AssistantChatRequest`: `conversationHistory[]`, `formState` (all current form fields), optional `availableStyles`, `availablePalettes`, optional `attachedImages` (base64 + mimeType for the current message).
 - **Modes**: `stream=true` → SSE response; otherwise JSON.
-- **Attached images → style references**: If the user attaches image(s) and asks to add them to style references (e.g. "add this to my style references"), the agent sets `add_attached_images_to_style_references: true` and surfaces `StyleReferencesSection`. The route then uploads each attached image to the `style-references` bucket, creates signed URLs, and merges them into `form_state_updates.styleReferences` (capped at 10 total). The client applies these via `applyFormStateUpdates`.
-- **Attached images → new face**: If the user attaches an image and asks to add it as their face (e.g. "add this as my face", "use this as my face"), the agent sets `add_attached_image_as_new_face: true` (and optionally `new_face_name`, e.g. "Me") and surfaces `IncludeFaceSection` or `RegisterNewFaceCard`. The route checks tier (`can_create_custom`); if allowed, creates a new face record, uploads the first attached image to the `faces` bucket, updates the face with the image URL, and returns `form_state_updates.newFaceId`, `includeFace: true`, and `selectedFaces` (existing + new face id). The client applies updates and, when `newFaceId` is present, refetches faces then sets `includeFaces: true` and appends the new face to `selectedFaces`.
-- **System prompt**: Defines the assistant’s role (guide users through thumbnail creation), lists all allowed UI component names and when to use them, thumbnail generation requirements, current form state, available styles/palettes, expressions/poses from `lib/constants/face-options.ts`, and rules: return only 1–2 relevant components, always pre-fill via `form_state_updates` when surfacing a section.
+- **Attached images → style references**: If the user attaches image(s) and asks to add them to style references (e.g. "add this to my style references"), the agent sets `add_attached_images_to_style_references: true` and surfaces `StyleReferencesSection`. The route then uploads each attached image to the `style-references` bucket, creates signed URLs, and merges them into `form_state_updates.styleReferences` (capped at 10 total). The client applies these via `applyFormStateUpdates`; no client change required.
+- **System prompt**: Defines the assistant’s role (guide users through thumbnail creation), lists all allowed UI component names and when to use them, thumbnail generation requirements, current form state, available styles/palettes, expressions/poses from `lib/constants/face-options.ts`, rules for pre-fill, and **FEEDBACK FOR REQUESTS WE CAN'T DO**: when the user asks for something the app cannot do, the agent first offers to submit feedback (using `generate_assistant_response`), then on user confirmation calls `create_feedback` so the route inserts into the feedback table and returns a synthetic success message.
+- **Two tools**: (1) `generate_assistant_response` — `human_readable_message`, `ui_components[]`, `form_state_updates`, `suggestions[]`. (2) `create_feedback` — `message`, `category` (bug, feature request, other, just a message), optional `email`, optional `user_addition`. The route executes the insert when Gemini returns `create_feedback` and returns the same response shape with a synthetic message; no client changes required.
 - **Two-step flow (optional grounding)**:
   1. **Search step**: Call Gemini with `googleSearch` tool (no function calling) to get search context and grounding metadata. If search fails, continue without it.
-  2. **Function-calling step**: Call `callGeminiWithFunctionCalling` with the same system prompt and user prompt (optionally augmented with search results). Tool: `generate_assistant_response` with parameters `human_readable_message`, `ui_components[]`, `form_state_updates`, `suggestions[]`. Google Search is disabled in this call (Gemini does not allow search + function calling in one request).
-- **Response**: `human_readable_message` (after citation processing if grounding metadata exists), `ui_components` (filtered to allowed names), `form_state_updates`, `suggestions`.
+  2. **Function-calling step**: Call `callGeminiWithFunctionCalling` with both tool definitions and allowed names. Gemini returns one of the two; if `create_feedback`, the route calls `submitFeedbackFromServer` (`lib/server/feedback.ts`), then returns a synthetic `complete`/JSON with empty `ui_components` and success/error message.
+- **Response**: `human_readable_message` (or synthetic message after feedback submit), `ui_components` (filtered or empty), `form_state_updates`, `suggestions`.
 - **Streaming**: Emits SSE events (`status`, `tool_call`, `text_chunk`, `complete`, `error`); `complete` carries the same shape as the JSON response.
 
 ### 3.8 AI Core: `lib/services/ai-core.ts`
 
-- **callGeminiWithFunctionCalling**: Sends one user turn (system + user prompt, optional image). Uses a single tool declaration; Gemini returns a function call; the route parses the args into `human_readable_message`, `ui_components`, `form_state_updates`, `suggestions`, and optionally `add_attached_images_to_style_references` or `add_attached_image_as_new_face` (and `new_face_name`). When the user attaches images, they are sent as visual context. If the agent sets `add_attached_images_to_style_references`, the route uploads them to storage and injects URLs into `form_state_updates.styleReferences`. If the agent sets `add_attached_image_as_new_face`, the route creates a new face, uploads the first image to the faces bucket, and injects `newFaceId`, `includeFace`, and `selectedFaces` into `form_state_updates` (subject to tier).
+- **callGeminiWithFunctionCalling**: Sends one user turn (system + user prompt, optional image). Accepts an array of tool definitions and allowed function names; Gemini returns one function call; the API returns `{ functionName, functionCallResult, groundingMetadata? }`. The chat route branches on `functionName`: for `generate_assistant_response` it parses args into message, `ui_components`, `form_state_updates`, `suggestions`; for `create_feedback` it executes the feedback insert and returns a synthetic response.
 - **Grounding**: Chat route performs grounding in a separate search call; citations are merged into the message in the route via `processGroundingCitations` (`lib/utils/citation-processor.ts`).
 
 ### 3.9 Allowed UI component names (contract)
@@ -197,14 +198,21 @@ These must match between API tool definition, API response filter, and `DynamicU
 - **Current**: Auth required; no explicit rate limit on `POST /api/assistant/chat`.
 - **Extension**: Add rate limiting (e.g. by user id or IP) in the route or in middleware, and optionally cap conversation length or token count per request to control cost.
 
+### 5.8 Agent-initiated feedback (create_feedback)
+
+- **Flow**: When the user asks for something the application cannot do (e.g. export to Figma, a feature that doesn't exist), the agent first responds with `generate_assistant_response`: it explains the limitation, offers to submit feedback for the team, summarizes what it would send (message + category), and asks if the user wants to add anything or to submit. When the user confirms (e.g. "submit", "yes", "send it") or provides additions, the agent calls `create_feedback` with the full message and category. The route then calls `submitFeedbackFromServer` (see `lib/server/feedback.ts`), inserts a row into the `feedback` table (with `page_url`, `app_version`, `user_agent` from the request, and optional user email from auth), and returns the same response shape with a synthetic `human_readable_message` (e.g. "I've submitted your feedback to the team") and empty `ui_components`. No client changes are required; the panel already renders the message and suggestions.
+- **Contract**: `create_feedback` parameters are `message` (required), `category` (required: bug, feature request, other, just a message), `email` (optional), `user_addition` (optional; appended to message). The route fills `page_url`, `app_version`, and `user_agent` from the request.
+
 ---
 
 ## 6. File Reference
 
 | Area | File | Purpose |
 |------|------|--------|
-| API | `app/api/assistant/chat/route.ts` | Chat endpoint, prompts, two-step search + function calling, SSE or JSON response |
-| AI | `lib/services/ai-core.ts` | `callGeminiWithFunctionCalling`, grounding types |
+| API | `app/api/assistant/chat/route.ts` | Chat endpoint, prompts, two-step search + function calling, create_feedback execution, SSE or JSON response |
+| API | `app/api/feedback/route.ts` | Public POST-only feedback endpoint (uses shared server helper) |
+| Server | `lib/server/feedback.ts` | `submitFeedbackFromServer`: shared validation and insert for feedback table |
+| AI | `lib/services/ai-core.ts` | `callGeminiWithFunctionCalling` (multi-tool), `FunctionCallingResult` |
 | Citations | `lib/utils/citation-processor.ts` | Merge grounding metadata into message text |
 | Face options | `lib/constants/face-options.ts` | Expression/pose enums for tool schema and prompts |
 | Chat UI | `components/studio/studio-chat.tsx` | `StudioChatPanel`, `StudioChatAssistant`, `StudioChatToggle` |
@@ -220,6 +228,6 @@ These must match between API tool definition, API response filter, and `DynamicU
 ## 7. Summary
 
 - **Chat** is an in-sidebar panel (and an optional floating panel) that sends conversation + current form state to `POST /api/assistant/chat`.
-- The **agent** is implemented as a single Gemini function-call tool that returns a message, 1–2 UI component names, form state updates, and suggestions. Optional search/grounding runs in a separate Gemini call.
+- The **agent** uses two Gemini function-call tools: `generate_assistant_response` (message, 1–2 UI component names, form state updates, suggestions) and `create_feedback` (message, category; used when the user confirms submission of feedback for requests the app cannot fulfill). Optional search/grounding runs in a separate Gemini call. When the agent calls `create_feedback`, the route inserts into the feedback table and returns a synthetic message; no client change.
 - **Form state** is shared: updates from the agent are applied via `applyFormStateUpdates`, and the same generator sections are rendered by `DynamicUIRenderer` so the user can edit and generate without leaving chat.
 - **Extending** is done by updating the API tool and prompt, the allowed component list, `applyFormStateUpdates`, and `DynamicUIRenderer`/generator sections in sync.

@@ -8,9 +8,10 @@
 import { createClient } from '@/lib/supabase/server'
 import { getOptionalAuth } from '@/lib/server/utils/auth'
 import { NextResponse } from 'next/server'
-import { callGeminiWithFunctionCalling, type FunctionCallingWithGroundingResult } from '@/lib/services/ai-core'
+import { callGeminiWithFunctionCalling, type FunctionCallingResult } from '@/lib/services/ai-core'
 import { processGroundingCitations } from '@/lib/utils/citation-processor'
 import { logError } from '@/lib/server/utils/logger'
+import { submitFeedbackFromServer } from '@/lib/server/feedback'
 import { getExpressionValues, getPoseValues, formatExpressionsForPrompt, formatPosesForPrompt } from '@/lib/constants/face-options'
 import { getTierForUser } from '@/lib/server/utils/tier'
 
@@ -18,6 +19,7 @@ const MAX_STYLE_REFERENCES = 10
 const STYLE_REFERENCES_BUCKET = 'style-references'
 const FACES_BUCKET = 'faces'
 const SIGNED_URL_EXPIRY_SECONDS = 31536000 // 1 year
+const APP_VERSION_FOR_FEEDBACK = process.env.NEXT_PUBLIC_APP_VERSION ?? 'web'
 
 /**
  * Upload a base64-encoded image to the style-references bucket and return a signed URL.
@@ -344,6 +346,38 @@ const assistantToolDefinition = {
   },
 }
 
+/** Tool definition for agent-initiated feedback (when user confirms submission). */
+const createFeedbackToolDefinition = {
+  name: 'create_feedback',
+  description: 'Call this when the user has confirmed they want to submit feedback for something the application cannot do. Only call after you have offered to submit feedback and the user has said yes (e.g. "submit", "yes", "send it") or provided additions.',
+  parameters: {
+    type: 'object',
+    properties: {
+      message: {
+        type: 'string',
+        description: 'Full feedback text: summary of the request. Append any user addition if they provided one.',
+      },
+      category: {
+        type: 'string',
+        description: 'One of: bug, feature request, other, just a message.',
+        enum: ['bug', 'feature request', 'other', 'just a message'],
+      },
+      email: {
+        type: 'string',
+        description: 'User email if they provided it for follow-up. Optional.',
+      },
+      user_addition: {
+        type: 'string',
+        description: 'Any extra text the user asked to add. Optional; also append to message.',
+      },
+    },
+    required: ['message', 'category'],
+  },
+}
+
+const assistantToolDefinitions = [assistantToolDefinition, createFeedbackToolDefinition]
+const assistantToolNames = ['generate_assistant_response', 'create_feedback']
+
 // Helper function to emit SSE event
 function emitSSE(controller: ReadableStreamDefaultController, event: string, data: any) {
   const message = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`
@@ -473,7 +507,15 @@ PRE-FILL MAPPING (when surfacing these components, set these values):
 IMPORTANT: 
 - When you surface a ui_component, ALWAYS set the matching form_state_updates so the section is pre-filled for the user.
 - Return only 1-2 ui_components per response that are directly relevant to the user's current message.
-- The form_state_updates will automatically sync to the manual settings, keeping both interfaces in sync.`
+- The form_state_updates will automatically sync to the manual settings, keeping both interfaces in sync.
+
+FEEDBACK FOR REQUESTS WE CAN'T DO:
+- When the user asks for something the application cannot do (e.g. export to Figma, integrate with X, a feature that doesn't exist), or you cannot fulfill the request:
+  1. First turn: Use generate_assistant_response. Explain that the app can't do that yet. Offer to submit feedback for the team. In your message, summarize what you would send (short message + category, e.g. "Feature request: Export thumbnails to Figma"). Ask: "Would you like me to submit this? You can say 'submit' or add anything you want included."
+  2. Do NOT call create_feedback until the user has confirmed (e.g. "yes", "submit", "send it", "that's all", or provides additions).
+  3. After confirmation: Call create_feedback with message (the full summary; append any user addition), category (one of: bug, feature request, other, just a message), and optional email if the user provided it. If the user said something like "add: make it work on mobile", append that to message.
+- Keep thumbnail-creation flow unchanged; only use feedback when the request is out of scope.
+- If the user says "submit" without a prior offer, use generate_assistant_response and ask what they want to submit; do not call create_feedback without a clear prior offer and confirmation.`
 
     // Validate and normalize attached images (allowlist MIME types)
     const ALLOWED_IMAGE_MIMES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif']
@@ -582,35 +624,37 @@ IMPORTANT:
             // Step 2: Make function calling call with search results in context (if available)
             emitSSE(controller, 'status', {
               type: 'function_calling',
-              message: 'Calling generate_assistant_response function...'
-            })
-
-            emitSSE(controller, 'tool_call', {
-              function: 'generate_assistant_response',
-              status: 'calling'
+              message: 'Calling assistant...'
             })
 
             const enhancedUserPrompt = searchResults
               ? `${userPrompt}\n\n[Search Results Context: ${searchResults}]`
               : userPrompt
-            
+
             const apiResult = await callGeminiWithFunctionCalling(
               systemPromptWithImages,
               enhancedUserPrompt,
               imageDataForGemini,
-              assistantToolDefinition,
-              'generate_assistant_response',
-              'gemini-2.5-flash', // Use a model that supports function calling
-              false // Disable Google Search (we already did the search call above)
-            )
+              assistantToolDefinitions,
+              assistantToolNames,
+              'gemini-2.5-flash',
+              false
+            ) as FunctionCallingResult
 
-            if (!apiResult || typeof apiResult !== 'object') {
+            if (!apiResult || typeof apiResult !== 'object' || !('functionName' in apiResult)) {
               throw new Error('Invalid response from AI service')
             }
 
-            // Mark tool call as complete
+            const functionName = apiResult.functionName
+            const functionCallResult = apiResult.functionCallResult
+            const finalGroundingMetadata = groundingMetadata ?? apiResult.groundingMetadata
+
             emitSSE(controller, 'tool_call', {
-              function: 'generate_assistant_response',
+              function: functionName,
+              status: 'calling'
+            })
+            emitSSE(controller, 'tool_call', {
+              function: functionName,
               status: 'complete'
             })
 
@@ -619,28 +663,57 @@ IMPORTANT:
               message: 'Generating response...'
             })
 
-            // Handle both old format (just function call args) and new format (with grounding metadata)
-            let functionCallResult: any
-            let finalGroundingMetadata: FunctionCallingWithGroundingResult['groundingMetadata'] = groundingMetadata
-
-            if ('functionCallResult' in apiResult && 'groundingMetadata' in apiResult) {
-              // New format with grounding metadata
-              functionCallResult = apiResult.functionCallResult
-              // Prefer grounding metadata from search call if available
-              finalGroundingMetadata = groundingMetadata || apiResult.groundingMetadata
-            } else {
-              // Old format (backward compatibility)
-              functionCallResult = apiResult
-              // Use grounding metadata from search call if available
-              finalGroundingMetadata = groundingMetadata
+            // Branch: create_feedback (execute insert, synthetic message) vs generate_assistant_response (normal flow)
+            if (functionName === 'create_feedback') {
+              let feedbackMessage = 'I\'ve submitted your feedback to the team. We\'ll review it.'
+              try {
+                const args = functionCallResult as { message?: string; category?: string; email?: string; user_addition?: string }
+                const message = typeof args.message === 'string' ? args.message.trim() : ''
+                const category = typeof args.category === 'string' ? args.category.trim() : ''
+                const userAddition = typeof args.user_addition === 'string' ? args.user_addition.trim() : ''
+                const emailArg = typeof args.email === 'string' ? args.email.trim() || null : null
+                const fullMessage = userAddition ? `${message}\n\nUser addition: ${userAddition}` : message
+                if (!message || !category) {
+                  feedbackMessage = 'I couldn\'t submit: missing message or category. Please try again.'
+                } else {
+                  const pageUrl = request.url || '/studio'
+                  const userAgent = request.headers.get('user-agent') ?? ''
+                  const email = emailArg ?? (user?.email ?? null)
+                  await submitFeedbackFromServer({
+                    message: fullMessage,
+                    category,
+                    email,
+                    page_url: pageUrl,
+                    app_version: APP_VERSION_FOR_FEEDBACK,
+                    user_agent: userAgent,
+                  })
+                }
+              } catch (err) {
+                logError(err, { route: 'POST /api/assistant/chat', operation: 'create_feedback' })
+                feedbackMessage = 'Something went wrong submitting your feedback. Please try again later or use the feedback form in the app.'
+              }
+              const messageChars = feedbackMessage.split('')
+              for (let i = 0; i < messageChars.length; i += 5) {
+                const chunk = messageChars.slice(i, i + 5).join('')
+                emitSSE(controller, 'text_chunk', { chunk })
+                await new Promise(resolve => setTimeout(resolve, 20))
+              }
+              emitSSE(controller, 'complete', {
+                human_readable_message: feedbackMessage,
+                ui_components: [],
+                form_state_updates: undefined,
+                suggestions: ['Continue with thumbnail', 'Share another idea'],
+              })
+              controller.close()
+              return
             }
 
             if (!functionCallResult || typeof functionCallResult !== 'object') {
               throw new Error('Invalid function call result from AI service')
             }
 
-            // Get the original message
-            let humanReadableMessage = functionCallResult.human_readable_message || 'I\'m here to help you create thumbnails!'
+            // generate_assistant_response flow
+            let humanReadableMessage = (functionCallResult as { human_readable_message?: string }).human_readable_message || 'I\'m here to help you create thumbnails!'
 
             // Process citations if grounding metadata is present
             // Note: The grounding metadata is from the search call, so citations may not perfectly align
@@ -808,43 +881,68 @@ IMPORTANT:
     const enhancedUserPrompt = searchResults
       ? `${userPrompt}\n\n[Search Results Context: ${searchResults}]`
       : userPrompt
-    
+
     const apiResult = await callGeminiWithFunctionCalling(
       systemPromptWithImages,
       enhancedUserPrompt,
       imageDataForGemini,
-      assistantToolDefinition,
-      'generate_assistant_response',
-      'gemini-2.5-flash', // Use a model that supports function calling
-      false // Disable Google Search (we already did the search call above)
-    )
+      assistantToolDefinitions,
+      assistantToolNames,
+      'gemini-2.5-flash',
+      false
+    ) as FunctionCallingResult
 
-    if (!apiResult || typeof apiResult !== 'object') {
+    if (!apiResult || typeof apiResult !== 'object' || !('functionName' in apiResult)) {
       throw new Error('Invalid response from AI service')
     }
 
-    // Handle both old format (just function call args) and new format (with grounding metadata)
-    let functionCallResult: any
-    let finalGroundingMetadata: FunctionCallingWithGroundingResult['groundingMetadata'] = groundingMetadata
+    const functionName = apiResult.functionName
+    const functionCallResult = apiResult.functionCallResult
+    const finalGroundingMetadata = groundingMetadata ?? apiResult.groundingMetadata
 
-    if ('functionCallResult' in apiResult && 'groundingMetadata' in apiResult) {
-      // New format with grounding metadata
-      functionCallResult = apiResult.functionCallResult
-      // Prefer grounding metadata from search call if available
-      finalGroundingMetadata = groundingMetadata || apiResult.groundingMetadata
-    } else {
-      // Old format (backward compatibility)
-      functionCallResult = apiResult
-      // Use grounding metadata from search call if available
-      finalGroundingMetadata = groundingMetadata
+    // Branch: create_feedback (execute insert, synthetic response) vs generate_assistant_response (normal flow)
+    if (functionName === 'create_feedback') {
+      let feedbackMessage = 'I\'ve submitted your feedback to the team. We\'ll review it.'
+      try {
+        const args = functionCallResult as { message?: string; category?: string; email?: string; user_addition?: string }
+        const message = typeof args.message === 'string' ? args.message.trim() : ''
+        const category = typeof args.category === 'string' ? args.category.trim() : ''
+        const userAddition = typeof args.user_addition === 'string' ? args.user_addition.trim() : ''
+        const emailArg = typeof args.email === 'string' ? args.email.trim() || null : null
+        const fullMessage = userAddition ? `${message}\n\nUser addition: ${userAddition}` : message
+        if (!message || !category) {
+          feedbackMessage = 'I couldn\'t submit: missing message or category. Please try again.'
+        } else {
+          const pageUrl = request.url || '/studio'
+          const userAgent = request.headers.get('user-agent') ?? ''
+          const email = emailArg ?? (user?.email ?? null)
+          await submitFeedbackFromServer({
+            message: fullMessage,
+            category,
+            email,
+            page_url: pageUrl,
+            app_version: APP_VERSION_FOR_FEEDBACK,
+            user_agent: userAgent,
+          })
+        }
+      } catch (err) {
+        logError(err, { route: 'POST /api/assistant/chat', operation: 'create_feedback' })
+        feedbackMessage = 'Something went wrong submitting your feedback. Please try again later or use the feedback form in the app.'
+      }
+      return NextResponse.json({
+        human_readable_message: feedbackMessage,
+        ui_components: [],
+        form_state_updates: undefined,
+        suggestions: ['Continue with thumbnail', 'Share another idea'],
+      })
     }
 
     if (!functionCallResult || typeof functionCallResult !== 'object') {
       throw new Error('Invalid function call result from AI service')
     }
 
-    // Get the original message
-    let humanReadableMessage = functionCallResult.human_readable_message || 'I\'m here to help you create thumbnails!'
+    // generate_assistant_response flow
+    let humanReadableMessage = (functionCallResult as { human_readable_message?: string }).human_readable_message || 'I\'m here to help you create thumbnails!'
 
     // Process citations if grounding metadata is present
     // Note: The grounding metadata is from the search call, so citations may not perfectly align
