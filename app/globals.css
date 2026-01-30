@@ -295,7 +295,7 @@ a:focus-visible {
   background: repeating-linear-gradient(
     0deg,
     transparent,
-    transparent 2px,
+    transparent 1px,
     rgba(0, 0, 0, 0.15) 2px,
     rgba(0, 0, 0, 0.15) 4px
   );
