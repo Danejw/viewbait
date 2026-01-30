@@ -37,6 +37,20 @@ function isAuthRoute(pathname: string): boolean {
   );
 }
 
+/**
+ * Check if path is /studio or /studio/*
+ */
+function isStudioRoute(pathname: string): boolean {
+  return pathname === "/studio" || pathname.startsWith("/studio/");
+}
+
+/**
+ * Check if path is /onboarding or /onboarding/*
+ */
+function isOnboardingRoute(pathname: string): boolean {
+  return pathname === "/onboarding" || pathname.startsWith("/onboarding/");
+}
+
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
     request,
@@ -93,6 +107,27 @@ export async function middleware(request: NextRequest) {
   ) {
     const redirectTo = request.nextUrl.searchParams.get("redirect") || "/studio";
     return NextResponse.redirect(new URL(redirectTo, request.url));
+  }
+
+  // Studio route: redirect to onboarding if user has not completed onboarding
+  if (user && isStudioRoute(pathname) && !isOnboardingRoute(pathname)) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("onboarding_completed")
+      .eq("id", user.id)
+      .single();
+
+    const needsOnboarding =
+      !profile || profile.onboarding_completed === false;
+
+    if (needsOnboarding) {
+      const redirectUrl = new URL("/onboarding", request.url);
+      const redirectResponse = NextResponse.redirect(redirectUrl);
+      supabaseResponse.cookies.getAll().forEach((cookie) => {
+        redirectResponse.cookies.set(cookie.name, cookie.value);
+      });
+      return redirectResponse;
+    }
   }
 
   // IMPORTANT: You *must* return the supabaseResponse object as is. If you're

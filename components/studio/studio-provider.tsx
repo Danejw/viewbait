@@ -3,7 +3,9 @@
 import React, { createContext, useContext, useState, useRef, useCallback, useEffect } from "react";
 import { useThumbnailGeneration } from "@/lib/hooks/useThumbnailGeneration";
 import { getGenerateCooldownMs } from "@/lib/constants/subscription-tiers";
-import { useThumbnails, useDeleteThumbnail, useToggleFavorite } from "@/lib/hooks/useThumbnails";
+import { useQueryClient } from "@tanstack/react-query";
+import { useThumbnails, useDeleteThumbnail, useToggleFavorite, thumbnailsQueryKeys } from "@/lib/hooks/useThumbnails";
+import type { ThumbnailsQueryParams } from "@/lib/hooks/useThumbnails";
 import { useFaces } from "@/lib/hooks/useFaces";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useSubscription } from "@/lib/hooks/useSubscription";
@@ -17,6 +19,7 @@ import type {
   DbPalette,
   DbFace,
   DbProject,
+  DbThumbnail,
 } from "@/lib/types/database";
 import * as thumbnailsService from "@/lib/services/thumbnails";
 import { useWatermarkedImage } from "@/lib/hooks/useWatermarkedImage";
@@ -165,7 +168,7 @@ export interface StudioActions {
   onShareThumbnail: (id: string) => void;
   onCopyThumbnail: (id: string) => void;
   onEditThumbnail: (thumbnail: Thumbnail) => void;
-  onAddToProject: (id: string, projectId: string | null) => void;
+  onAddToProject: (id: string, projectId: string | null, previousProjectId?: string | null) => void;
   // Modal actions
   closeDeleteModal: () => void;
   confirmDelete: () => Promise<void>;
@@ -404,6 +407,7 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
     isFetchingNextPage,
     refreshFirstPage,
     invalidateAll: invalidateAllThumbnails,
+    refetchAllThumbnails,
   } = useThumbnails({
     userId: user?.id,
     enabled: isAuthenticated,
@@ -679,16 +683,60 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
     }));
   }, []);
 
+  const queryClient = useQueryClient();
+
   const onAddToProject = useCallback(
-    async (thumbnailId: string, projectId: string | null) => {
+    async (
+      thumbnailId: string,
+      newProjectId: string | null,
+      previousProjectId?: string | null
+    ) => {
+      // Optimistic update: remove from source project list and update project_id in other lists
+      const queries = queryClient.getQueriesData({ queryKey: thumbnailsQueryKeys.all });
+      for (const [queryKey, oldData] of queries) {
+        if (queryKey[1] !== "list" || !oldData) continue;
+        const params = queryKey[2] as ThumbnailsQueryParams;
+        const infiniteData = oldData as {
+          pages: Array<{ thumbnails: DbThumbnail[] }>;
+          pageParams: unknown[];
+        };
+        const isSourceList =
+          params.projectId === previousProjectId ||
+          (previousProjectId == null && params.projectId === "__none__");
+        if (isSourceList) {
+          queryClient.setQueryData(queryKey, {
+            ...infiniteData,
+            pages: infiniteData.pages.map((page) => ({
+              ...page,
+              thumbnails: page.thumbnails.filter((t) => t.id !== thumbnailId),
+            })),
+          });
+        } else {
+          const hasThumbnail = infiniteData.pages.some((p) =>
+            p.thumbnails.some((t) => t.id === thumbnailId)
+          );
+          if (hasThumbnail) {
+            queryClient.setQueryData(queryKey, {
+              ...infiniteData,
+              pages: infiniteData.pages.map((page) => ({
+                ...page,
+                thumbnails: page.thumbnails.map((t) =>
+                  t.id === thumbnailId ? { ...t, project_id: newProjectId ?? undefined } : t
+                ),
+              })),
+            });
+          }
+        }
+      }
+
       const { error } = await thumbnailsService.updateThumbnail(thumbnailId, {
-        project_id: projectId,
+        project_id: newProjectId,
       });
       if (!error) {
-        await invalidateAllThumbnails();
+        await refetchAllThumbnails();
       }
     },
-    [invalidateAllThumbnails]
+    [queryClient, refetchAllThumbnails]
   );
 
   const closeEditModal = useCallback(() => {

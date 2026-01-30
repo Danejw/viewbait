@@ -100,3 +100,14 @@ export async function updateFullName(
 }> {
   return updateProfile({ full_name: fullName })
 }
+
+/**
+ * Mark that the current user has completed onboarding.
+ * Used when the user reaches step 5 (success) on the onboarding page.
+ */
+export async function markOnboardingCompleted(): Promise<{
+  profile: Profile | null
+  error: Error | null
+}> {
+  return updateProfile({ onboarding_completed: true })
+}

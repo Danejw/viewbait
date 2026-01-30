@@ -379,7 +379,7 @@ export const ThumbnailCard = memo(function ThumbnailCard({
     (e: React.MouseEvent, selectedProjectId: string | null) => {
       e.stopPropagation();
       if (selectedProjectId === (projectId ?? null)) return; // no-op: same project
-      onAddToProject(id, selectedProjectId);
+      onAddToProject(id, selectedProjectId, projectId ?? null);
     },
     [id, projectId, onAddToProject]
   );
@@ -437,14 +437,21 @@ export const ThumbnailCard = memo(function ThumbnailCard({
           </Tooltip>
           <DropdownMenuContent align="center" side="top" onClick={(e) => e.stopPropagation()}>
             <DropdownMenuItem
-              onClick={(e) => handleAddToProject(e as unknown as React.MouseEvent, null)}
+              onClick={(e) =>
+                handleAddToProject(e as unknown as React.MouseEvent, null)
+              }
             >
               No project
             </DropdownMenuItem>
             {projects?.map((project) => (
               <DropdownMenuItem
                 key={project.id}
-                onClick={(e) => handleAddToProject(e as unknown as React.MouseEvent, project.id)}
+                onClick={(e) =>
+                  handleAddToProject(
+                    e as unknown as React.MouseEvent,
+                    project.id
+                  )
+                }
               >
                 {project.name}
                 {project.id === projectId ? " (current)" : ""}

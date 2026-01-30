@@ -166,6 +166,13 @@ export function useThumbnails({
     });
   }, [queryClient]);
 
+  // Refetch all thumbnail queries and wait for completion (for immediate UI update after move/add to project)
+  const refetchAllThumbnails = useCallback(() => {
+    return queryClient.refetchQueries({
+      queryKey: thumbnailsQueryKeys.all,
+    });
+  }, [queryClient]);
+
   return {
     thumbnails,
     totalCount,
@@ -178,6 +185,7 @@ export function useThumbnails({
     refetch,
     invalidate,
     invalidateAll,
+    refetchAllThumbnails,
     refreshFirstPage,
   };
 }

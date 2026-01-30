@@ -5,6 +5,7 @@ import { useStudio } from "./studio-provider";
 import { ThumbnailGrid } from "./thumbnail-grid";
 import { Button } from "@/components/ui/button";
 import { ProjectSelector } from "@/components/studio/project-selector";
+import { Card, CardContent } from "@/components/ui/card";
 import { AlertCircle, RefreshCw, ChevronDown } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ViewBaitLogo } from "@/components/ui/viewbait-logo";
@@ -117,14 +118,42 @@ export const StudioResultsLoadMore = memo(function StudioResultsLoadMore() {
 });
 
 /**
+ * Empty state when a project is selected but has no thumbnails yet
+ */
+const StudioResultsEmptyProject = memo(function StudioResultsEmptyProject() {
+  return (
+    <Card>
+      <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+        <ViewBaitLogo className="mb-4 h-12 w-12" />
+        <p className="text-muted-foreground">
+          You have not created any thumbnails in this project yet.
+        </p>
+      </CardContent>
+    </Card>
+  );
+});
+
+/**
  * StudioResultsGrid
  * Optimized grid using ThumbnailGrid component
  * ThumbnailCard handles its own actions via useThumbnailActions hook
  * ImageModal is rendered globally in StudioProvider
+ * When a project is selected and has no thumbnails, shows an empty-state message instead of skeletons.
  */
 export const StudioResultsGrid = memo(function StudioResultsGrid() {
-  const { data: studioData } = useStudio();
+  const { data: studioData, state } = useStudio();
   const { thumbnails, generatingItems, thumbnailsLoading } = studioData;
+  const { activeProjectId } = state;
+
+  const projectSelectedAndEmpty =
+    activeProjectId &&
+    thumbnails.length === 0 &&
+    generatingItems.size === 0 &&
+    !thumbnailsLoading;
+
+  if (projectSelectedAndEmpty) {
+    return <StudioResultsEmptyProject />;
+  }
 
   return (
     <ThumbnailGrid

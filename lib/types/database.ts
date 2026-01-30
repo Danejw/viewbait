@@ -9,6 +9,9 @@
 // Core Types
 // ============================================================================
 
+/** Project share mode: all thumbnails or only favorites when shared. */
+export type ShareMode = "all" | "favorites"
+
 export type Json =
   | string
   | number
@@ -50,6 +53,7 @@ export interface Profile {
   avatar_url: string | null
   created_at: string
   is_admin: boolean
+  onboarding_completed: boolean
 }
 
 export interface UserSubscription {
@@ -278,6 +282,7 @@ export interface ProfileInsert {
   avatar_url?: string | null
   created_at?: string
   is_admin?: boolean
+  onboarding_completed?: boolean
 }
 
 export interface UserSubscriptionInsert {
@@ -480,6 +485,7 @@ export interface ProfileUpdate {
   full_name?: string | null
   avatar_url?: string | null
   is_admin?: boolean
+  onboarding_completed?: boolean
 }
 
 export interface UserSubscriptionUpdate {
