@@ -20,15 +20,6 @@ import { cn } from "@/lib/utils";
 import { ThumbnailCard, ThumbnailCardEmpty, ThumbnailCardSkeleton } from "./thumbnail-card";
 import type { Thumbnail } from "@/lib/types/database";
 
-/**
- * Grid configuration
- */
-const GRID_COLUMNS = {
-  sm: 2,
-  md: 3,
-  lg: 4,
-} as const;
-
 const DEFAULT_MIN_SLOTS = 12;
 
 export interface ThumbnailGridProps {
@@ -83,7 +74,7 @@ const GridItem = memo(function GridItem({
  */
 export function ThumbnailGridSkeleton({ count = 6 }: { count?: number }) {
   return (
-    <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
+    <div className="grid w-full gap-3 grid-cols-[repeat(auto-fill,minmax(200px,1fr))]">
       {Array.from({ length: count }).map((_, i) => (
         <ThumbnailCardSkeleton key={`skeleton-${i}`} />
       ))}
@@ -130,7 +121,7 @@ export const ThumbnailGrid = memo(function ThumbnailGrid({
   return (
     <div
       className={cn(
-        "grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4",
+        "grid w-full gap-3 grid-cols-[repeat(auto-fill,minmax(200px,1fr))]",
         gridClassName
       )}
     >

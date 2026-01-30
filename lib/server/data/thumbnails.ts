@@ -18,6 +18,8 @@ export interface BuildThumbnailsQueryOptions {
   favoritesOnly?: boolean
   orderBy?: 'created_at' | 'title'
   orderDirection?: 'asc' | 'desc'
+  /** When set, filter thumbnails by this project. Omit or null = All thumbnails */
+  projectId?: string | null
 }
 
 export interface FetchThumbnailsOptions {
@@ -26,6 +28,7 @@ export interface FetchThumbnailsOptions {
   orderBy?: 'created_at' | 'title'
   orderDirection?: 'asc' | 'desc'
   favoritesOnly?: boolean
+  projectId?: string | null
 }
 
 export interface FetchThumbnailsResult {
@@ -66,10 +69,10 @@ export function buildThumbnailsQuery(
     favoritesOnly = false,
     orderBy = 'created_at',
     orderDirection = 'desc',
+    projectId,
   } = options
 
-  // Use QueryPatterns as foundation, with resource-specific field selection
-  return QueryPatterns.userOwnedWithFavorites(
+  let query = QueryPatterns.userOwnedWithFavorites(
     supabase,
     'thumbnails',
     user.id,
@@ -83,6 +86,15 @@ export function buildThumbnailsQuery(
       },
     }
   )
+
+  // projectId: omit = all; '__none__' = only thumbnails with no project; uuid = that project
+  if (projectId === '__none__') {
+    query = query.is('project_id', null) as ReturnType<SupabaseClient['from']>['select']
+  } else if (projectId != null && projectId !== '') {
+    query = query.eq('project_id', projectId) as ReturnType<SupabaseClient['from']>['select']
+  }
+
+  return query
 }
 
 /**
@@ -101,6 +113,7 @@ export async function fetchThumbnails(
       orderBy = 'created_at',
       orderDirection = 'desc',
       favoritesOnly = false,
+      projectId,
     } = options
 
     // Build query using shared builder, then apply offset pagination
@@ -108,6 +121,7 @@ export async function fetchThumbnails(
       favoritesOnly,
       orderBy,
       orderDirection,
+      projectId,
     })
       .range(offset, offset + limit - 1)
 
@@ -322,6 +336,109 @@ export async function fetchPublicThumbnailsNoAuth(limit: number = 12): Promise<F
       thumbnails: [],
       count: 0,
       error: null, // Don't treat as error for landing page (graceful degradation)
+    }
+  }
+}
+
+/**
+ * Fetch thumbnails for a shared project (no auth). Used by GET /api/projects/share/[slug].
+ * Uses service client; filters by project_id and optionally liked (favorites only).
+ */
+export interface FetchSharedProjectThumbnailsOptions {
+  projectId: string
+  shareMode: 'all' | 'favorites'
+  limit?: number
+  offset?: number
+}
+
+export async function fetchThumbnailsForSharedProject(
+  options: FetchSharedProjectThumbnailsOptions
+): Promise<FetchPublicThumbnailsResult> {
+  const { projectId, shareMode, limit = 100, offset = 0 } = options
+  try {
+    const supabase = createServiceClient()
+
+    let query = supabase
+      .from('thumbnails')
+      .select('id,title,image_url,style,palette,liked,created_at,resolution,user_id', { count: 'exact' })
+      .eq('project_id', projectId)
+      .not('image_url', 'is', null)
+      .order('created_at', { ascending: false })
+
+    if (shareMode === 'favorites') {
+      query = query.eq('liked', true)
+    }
+
+    const { data, count, error } = await query.range(offset, offset + limit - 1)
+
+    if (error) {
+      return { thumbnails: [], count: 0, error: error as Error }
+    }
+
+    if (!data || data.length === 0) {
+      return { thumbnails: [], count: count ?? 0, error: null }
+    }
+
+    const ONE_DAY_MS = 24 * 60 * 60 * 1000
+    const checkUrlExpiry = (url: string | null): boolean => {
+      if (!url) return true
+      try {
+        const urlObj = new URL(url)
+        const expiresParam = urlObj.searchParams.get('expires')
+        if (!expiresParam) return true
+        const expiresTimestamp = parseInt(expiresParam, 10)
+        if (isNaN(expiresTimestamp)) return true
+        return expiresTimestamp * 1000 <= Date.now() + ONE_DAY_MS
+      } catch {
+        return true
+      }
+    }
+
+    const thumbnailsNeedingRefresh: typeof data = []
+    const thumbnailsWithValidUrls: typeof data = []
+    data.forEach((thumb) => {
+      if (checkUrlExpiry(thumb.image_url)) {
+        thumbnailsNeedingRefresh.push(thumb)
+      } else {
+        thumbnailsWithValidUrls.push(thumb)
+      }
+    })
+
+    let refreshedThumbnails: typeof data = []
+    if (thumbnailsNeedingRefresh.length > 0) {
+      const byUserId = new Map<string, typeof data>()
+      thumbnailsNeedingRefresh.forEach((thumb) => {
+        if (!byUserId.has(thumb.user_id)) byUserId.set(thumb.user_id, [])
+        byUserId.get(thumb.user_id)!.push(thumb)
+      })
+      const arrays = await Promise.all(
+        Array.from(byUserId.entries()).map(([userId, thumbs]) =>
+          refreshThumbnailUrls(supabase, thumbs, userId)
+        )
+      )
+      refreshedThumbnails = arrays.flat()
+    }
+
+    const thumbnailsWithUrls = [...thumbnailsWithValidUrls, ...refreshedThumbnails]
+    const publicThumbnails: PublicThumbnailData[] = thumbnailsWithUrls.map((thumb) => ({
+      id: thumb.id,
+      title: thumb.title,
+      image_url: thumb.image_url,
+      thumbnail_400w_url: null,
+      thumbnail_800w_url: null,
+      style: thumb.style,
+      palette: thumb.palette,
+      liked: thumb.liked,
+      created_at: thumb.created_at,
+      resolution: thumb.resolution,
+    }))
+
+    return { thumbnails: publicThumbnails, count: count ?? 0, error: null }
+  } catch (err) {
+    return {
+      thumbnails: [],
+      count: 0,
+      error: err instanceof Error ? err : new Error('Failed to fetch shared project thumbnails'),
     }
   }
 }

@@ -1,18 +1,19 @@
 "use client";
 
 import React, { useState, useCallback, memo, useMemo } from "react";
-import { useStudio } from "./studio-provider";
-import { StudioGenerator } from "./studio-generator";
-import { StudioResults } from "./studio-results";
-import { ThumbnailGrid } from "./thumbnail-grid";
-import { GalleryControls } from "./gallery-controls";
-import { FaceThumbnail, FaceThumbnailSkeleton } from "./face-thumbnail";
-import { FaceEditor } from "./face-editor";
+import { useStudio } from "@/components/studio/studio-provider";
+import { StudioGenerator } from "@/components/studio/studio-generator";
+import { StudioResults } from "@/components/studio/studio-results";
+import { ThumbnailGrid } from "@/components/studio/thumbnail-grid";
+import { FaceThumbnail, FaceThumbnailSkeleton } from "@/components/studio/face-thumbnail";
+import { FaceEditor } from "@/components/studio/face-editor";
 import { StyleThumbnailCard, StyleThumbnailCardSkeleton } from "./style-thumbnail-card";
-import { StyleEditor } from "./style-editor";
+import { StyleEditor } from "@/components/studio/style-editor";
+import { ProjectCard, ProjectCardSkeleton } from "@/components/studio/project-card";
+import { ShareProjectDialog } from "@/components/studio/share-project-dialog";
 import { PaletteCardManage, PaletteCardManageSkeleton } from "./palette-card-manage";
-import { PaletteEditor } from "./palette-editor";
-import { ViewControls, ViewHeader, type FilterOption, type SortOption, DEFAULT_SORT_OPTIONS } from "./view-controls";
+import { PaletteEditor } from "@/components/studio/palette-editor";
+import { ViewControls, ViewHeader, type FilterOption, type SortOption, DEFAULT_SORT_OPTIONS } from "@/components/studio/view-controls";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,29 +26,32 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Grid3x3, FolderOpen, Lock, Palette, Droplets, User, Youtube, RefreshCw, ChevronDown, Plus, Trash2, ImageIcon } from "lucide-react";
+import { Grid3x3, FolderOpen, FolderKanban, Lock, Palette, Droplets, User, Youtube, RefreshCw, ChevronDown, Plus, Trash2, ImageIcon } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BrowseThumbnails } from "./browse-thumbnails";
-import { BrowseStyles } from "./browse-styles";
-import { BrowsePalettes } from "./browse-palettes";
+import { BrowseStyles } from "@/components/studio/browse-styles";
+import { BrowsePalettes } from "@/components/studio/browse-palettes";
 import { usePrefetchPublicContent } from "@/lib/hooks/usePublicContent";
 import { useThumbnails } from "@/lib/hooks/useThumbnails";
 import { useFaces } from "@/lib/hooks/useFaces";
 import { useStyles } from "@/lib/hooks/useStyles";
 import { usePalettes } from "@/lib/hooks/usePalettes";
+import { useProjects } from "@/lib/hooks/useProjects";
 import type { ThumbnailSortOption, SortDirection } from "@/lib/hooks/useThumbnails";
-import type { Thumbnail, DbFace, DbStyle, DbPalette, StyleInsert, StyleUpdate, PaletteInsert, PaletteUpdate } from "@/lib/types/database";
+import type { DbFace, DbStyle, DbPalette, DbProject, StyleInsert, StyleUpdate, PaletteInsert, PaletteUpdate } from "@/lib/types/database";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useSubscription } from "@/lib/hooks/useSubscription";
 import { ViewBaitLogo } from "@/components/ui/viewbait-logo";
 import SubscriptionModal from "@/components/subscription-modal";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 /**
  * StudioViewGallery
@@ -60,6 +64,10 @@ import SubscriptionModal from "@/components/subscription-modal";
  * - Cursor-based pagination
  * - Optimistic updates for favorites
  */
+/** Sentinel for "no project" filter in gallery (thumbnails with project_id IS NULL) */
+const GALLERY_PROJECT_NONE = "__none__";
+const GALLERY_PROJECT_ALL = "all";
+
 // Sort options for gallery thumbnails
 const GALLERY_SORT_OPTIONS: SortOption[] = [
   { value: "newest", label: "Newest First" },
@@ -85,16 +93,34 @@ function parseGallerySortValue(value: string): { orderBy: ThumbnailSortOption; o
 
 export const StudioViewGallery = memo(function StudioViewGallery() {
   const { user, isAuthenticated } = useAuth();
-  
+  const { projects } = useProjects();
+
   // Local state for sorting, filtering, and search
   const [sortValue, setSortValue] = useState("newest");
   const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [projectFilter, setProjectFilter] = useState<string>(GALLERY_PROJECT_ALL);
 
   // Derive orderBy and orderDirection from sortValue
   const { orderBy, orderDirection } = useMemo(() => parseGallerySortValue(sortValue), [sortValue]);
 
-  // Use thumbnails hook with gallery-specific sorting
+  // Project filter: all = no filter, __none__ = thumbnails with no project, else project id
+  const projectIdForQuery = useMemo(
+    () =>
+      projectFilter === GALLERY_PROJECT_ALL ? undefined : projectFilter === GALLERY_PROJECT_NONE ? GALLERY_PROJECT_NONE : projectFilter,
+    [projectFilter]
+  );
+
+  // Filter options for project dropdown: All, No project, then each project
+  const projectFilterOptions: FilterOption[] = useMemo(
+    () => [
+      { value: GALLERY_PROJECT_ALL, label: "All projects" },
+      ...projects.map((p) => ({ value: p.id, label: p.name })),
+    ],
+    [projects]
+  );
+
+  // Use thumbnails hook with gallery-specific sorting and project filter
   const {
     thumbnails: allThumbnails,
     totalCount,
@@ -112,6 +138,7 @@ export const StudioViewGallery = memo(function StudioViewGallery() {
     orderBy,
     orderDirection,
     favoritesOnly,
+    projectId: projectIdForQuery,
   });
 
   // Filter thumbnails by search query (client-side)
@@ -120,7 +147,6 @@ export const StudioViewGallery = memo(function StudioViewGallery() {
     const query = searchQuery.toLowerCase();
     return allThumbnails.filter((t) =>
       t.name?.toLowerCase().includes(query) ||
-      t.title?.toLowerCase().includes(query) ||
       t.prompt?.toLowerCase().includes(query)
     );
   }, [allThumbnails, searchQuery]);
@@ -133,6 +159,11 @@ export const StudioViewGallery = memo(function StudioViewGallery() {
   // Handle favorites toggle
   const handleFavoritesToggle = useCallback((newFavoritesOnly: boolean) => {
     setFavoritesOnly(newFavoritesOnly);
+  }, []);
+
+  // Handle project filter change
+  const handleProjectFilterChange = useCallback((value: string) => {
+    setProjectFilter(value);
   }, []);
 
   // Handle search change
@@ -183,7 +214,10 @@ export const StudioViewGallery = memo(function StudioViewGallery() {
         onSearchChange={handleSearchChange}
         searchPlaceholder="Search thumbnails..."
         showSearch={true}
-        showFilter={false}
+        showFilter={true}
+        filterValue={projectFilter}
+        filterOptions={projectFilterOptions}
+        onFilterChange={handleProjectFilterChange}
         sortValue={sortValue}
         sortOptions={GALLERY_SORT_OPTIONS}
         onSortChange={handleSortChange}
@@ -390,7 +424,7 @@ const STYLE_SORT_OPTIONS: SortOption[] = [
 export const StudioViewStyles = memo(function StudioViewStyles() {
   const { user } = useAuth();
   const { actions } = useStudio();
-  const { canCreateCustomAssets, tier } = useSubscription();
+  const { canCreateCustomAssets, tier, productId } = useSubscription();
   const {
     styles,
     publicStyles,
@@ -821,6 +855,7 @@ export const StudioViewStyles = memo(function StudioViewStyles() {
         isOpen={subscriptionModalOpen}
         onClose={() => setSubscriptionModalOpen(false)}
         currentTier={tier}
+        currentProductId={productId}
       />
 
       {/* Delete Confirmation Dialog */}
@@ -892,7 +927,7 @@ const PALETTE_SORT_OPTIONS: SortOption[] = [
 export const StudioViewPalettes = memo(function StudioViewPalettes() {
   const { user } = useAuth();
   const { actions } = useStudio();
-  const { canCreateCustomAssets, tier } = useSubscription();
+  const { canCreateCustomAssets, tier, productId } = useSubscription();
   const {
     palettes,
     publicPalettes,
@@ -1037,10 +1072,11 @@ export const StudioViewPalettes = memo(function StudioViewPalettes() {
           // Update existing palette
           await updatePalette(editingPalette.id, data);
         } else {
-          // Create new palette
+          // Create new palette (data may be PaletteUpdate with optional colors)
           const insertData: PaletteInsert = {
             ...data,
             name: data.name || "Untitled Palette",
+            colors: data.colors ?? [],
           };
           await createPalette(insertData);
         }
@@ -1237,6 +1273,7 @@ export const StudioViewPalettes = memo(function StudioViewPalettes() {
         isOpen={subscriptionModalOpen}
         onClose={() => setSubscriptionModalOpen(false)}
         currentTier={tier}
+        currentProductId={productId}
       />
 
       {/* Delete Confirmation Dialog */}
@@ -1287,7 +1324,7 @@ const FACE_SORT_OPTIONS: SortOption[] = [
 export const StudioViewFaces = memo(function StudioViewFaces() {
   const { user } = useAuth();
   const { actions } = useStudio();
-  const { canCreateCustomAssets, tier } = useSubscription();
+  const { canCreateCustomAssets, tier, productId } = useSubscription();
   const {
     faces: allFaces,
     isLoading,
@@ -1570,6 +1607,7 @@ export const StudioViewFaces = memo(function StudioViewFaces() {
         isOpen={subscriptionModalOpen}
         onClose={() => setSubscriptionModalOpen(false)}
         currentTier={tier}
+        currentProductId={productId}
       />
 
       {/* Delete Confirmation Dialog */}
@@ -1603,6 +1641,236 @@ export const StudioViewFaces = memo(function StudioViewFaces() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </div>
+  );
+});
+
+/**
+ * StudioViewProjects
+ * Projects view - lists all user projects in a card grid.
+ * Uses useProjects() and studio context for selection; create/delete with confirm.
+ */
+export const StudioViewProjects = memo(function StudioViewProjects() {
+  const {
+    state: { activeProjectId },
+    actions: { setActiveProjectId, setView },
+  } = useStudio();
+  const {
+    projects,
+    isLoading,
+    error,
+    refetch,
+    createProject,
+    deleteProject,
+  } = useProjects();
+
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createName, setCreateName] = useState("");
+  const [isCreating, setIsCreating] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [shareDialogProject, setShareDialogProject] = useState<DbProject | null>(null);
+
+  const handleRefresh = useCallback(() => {
+    refetch();
+  }, [refetch]);
+
+  const handleUse = useCallback(
+    (id: string) => {
+      setActiveProjectId(id);
+      setView("generator");
+    },
+    [setActiveProjectId, setView]
+  );
+
+  const handleDeleteClick = useCallback((id: string) => {
+    setDeleteConfirmId(id);
+  }, []);
+
+  const handleShare = useCallback((project: DbProject) => {
+    setShareDialogProject(project);
+  }, []);
+
+  const handleDeleteConfirm = useCallback(async () => {
+    const id = deleteConfirmId;
+    if (!id) return;
+    setDeletingId(id);
+    try {
+      const ok = await deleteProject(id);
+      if (ok && activeProjectId === id) {
+        setActiveProjectId(null);
+      }
+      setDeleteConfirmId(null);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setDeletingId(null);
+    }
+  }, [deleteConfirmId, deleteProject, activeProjectId, setActiveProjectId]);
+
+  const handleCreateSubmit = useCallback(async () => {
+    const name = createName.trim();
+    if (!name || isCreating) return;
+    setIsCreating(true);
+    try {
+      const project = await createProject({ name });
+      if (project?.id) {
+        setCreateOpen(false);
+        setCreateName("");
+        setActiveProjectId(project.id);
+        setView("generator");
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsCreating(false);
+    }
+  }, [createName, isCreating, createProject, setActiveProjectId, setView]);
+
+  // Error state
+  if (error) {
+    return (
+      <div>
+        <ViewHeader
+          title="Projects"
+          description="Organize thumbnails by project and reuse settings"
+        />
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <p className="text-destructive">
+              {error.message || "Failed to load projects"}
+            </p>
+            <Button variant="outline" onClick={handleRefresh} className="mt-4">
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Try again
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <ViewHeader
+        title="Projects"
+        description="Organize thumbnails by project and reuse settings"
+        count={projects.length}
+        countLabel="projects"
+      />
+      <ViewControls
+        showSearch={false}
+        showFilter={false}
+        showSort={false}
+        showFavorites={false}
+        onRefresh={handleRefresh}
+        isRefreshing={isLoading}
+        showRefresh={true}
+        onAdd={() => setCreateOpen(true)}
+        addLabel="New project"
+        showAdd={true}
+        className="mb-6"
+      />
+
+      {isLoading ? (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <ProjectCardSkeleton key={i} />
+          ))}
+        </div>
+      ) : projects.length === 0 ? (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <FolderKanban className="mb-4 h-12 w-12 text-muted-foreground" />
+            <h3 className="mb-2 text-lg font-medium">No projects yet</h3>
+            <p className="mb-4 max-w-sm text-center text-muted-foreground">
+              Create a project to group thumbnails and save default settings.
+            </p>
+            <Button onClick={() => setCreateOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Create your first project
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {projects.map((project: DbProject) => (
+            <ProjectCard
+              key={project.id}
+              project={project}
+              isActive={activeProjectId === project.id}
+              onUse={handleUse}
+              onDelete={handleDeleteClick}
+              onShare={handleShare}
+              isDeleting={deletingId === project.id}
+            />
+          ))}
+        </div>
+      )}
+
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>New project</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-2 py-2">
+            <Label htmlFor="projects-view-project-name">Name</Label>
+            <Input
+              id="projects-view-project-name"
+              value={createName}
+              onChange={(e) => setCreateName(e.target.value)}
+              placeholder="e.g. Q1 video"
+              onKeyDown={(e) => e.key === "Enter" && handleCreateSubmit()}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreateOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleCreateSubmit}
+              disabled={!createName.trim() || isCreating}
+            >
+              {isCreating ? "Creating..." : "Create"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog
+        open={deleteConfirmId !== null}
+        onOpenChange={(open) => !open && setDeleteConfirmId(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete project?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Thumbnails in this project will not be deleted; they will be
+              unassigned from the project.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deletingId !== null}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteConfirm}
+              disabled={deletingId !== null}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deletingId ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {shareDialogProject && (
+        <ShareProjectDialog
+          project={shareDialogProject}
+          open={!!shareDialogProject}
+          onOpenChange={(open) => !open && setShareDialogProject(null)}
+        />
+      )}
     </div>
   );
 });
@@ -1647,6 +1915,8 @@ export function StudioMainContent() {
       return <StudioViewGallery />;
     case "browse":
       return <StudioViewBrowse />;
+    case "projects":
+      return <StudioViewProjects />;
     case "styles":
       return <StudioViewStyles />;
     case "palettes":
@@ -1677,6 +1947,8 @@ export function StudioView() {
       return <StudioViewGallery />;
     case "browse":
       return <StudioViewBrowse />;
+    case "projects":
+      return <StudioViewProjects />;
     case "styles":
       return <StudioViewStyles />;
     case "palettes":

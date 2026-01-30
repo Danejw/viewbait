@@ -1,0 +1,18 @@
+{
+  "table_name": "projects",
+  "table_type": "BASE TABLE",
+  "schema": {
+    "columns": [
+      { "column_name": "id", "data_type": "uuid", "is_nullable": false, "ordinal_position": 1, "inferred": true },
+      { "column_name": "user_id", "data_type": "uuid", "is_nullable": false, "ordinal_position": 2, "inferred": true },
+      { "column_name": "name", "data_type": "text", "is_nullable": false, "ordinal_position": 3, "inferred": true },
+      { "column_name": "created_at", "data_type": "timestamptz", "is_nullable": false, "ordinal_position": 4, "inferred": true },
+      { "column_name": "updated_at", "data_type": "timestamptz", "is_nullable": false, "ordinal_position": 5, "inferred": true },
+      { "column_name": "default_settings", "data_type": "jsonb", "is_nullable": true, "ordinal_position": 6, "inferred": true }
+    ],
+    "constraints": [],
+    "indexes": []
+  },
+  "rls_policies": [],
+  "note": "Projects table for organizing thumbnails; default_settings stores manual generator settings (JSONB)."
+}

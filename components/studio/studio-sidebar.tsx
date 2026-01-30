@@ -6,6 +6,7 @@ import {
   Zap,
   Grid3x3,
   FolderOpen,
+  FolderKanban,
   Palette,
   Droplets,
   User,
@@ -35,6 +36,7 @@ import { useAuth } from "@/lib/hooks/useAuth";
 import { useSubscription } from "@/lib/hooks/useSubscription";
 import SubscriptionModal from "@/components/subscription-modal";
 import ReferralModal from "@/components/referral-modal";
+import AccountSettingsModal from "@/components/account-settings-modal";
 import { NotificationBell } from "@/components/notifications";
 
 export interface NavItem {
@@ -45,12 +47,13 @@ export interface NavItem {
 }
 
 export const navItems: NavItem[] = [
-  { label: "Generator", view: "generator", icon: Zap },
+  { label: "Create", view: "generator", icon: Zap },
   { label: "Browse", view: "browse", icon: FolderOpen },
-  { label: "My Thumbnails", view: "gallery", icon: Grid3x3 },
-  { label: "My Styles", view: "styles", icon: Palette },
-  { label: "My Palettes", view: "palettes", icon: Droplets },
-  { label: "My Faces", view: "faces", icon: User },
+  { label: "Gallery", view: "gallery", icon: Grid3x3 },
+  { label: "Projects", view: "projects", icon: FolderKanban },
+  { label: "Styles", view: "styles", icon: Palette },
+  { label: "Palettes", view: "palettes", icon: Droplets },
+  { label: "Faces", view: "faces", icon: User },
   { label: "YouTube", view: "youtube", icon: Youtube, locked: true },
 ];
 
@@ -236,6 +239,7 @@ export function StudioSidebarUser() {
   const { user, profile, signOut, isLoading: authLoading } = useAuth();
   const router = useRouter();
   const [referralModalOpen, setReferralModalOpen] = useState(false);
+  const [accountModalOpen, setAccountModalOpen] = useState(false);
 
   // Derive display values
   const displayName =
@@ -336,7 +340,12 @@ export function StudioSidebarUser() {
             <TooltipContent side="right">Log out</TooltipContent>
           </Tooltip>
         </div>
-      <div className="mb-4 flex items-center gap-3">
+      <button
+        type="button"
+        onClick={() => setAccountModalOpen(true)}
+        className="mb-4 flex w-full cursor-pointer items-center gap-3 rounded-md p-0 text-left hover:bg-sidebar-accent/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+        aria-label="Open account settings"
+      >
         <Avatar size="sm">
           {avatarUrl && <AvatarImage src={avatarUrl} alt={displayName} />}
           <AvatarFallback>{initials}</AvatarFallback>
@@ -358,12 +367,16 @@ export function StudioSidebarUser() {
             </>
           )}
         </div>
-      </div>
+      </button>
       {/* <Button variant="outline" size="sm" className="w-full">
         <Download className="mr-2 h-4 w-4" />
         Export All Data
       </Button> */}
         <ReferralModal isOpen={referralModalOpen} onClose={() => setReferralModalOpen(false)} />
+        <AccountSettingsModal
+          isOpen={accountModalOpen}
+          onClose={() => setAccountModalOpen(false)}
+        />
     </div>
     </TooltipProvider>
   );

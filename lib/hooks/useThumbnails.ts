@@ -31,6 +31,8 @@ export interface ThumbnailsQueryParams {
   favoritesOnly?: boolean;
   orderBy?: ThumbnailSortOption;
   orderDirection?: SortDirection;
+  /** When set, filter by project. null/omit = All thumbnails */
+  projectId?: string | null;
 }
 
 /**
@@ -53,6 +55,8 @@ export interface UseThumbnailsOptions {
   favoritesOnly?: boolean;
   orderBy?: ThumbnailSortOption;
   orderDirection?: SortDirection;
+  /** When set, filter thumbnails by this project. null/omit = All thumbnails */
+  projectId?: string | null;
   enabled?: boolean;
 }
 
@@ -70,6 +74,7 @@ export function useThumbnails({
   orderBy = "created_at",
   orderDirection = "desc",
   enabled = true,
+  projectId,
 }: UseThumbnailsOptions = {}) {
   const queryClient = useQueryClient();
 
@@ -78,6 +83,7 @@ export function useThumbnails({
     favoritesOnly,
     orderBy,
     orderDirection,
+    projectId,
   };
 
   // Use infinite query for cursor-based pagination
@@ -108,6 +114,7 @@ export function useThumbnails({
         favoritesOnly,
         orderBy,
         orderDirection,
+        projectId: projectId ?? undefined,
       });
 
       if (result.error) {
@@ -288,6 +295,7 @@ export function usePrefetchThumbnails() {
         favoritesOnly: options.favoritesOnly ?? false,
         orderBy: options.orderBy ?? "created_at",
         orderDirection: options.orderDirection ?? "desc",
+        projectId: options.projectId ?? null,
       };
 
       return queryClient.prefetchInfiniteQuery({
@@ -298,6 +306,7 @@ export function usePrefetchThumbnails() {
             favoritesOnly: queryParams.favoritesOnly,
             orderBy: queryParams.orderBy,
             orderDirection: queryParams.orderDirection,
+            projectId: queryParams.projectId ?? undefined,
           });
 
           if (result.error) {
