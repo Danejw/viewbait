@@ -481,7 +481,8 @@ export async function generateThumbnail(
 export async function editThumbnail(
   thumbnailId: string,
   editPrompt: string,
-  referenceImages?: string[]
+  referenceImages?: string[],
+  title?: string
 ): Promise<{
   result: GenerateThumbnailResult | null
   error: Error | null
@@ -496,6 +497,7 @@ export async function editThumbnail(
         thumbnailId,
         editPrompt,
         referenceImages: referenceImages && referenceImages.length > 0 ? referenceImages : undefined,
+        title: title != null && title.trim() !== '' ? title.trim() : undefined,
       }),
     })
 

@@ -34,6 +34,7 @@ export interface EditThumbnailRequest {
   thumbnailId: string
   editPrompt: string
   referenceImages?: string[] // Optional reference images for editing
+  title?: string // Optional title for the new thumbnail (defaults to original)
 }
 
 export async function POST(request: Request) {
@@ -278,11 +279,13 @@ Requirements:
     const fileExtension = aiResult.mimeType.includes('jpeg') || aiResult.mimeType.includes('jpg') ? 'jpg' : 'png'
     
     // Create new thumbnail record first to get new ID
+    const newTitle = body.title != null && body.title.trim() !== '' ? body.title.trim() : thumbnail.title
     const { data: newThumbnail, error: insertError } = await supabase
       .from('thumbnails')
       .insert({
         user_id: user.id,
-        title: thumbnail.title, // Keep original title
+        project_id: thumbnail.project_id ?? null, // Same project as original
+        title: newTitle,
         image_url: '', // Will be updated after upload
         style: thumbnail.style,
         palette: thumbnail.palette,

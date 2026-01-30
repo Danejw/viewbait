@@ -11,6 +11,7 @@
 import React, { useState, useEffect } from "react";
 import { Sparkles, Info } from "lucide-react";
 import { ViewBaitLogo } from "@/components/ui/viewbait-logo";
+import { CRTLoadingEffect } from "@/components/ui/crt-loading-effect";
 import {
   Modal,
   ModalContent,
@@ -96,11 +97,15 @@ export function ThumbnailEditModal({
           {/* Current Thumbnail Preview */}
           <div className="mx-auto w-full max-w-md overflow-hidden rounded-lg border bg-muted">
             <div className="relative aspect-video">
-              <img
-                src={displaySrc ?? thumbnail.thumbnail800wUrl ?? thumbnail.imageUrl}
-                alt={thumbnail.name}
-                className="h-full w-full object-cover"
-              />
+              {isRegenerating ? (
+                <CRTLoadingEffect className="absolute inset-0 h-full w-full !aspect-auto rounded-lg" />
+              ) : (
+                <img
+                  src={displaySrc ?? thumbnail.thumbnail800wUrl ?? thumbnail.imageUrl}
+                  alt={thumbnail.name}
+                  className="h-full w-full object-cover"
+                />
+              )}
             </div>
           </div>
 
@@ -170,7 +175,7 @@ export function ThumbnailEditModal({
           >
             {isRegenerating ? (
               <>
-                <ViewBaitLogo className="mr-2 h-4 w-4 animate-spin" />
+                <ViewBaitLogo variant="white" className="mr-2 h-4 w-4 animate-spin" />
                 Regenerating...
               </>
             ) : (

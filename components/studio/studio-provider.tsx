@@ -754,20 +754,31 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
     setState((s) => ({ ...s, isRegenerating: true }));
 
     try {
-      // Regenerate creates a NEW thumbnail with the edited settings
-      // We use the generate function with the custom prompt and title
-      const results = await generate({
-        thumbnailText: data.title,
-        customInstructions: data.customPrompt || state.customInstructions,
-        selectedStyle: state.includeStyles ? state.selectedStyle : null,
-        selectedPalette: state.includePalettes ? state.selectedPalette : null,
-        selectedAspectRatio: state.selectedAspectRatio,
-        selectedResolution: state.selectedResolution,
-        variations: 1, // Only generate one variation for regeneration
-      });
+      // Regenerate via edit API: use this thumbnail as image reference and apply custom prompt.
+      // Edit API loads the thumbnail by ID and creates a new thumbnail (original is kept).
+      const editPrompt =
+        data.customPrompt?.trim() || "Keep the same style and composition.";
+      const referenceImages = [
+        thumbnail.thumbnail800wUrl ?? thumbnail.imageUrl,
+      ].filter(Boolean) as string[];
 
-      // Close modal and refresh thumbnails
-      if (results.some((r) => r.success)) {
+      const { result, error: editError } = await thumbnailsService.editThumbnail(
+        thumbnail.id,
+        editPrompt,
+        referenceImages.length > 0 ? referenceImages : undefined,
+        data.title?.trim() || undefined
+      );
+
+      if (editError) {
+        setState((s) => ({
+          ...s,
+          generationError: editError.message,
+          isRegenerating: false,
+        }));
+        return;
+      }
+
+      if (result) {
         await refreshThumbnails();
       }
 
@@ -776,12 +787,18 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
         editModalOpen: false,
         thumbnailToEdit: null,
         isRegenerating: false,
+        generationError: null,
       }));
     } catch (error) {
       console.error("Error regenerating thumbnail:", error);
-      setState((s) => ({ ...s, isRegenerating: false }));
+      setState((s) => ({
+        ...s,
+        isRegenerating: false,
+        generationError:
+          error instanceof Error ? error.message : "Failed to regenerate thumbnail",
+      }));
     }
-  }, [state.thumbnailToEdit, state.customInstructions, state.includeStyles, state.selectedStyle, state.includePalettes, state.selectedPalette, state.selectedAspectRatio, state.selectedResolution, generate, refreshThumbnails]);
+  }, [state.thumbnailToEdit, refreshThumbnails]);
 
   // Image modal handlers
   const onViewThumbnail = useCallback((thumbnail: Thumbnail) => {
