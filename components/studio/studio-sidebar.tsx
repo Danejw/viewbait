@@ -79,7 +79,7 @@ export function StudioSidebarNav() {
             <Button
               key={item.view}
               type="button"
-              variant="ghost"
+              variant={isActive ? "ghost" : "side"}
               size={leftSidebarCollapsed ? "icon-sm" : "sm"}
               onClick={() => !item.locked && setView(item.view)}
               disabled={item.locked}
@@ -88,7 +88,7 @@ export function StudioSidebarNav() {
                 leftSidebarCollapsed ? "shrink-0" : "gap-3",
                 isActive
                   ? "bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary hover:text-sidebar-primary-foreground"
-                  : "text-sidebar-foreground hover:bg-sidebar-accent/50",
+                  : "text-sidebar-foreground",
                 item.locked && "opacity-50 cursor-not-allowed"
               )}
             >
@@ -340,10 +340,11 @@ export function StudioSidebarUser() {
             <TooltipContent side="right">Log out</TooltipContent>
           </Tooltip>
         </div>
-      <button
+      <Button
         type="button"
+        variant="side"
         onClick={() => setAccountModalOpen(true)}
-        className="mb-4 flex w-full cursor-pointer items-center gap-3 rounded-md p-0 text-left hover:bg-sidebar-accent/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+        className="p-4 h-auto w-full justify-start gap-3 rounded-md px-0 py-0 text-left focus-visible:ring-2 focus-visible:ring-sidebar-ring"
         aria-label="Open account settings"
       >
         <Avatar size="sm">
@@ -358,16 +359,16 @@ export function StudioSidebarUser() {
             </>
           ) : (
             <>
-              <p className="text-sm font-medium text-sidebar-foreground truncate">
+              <p className="text-sm font-medium text-sidebar-foreground truncate group-hover/button:text-primary">
                 {displayName}
               </p>
-              <p className="text-xs text-sidebar-foreground/70 truncate">
+              <p className="text-xs text-sidebar-foreground/70 truncate group-hover/button:text-primary">
                 {truncatedEmail}
               </p>
             </>
           )}
         </div>
-      </button>
+      </Button>
       {/* <Button variant="outline" size="sm" className="w-full">
         <Download className="mr-2 h-4 w-4" />
         Export All Data

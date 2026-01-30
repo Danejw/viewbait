@@ -32,10 +32,10 @@ export function StudioSettingsSidebarHeader() {
       <div className="p-2">
             <Button
               type="button"
-              variant="ghost"
+              variant="side"
               size="sm"
               onClick={toggleRightSidebar}
-              className="w-full justify-start gap-2 text-left hover:bg-sidebar-accent/50"
+              className="w-full justify-start gap-2 text-left"
               aria-label="Collapse settings"
             >
               <div className="flex h-8 w-8 shrink-0 items-center justify-center">
@@ -108,7 +108,7 @@ export function StudioSettingsSidebarCollapsed() {
                 variant="ghost"
                 size="icon-lg"
                 onClick={handleChat}
-                className={cn("w-full", mode === "chat" && "bg-sidebar-accent text-sidebar-accent-foreground")}
+                className={cn("w-full", mode === "chat" && "bg-sidebar-accent text-white")}
                 aria-label="Chat mode"
               >
                 <MessageSquare className="h-4 w-4" />

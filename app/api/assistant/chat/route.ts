@@ -34,6 +34,8 @@ export interface AssistantChatRequest {
   }
   availableStyles?: Array<{ id: string; name: string }>
   availablePalettes?: Array<{ id: string; name: string }>
+  /** Images attached to the current message (base64 data + mimeType). Sent to Gemini as visual context. */
+  attachedImages?: Array<{ data: string; mimeType: string }>
 }
 
 export interface AssistantChatResponse {
@@ -298,6 +300,21 @@ IMPORTANT:
 - Return only 1-2 ui_components per response that are directly relevant to the user's current message.
 - The form_state_updates will automatically sync to the manual settings, keeping both interfaces in sync.`
 
+    // Validate and normalize attached images (allowlist MIME types)
+    const ALLOWED_IMAGE_MIMES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif']
+    const attachedImages: Array<{ data: string; mimeType: string }> = []
+    if (Array.isArray(body.attachedImages) && body.attachedImages.length > 0) {
+      for (const item of body.attachedImages) {
+        if (item && typeof item.data === 'string' && typeof item.mimeType === 'string' && ALLOWED_IMAGE_MIMES.includes(item.mimeType)) {
+          attachedImages.push({ data: item.data, mimeType: item.mimeType })
+        }
+      }
+    }
+    const imageDataForGemini = attachedImages.length > 0 ? attachedImages : null
+    const systemPromptWithImages = imageDataForGemini
+      ? `${systemPrompt}\n\nThe user has attached one or more images to this message. Use them as visual reference for style, composition, or content when responding.`
+      : systemPrompt
+
     // Build user prompt from conversation history
     const conversationText = body.conversationHistory
       .map((msg) => `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`)
@@ -343,7 +360,7 @@ IMPORTANT:
                   {
                     role: 'user',
                     parts: [
-                      ...(systemPrompt ? [{ text: systemPrompt }] : []),
+                      ...(systemPromptWithImages ? [{ text: systemPromptWithImages }] : []),
                       { text: userPrompt },
                     ],
                   },
@@ -403,9 +420,9 @@ IMPORTANT:
               : userPrompt
             
             const apiResult = await callGeminiWithFunctionCalling(
-              systemPrompt,
+              systemPromptWithImages,
               enhancedUserPrompt,
-              null, // No image data
+              imageDataForGemini,
               assistantToolDefinition,
               'generate_assistant_response',
               'gemini-2.5-flash', // Use a model that supports function calling
@@ -547,7 +564,7 @@ IMPORTANT:
           {
             role: 'user',
             parts: [
-              ...(systemPrompt ? [{ text: systemPrompt }] : []),
+              ...(systemPromptWithImages ? [{ text: systemPromptWithImages }] : []),
               { text: userPrompt },
             ],
           },
@@ -597,9 +614,9 @@ IMPORTANT:
       : userPrompt
     
     const apiResult = await callGeminiWithFunctionCalling(
-      systemPrompt,
+      systemPromptWithImages,
       enhancedUserPrompt,
-      null, // No image data
+      imageDataForGemini,
       assistantToolDefinition,
       'generate_assistant_response',
       'gemini-2.5-flash', // Use a model that supports function calling

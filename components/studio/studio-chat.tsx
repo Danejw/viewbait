@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { MessageSquare, Send, RotateCcw } from "lucide-react";
+import { MessageSquare, Send, RotateCcw, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CloseButton } from "@/components/ui/close-button";
 import { Input } from "@/components/ui/input";
@@ -14,6 +14,26 @@ import { DynamicUIRenderer, type UIComponentName } from "./dynamic-ui-renderer";
 import { cn } from "@/lib/utils";
 
 const CHAT_HISTORY_KEY = "thumbnail-assistant-chat-history";
+const MAX_ATTACHED_IMAGES = 4;
+const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
+const ALLOWED_IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif"];
+
+type AttachedImage = { data: string; mimeType: string };
+
+function parseDataUrl(dataUrl: string): AttachedImage | null {
+  const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
+  if (!match) return null;
+  return { mimeType: match[1].trim(), data: match[2].trim() };
+}
+
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
 
 const WELCOME_MESSAGE: ChatPanelMessage = {
   role: "assistant",
@@ -105,6 +125,8 @@ export function StudioChatPanel() {
     return loaded;
   });
   const [inputValue, setInputValue] = useState("");
+  const [attachedImages, setAttachedImages] = useState<AttachedImage[]>([]);
+  const [isDragging, setIsDragging] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [thinkingState, setThinkingState] = useState<ThinkingState | null>(null);
@@ -173,24 +195,52 @@ export function StudioChatPanel() {
     ]
   );
 
+  const addImagesFromFiles = useCallback(async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    const fileArray = Array.from(files).filter(
+      (f) => ALLOWED_IMAGE_TYPES.includes(f.type) && f.size <= MAX_IMAGE_SIZE_BYTES
+    );
+    if (fileArray.length === 0) return;
+    const parsed: AttachedImage[] = [];
+    for (const file of fileArray) {
+      const dataUrl = await readFileAsDataUrl(file);
+      const img = parseDataUrl(dataUrl);
+      if (img) parsed.push(img);
+    }
+    if (parsed.length === 0) return;
+    setAttachedImages((prev) => {
+      const remaining = MAX_ATTACHED_IMAGES - prev.length;
+      return [...prev, ...parsed.slice(0, remaining)].slice(0, MAX_ATTACHED_IMAGES);
+    });
+  }, []);
+
   const handleSend = useCallback(async () => {
     const text = inputValue.trim();
-    if (!text || isLoading) return;
+    const hasContent = text || attachedImages.length > 0;
+    if (!hasContent || isLoading) return;
 
     setInputValue("");
     setError(null);
+    const lastMessageContent = text || (attachedImages.length > 0 ? "(Image(s) attached)" : "");
+    const displayContent = text
+      ? attachedImages.length > 0
+        ? `${text} (with ${attachedImages.length} image(s))`
+        : text
+      : `[${attachedImages.length} image(s) attached]`;
     const userMessage: ChatPanelMessage = {
       role: "user",
-      content: text,
+      content: displayContent,
       timestamp: new Date(),
     };
     setMessages((prev) => [...prev, userMessage]);
+    const imagesToSend = [...attachedImages];
+    setAttachedImages([]);
     setIsLoading(true);
     setThinkingState({ status: "analyzing", message: "Analyzing conversation..." });
 
     const conversationHistory = [
       ...messages.map((m) => ({ role: m.role, content: m.content })),
-      { role: "user" as const, content: text },
+      { role: "user" as const, content: lastMessageContent },
     ];
 
     try {
@@ -202,6 +252,10 @@ export function StudioChatPanel() {
           formState,
           availableStyles,
           availablePalettes,
+          attachedImages:
+            imagesToSend.filter((img) => img.data && img.mimeType).length > 0
+              ? imagesToSend.filter((img) => img.data && img.mimeType)
+              : undefined,
         }),
       });
 
@@ -317,6 +371,7 @@ export function StudioChatPanel() {
     }
   }, [
     inputValue,
+    attachedImages,
     isLoading,
     messages,
     formState,
@@ -343,11 +398,48 @@ export function StudioChatPanel() {
   const handleReset = useCallback(() => {
     setMessages([WELCOME_MESSAGE]);
     setInputValue("");
+    setAttachedImages([]);
     setError(null);
     setThinkingState(null);
     saveHistoryToStorage([WELCOME_MESSAGE]);
     resetChat(true);
   }, [resetChat]);
+
+  const removeAttachedImage = useCallback((index: number) => {
+    setAttachedImages((prev) => prev.filter((_, i) => i !== index));
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (isLoading) return;
+    setIsDragging(true);
+  }, [isLoading]);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  }, []);
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsDragging(false);
+      if (isLoading) return;
+      addImagesFromFiles(e.dataTransfer.files);
+    },
+    [isLoading, addImagesFromFiles]
+  );
+
+  const handlePaste = useCallback(
+    (e: React.ClipboardEvent) => {
+      const files = e.clipboardData?.files;
+      if (files && files.length > 0) addImagesFromFiles(files);
+    },
+    [addImagesFromFiles]
+  );
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -411,19 +503,52 @@ export function StudioChatPanel() {
 
       {/* Input - fixed at bottom of section */}
       <div className="shrink-0 border-t border-border pt-3 mt-3">
-        <div className="flex gap-2">
+        {attachedImages.length > 0 && (
+          <div className="mb-2 flex flex-wrap gap-1.5">
+            {attachedImages.map((img, index) => (
+              <div
+                key={index}
+                className="relative h-12 w-12 shrink-0 overflow-hidden rounded-md border border-border bg-muted"
+              >
+                <img
+                  src={`data:${img.mimeType};base64,${img.data}`}
+                  alt=""
+                  className="h-full w-full object-cover"
+                />
+                <button
+                  type="button"
+                  onClick={() => removeAttachedImage(index)}
+                  className="absolute right-0.5 top-0.5 rounded-full bg-muted-foreground/80 p-0.5 text-muted hover:bg-muted-foreground"
+                  aria-label="Remove image"
+                >
+                  <X className="h-3 w-3 text-background" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+        <div
+          className={cn(
+            "flex gap-2 rounded-md border border-transparent p-0 transition-colors",
+            isDragging && "border-primary bg-muted/50"
+          )}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+        >
           <Input
             ref={inputRef}
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Type your message..."
+            onPaste={handlePaste}
+            placeholder="Type your message or drag/paste images..."
             disabled={isLoading}
             className="flex-1"
           />
           <Button
             onClick={handleSend}
-            disabled={!inputValue.trim() || isLoading}
+            disabled={(!inputValue.trim() && attachedImages.length === 0) || isLoading}
             size="icon"
           >
             <Send className="h-4 w-4" />

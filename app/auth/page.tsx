@@ -194,14 +194,7 @@ function AuthForm() {
 
   return (
     <div
-      className="landing-page"
-      style={{
-        minHeight: "100vh",
-        background: "#030303",
-        color: "#fff",
-        display: "flex",
-        flexDirection: "column",
-      }}
+      className="landing-page min-h-screen flex flex-col bg-background text-foreground"
     >
       {/* Mobile menu overlay */}
       <div

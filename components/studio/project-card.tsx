@@ -93,7 +93,7 @@ export const ProjectCard = memo(function ProjectCard({
     <Card
       className={cn(
         "group overflow-hidden transition-colors",
-        isActive && "ring-2 ring-primary ring-offset-2"
+        isActive && "ring-2 ring-primary ring-offset-0"
       )}
     >
       <CardHeader className="flex flex-row items-start justify-between gap-2 pb-2">

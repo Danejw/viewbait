@@ -13,6 +13,11 @@ const buttonVariants = cva(
         outline: "border-border dark:bg-input/30 hover:bg-input/50 hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground",
         secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80 hover:text-primary hover:[&_svg]:text-primary aria-expanded:bg-secondary aria-expanded:text-secondary-foreground",
         ghost: "hover:bg-muted hover:text-primary hover:[&_svg]:text-primary dark:hover:bg-muted/50 aria-expanded:bg-muted aria-expanded:text-foreground",
+        /**
+         * Sidebar/side nav: on diversion (hover/focus) only text and icon turn primary (red).
+         * Background stays neutral (muted) in both light and dark — no red background.
+         */
+        side: "hover:text-primary hover:[&_svg]:text-primary aria-expanded:bg-muted aria-expanded:text-foreground",
         /** Agent chat suggestion chips: outline look, text turns red on hover */
         suggestion: "border-border bg-muted/50 text-foreground hover:bg-muted hover:text-destructive hover:[&_svg]:text-destructive dark:bg-muted/30 dark:hover:bg-muted/50 dark:hover:text-destructive dark:hover:[&_svg]:text-destructive",
         destructive: "bg-destructive/10 hover:bg-destructive/20 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/20 text-destructive focus-visible:border-destructive/40 dark:hover:bg-destructive/30",
@@ -32,7 +37,7 @@ const buttonVariants = cva(
     defaultVariants: {
       variant: "default",
       size: "default",
-    },
+    }
   }
 )
 

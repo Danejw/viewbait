@@ -9,6 +9,9 @@ import { cn } from "@/lib/utils";
  * Reusable retro CRT static/noise loading effect for thumbnail generation
  * and other waiting states. Displays an old TV "no signal" aesthetic with
  * animated static, scanlines, interference bands, and glitch effects.
+ *
+ * Theme: light (white) by default; dark variant when a parent has .dark
+ * (e.g. app dark mode). No props needed—theme follows global light/dark.
  */
 
 export interface CRTLoadingEffectProps {

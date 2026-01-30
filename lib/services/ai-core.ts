@@ -245,13 +245,17 @@ export interface FunctionCallingWithGroundingResult {
   groundingMetadata?: GroundingMetadata
 }
 
+/** Single image payload for Gemini inlineData. */
+export type GeminiImagePayload = { data: string; mimeType: string }
+
 /**
  * Call Google Gemini API with function calling (structured output)
+ * @param imageData - Single image, array of images, or null. When array, all are appended as inlineData parts after text.
  */
 export async function callGeminiWithFunctionCalling(
   systemPrompt: string | null,
   userPrompt: string,
-  imageData: { data: string; mimeType: string } | null,
+  imageData: GeminiImagePayload | GeminiImagePayload[] | null,
   toolDefinition: unknown,
   toolName: string,
   model: string = 'gemini-2.5-flash',
@@ -273,12 +277,15 @@ export async function callGeminiWithFunctionCalling(
   parts.push({ text: userPrompt })
   
   if (imageData) {
-    parts.push({
-      inlineData: {
-        mimeType: imageData.mimeType,
-        data: imageData.data,
-      },
-    })
+    const images = Array.isArray(imageData) ? imageData : [imageData]
+    for (const img of images) {
+      parts.push({
+        inlineData: {
+          mimeType: img.mimeType,
+          data: img.data,
+        },
+      })
+    }
   }
 
   // Note: Gemini API does not support using googleSearch tool with function calling in the same request

@@ -38,7 +38,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 
 /**
@@ -250,7 +249,7 @@ export const ViewControls = memo(function ViewControls({
     <div
       ref={containerRef}
       className={cn(
-        "flex flex-nowrap items-center justify-between overflow-hidden rounded-lg border border-border bg-card/50",
+        "flex flex-nowrap items-center justify-between overflow-hidden",
         isCompact ? "gap-1 p-1" : isMedium ? "gap-1.5 p-1.5" : "gap-2 p-2 md:gap-3 md:p-3",
         className
       )}

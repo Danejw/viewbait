@@ -255,8 +255,8 @@ a:focus-visible {
   --landing-padding-x: 20px;
   --landing-section-padding: 80px;
   font-family: "Inter", -apple-system, sans-serif;
-  background: #030303;
-  color: #fafafa;
+  background: var(--background);
+  color: var(--foreground);
   min-height: 100vh;
   position: relative;
   overflow-x: hidden;
@@ -1277,22 +1277,27 @@ html.lenis body {
 /* ============================================
    CRT Loading Effect (reusable)
    Retro CRT static/noise loading for thumbnail generation etc.
+   Light theme = default; dark theme = .dark
    ============================================ */
 
 .crt-loading-effect {
   position: relative;
   width: 100%;
   aspect-ratio: 16/9;
-  background: #0a0a0a;
   border-radius: 12px;
   overflow: hidden;
+}
+
+/* ----- Light theme (default) ----- */
+.crt-loading-effect {
+  background: #f0f0f0;
 }
 
 .crt-loading-effect .crt-loading-static {
   position: absolute;
   inset: 0;
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='1' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
-  opacity: 0.15;
+  opacity: 0.2;
   animation: crt-loading-static-flicker 0.5s steps(3) infinite;
 }
 
@@ -1310,8 +1315,8 @@ html.lenis body {
     0deg,
     transparent 0px,
     transparent 2px,
-    rgba(0, 0, 0, 0.4) 2px,
-    rgba(0, 0, 0, 0.4) 4px
+    rgba(0, 0, 0, 0.12) 2px,
+    rgba(0, 0, 0, 0.12) 4px
   );
   pointer-events: none;
 }
@@ -1323,9 +1328,9 @@ html.lenis body {
     0deg,
     transparent 0%,
     transparent 3%,
-    rgba(255, 255, 255, 0.03) 3%,
-    rgba(255, 255, 255, 0.08) 4%,
-    rgba(255, 255, 255, 0.03) 5%,
+    rgba(0, 0, 0, 0.04) 3%,
+    rgba(0, 0, 0, 0.1) 4%,
+    rgba(0, 0, 0, 0.04) 5%,
     transparent 5%,
     transparent 10%
   );
@@ -1346,9 +1351,9 @@ html.lenis body {
   background: linear-gradient(
     90deg,
     transparent 0%,
-    rgba(255, 255, 255, 0.5) 20%,
-    rgba(255, 255, 255, 0.8) 50%,
-    rgba(255, 255, 255, 0.5) 80%,
+    rgba(0, 0, 0, 0.4) 20%,
+    rgba(0, 0, 0, 0.7) 50%,
+    rgba(0, 0, 0, 0.4) 80%,
     transparent 100%
   );
   animation: crt-loading-glitch-line-move 4s ease-in-out infinite;
@@ -1386,20 +1391,20 @@ html.lenis body {
 @keyframes crt-loading-rgb-shift {
   0%, 100% {
     box-shadow:
-      inset 2px 0 0 rgba(255, 0, 0, 0.1),
-      inset -2px 0 0 rgba(0, 255, 255, 0.1);
+      inset 2px 0 0 rgba(255, 0, 0, 0.08),
+      inset -2px 0 0 rgba(0, 150, 200, 0.08);
   }
   50% {
     box-shadow:
-      inset 4px 0 0 rgba(255, 0, 0, 0.15),
-      inset -4px 0 0 rgba(0, 255, 255, 0.15);
+      inset 4px 0 0 rgba(255, 0, 0, 0.12),
+      inset -4px 0 0 rgba(0, 150, 200, 0.12);
   }
 }
 
 .crt-loading-effect .crt-loading-screen-flicker {
   position: absolute;
   inset: 0;
-  background: rgba(255, 255, 255, 0.02);
+  background: rgba(0, 0, 0, 0.02);
   animation: crt-loading-screen-flicker-anim 0.5s infinite;
 }
 
@@ -1413,8 +1418,8 @@ html.lenis body {
   inset: 0;
   background: radial-gradient(
     ellipse at center,
-    transparent 40%,
-    rgba(0, 0, 0, 0.6) 100%
+    transparent 45%,
+    rgba(0, 0, 0, 0.35) 100%
   );
   pointer-events: none;
 }
@@ -1424,14 +1429,14 @@ html.lenis body {
   inset: 0;
   border-radius: inherit;
   box-shadow:
-    inset 0 0 60px rgba(0, 0, 0, 0.8),
-    inset 0 0 20px rgba(0, 0, 0, 0.5);
+    inset 0 0 50px rgba(0, 0, 0, 0.25),
+    inset 0 0 15px rgba(0, 0, 0, 0.15);
 }
 
 .crt-loading-effect-progress {
   width: 100%;
   height: 4px;
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.12);
   border-radius: 2px;
   overflow: hidden;
   margin-top: 16px;
@@ -1439,11 +1444,11 @@ html.lenis body {
 
 .crt-loading-effect-progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #ff0000, #ff4444, #ff0000);
+  background: linear-gradient(90deg, #cc0000, #e63939, #cc0000);
   background-size: 200% 100%;
   animation: crt-loading-progress-shimmer 2s ease-in-out infinite,
     crt-loading-progress-grow 5s ease-out forwards;
-  box-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
+  box-shadow: 0 0 8px rgba(200, 0, 0, 0.4);
 }
 
 @keyframes crt-loading-progress-shimmer {
@@ -1458,4 +1463,91 @@ html.lenis body {
   70% { width: 65%; }
   90% { width: 85%; }
   100% { width: 95%; }
+}
+
+/* ----- Dark theme (when .dark is on a parent) ----- */
+.dark .crt-loading-effect {
+  background: #0a0a0a;
+}
+
+.dark .crt-loading-effect .crt-loading-static {
+  opacity: 0.15;
+}
+
+.dark .crt-loading-effect .crt-loading-scanlines {
+  background: repeating-linear-gradient(
+    0deg,
+    transparent 0px,
+    transparent 2px,
+    rgba(0, 0, 0, 0.4) 2px,
+    rgba(0, 0, 0, 0.4) 4px
+  );
+}
+
+.dark .crt-loading-effect .crt-loading-interference {
+  background: repeating-linear-gradient(
+    0deg,
+    transparent 0%,
+    transparent 3%,
+    rgba(255, 255, 255, 0.03) 3%,
+    rgba(255, 255, 255, 0.08) 4%,
+    rgba(255, 255, 255, 0.03) 5%,
+    transparent 5%,
+    transparent 10%
+  );
+}
+
+.dark .crt-loading-effect .crt-loading-glitch-line {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.5) 20%,
+    rgba(255, 255, 255, 0.8) 50%,
+    rgba(255, 255, 255, 0.5) 80%,
+    transparent 100%
+  );
+}
+
+.dark .crt-loading-effect .crt-loading-rgb-shift {
+  animation: crt-loading-rgb-shift-dark 8s ease-in-out infinite;
+}
+
+@keyframes crt-loading-rgb-shift-dark {
+  0%, 100% {
+    box-shadow:
+      inset 2px 0 0 rgba(255, 0, 0, 0.1),
+      inset -2px 0 0 rgba(0, 255, 255, 0.1);
+  }
+  50% {
+    box-shadow:
+      inset 4px 0 0 rgba(255, 0, 0, 0.15),
+      inset -4px 0 0 rgba(0, 255, 255, 0.15);
+  }
+}
+
+.dark .crt-loading-effect .crt-loading-screen-flicker {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.dark .crt-loading-effect .crt-loading-vignette {
+  background: radial-gradient(
+    ellipse at center,
+    transparent 40%,
+    rgba(0, 0, 0, 0.6) 100%
+  );
+}
+
+.dark .crt-loading-effect .crt-loading-warp {
+  box-shadow:
+    inset 0 0 60px rgba(0, 0, 0, 0.8),
+    inset 0 0 20px rgba(0, 0, 0, 0.5);
+}
+
+.dark .crt-loading-effect-progress {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.dark .crt-loading-effect-progress-fill {
+  background: linear-gradient(90deg, #ff0000, #ff4444, #ff0000);
+  box-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
 }
