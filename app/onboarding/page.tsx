@@ -3,9 +3,9 @@
 /**
  * Onboarding Page
  *
- * Self-contained multi-step flow: Name → Face (optional) → Style → Generate → Success.
- * Does not use StudioProvider or any studio state. Reuses /api/generate and public styles.
- * Visiting /onboarding always runs the full flow (no "already completed" skip).
+ * Multi-step flow using Studio generator components: Name → Face (optional) → Style → Generate → Success.
+ * Wraps content in OnboardingProvider, StudioProvider, and StudioDndContext so the same components
+ * as the manual generator are reused. Visiting /onboarding always runs the full flow.
  */
 
 import React, {
@@ -16,42 +16,22 @@ import React, {
 } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { ChevronRight, Download, ExternalLink, RefreshCw, Zap } from "lucide-react";
+import { toast } from "sonner";
+import { OnboardingProvider } from "@/lib/contexts/onboarding-context";
+import { StudioProvider, StudioDndContext, useStudio } from "@/components/studio";
 import {
-  ViewBaitLogo,
-} from "@/components/ui/viewbait-logo";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Spinner } from "@/components/ui/spinner";
+  StudioGeneratorThumbnailText,
+  StudioGeneratorFaces,
+  StudioGeneratorStyleSelection,
+  StudioGeneratorSubmit,
+} from "@/components/studio/studio-generator";
+import { useThumbnails } from "@/lib/hooks/useThumbnails";
+import { useStyles } from "@/lib/hooks/useStyles";
 import { useAuth } from "@/lib/hooks/useAuth";
-import { cn } from "@/lib/utils";
-import {
-  ChevronRight,
-  Sparkles,
-  User,
-  Palette,
-  Check,
-  Download,
-  ExternalLink,
-  RefreshCw,
-  ImagePlus,
-} from "lucide-react";
-
-/** Public style shape returned by GET /api/styles?publicOnly=true */
-interface PublicStyle {
-  id: string;
-  name: string;
-  description: string | null;
-  preview_thumbnail_url: string | null;
-  like_count?: number;
-}
+import { ViewBaitLogo } from "@/components/ui/viewbait-logo";
+import { CRTLoadingEffect } from "@/components/ui/crt-loading-effect";
+import type { Thumbnail } from "@/lib/types/database";
 
 const TOTAL_STEPS = 5;
 const STEP_NAMES = [
@@ -59,494 +39,485 @@ const STEP_NAMES = [
   "Add your face (optional)",
   "Pick a style",
   "Generate",
-  "Done",
+  "Your thumbnail is ready",
 ];
 
-const EXAMPLE_NAMES = ["MIND BLOWN", "SECRET REVEALED", "YOU WON'T BELIEVE THIS"];
-
-export default function OnboardingPage() {
+/** Inner flow that uses Studio context; must be rendered inside StudioProvider + OnboardingProvider */
+function OnboardingFlow() {
   const { user } = useAuth();
-  const nameInputRef = useRef<HTMLInputElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const {
+    state: { thumbnailText, selectedStyle, includeFaces, selectedFaces, isGenerating },
+    actions: { setIncludeStyles, setThumbnailText, setSelectedStyle, setIncludeFaces },
+  } = useStudio();
+  const { thumbnails } = useThumbnails({
+    userId: user?.id,
+    enabled: !!user?.id,
+    limit: 5,
+  });
+  const { defaultStyles, styles } = useStyles({
+    enabled: true,
+    autoFetch: true,
+    includeDefaults: true,
+  });
 
   const [step, setStep] = useState(1);
-  const [name, setName] = useState("");
-  const [faceImageUrls, setFaceImageUrls] = useState<string[]>([]);
-  const [faceUploading, setFaceUploading] = useState(false);
-  const [faceUploadError, setFaceUploadError] = useState<string | null>(null);
-  const [styles, setStyles] = useState<PublicStyle[]>([]);
-  const [stylesLoading, setStylesLoading] = useState(true);
-  const [selectedStyleId, setSelectedStyleId] = useState<string | null>(null);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null);
-  const [generatedThumbnailId, setGeneratedThumbnailId] = useState<string | null>(null);
-  const [generateError, setGenerateError] = useState<string | null>(null);
+  const [generatedThumbnail, setGeneratedThumbnail] = useState<Thumbnail | null>(null);
+  const prevThumbnailsCountRef = useRef(0);
+  const wasGeneratingRef = useRef(false);
+  const didExpandFacesRef = useRef(false);
+  const didExpandStylesRef = useRef(false);
 
-  // Fetch public styles on mount (no auth required for publicOnly)
+  // When entering step 3, show the style grid once (includeStyles = true)
   useEffect(() => {
-    let cancelled = false;
-    async function load() {
-      setStylesLoading(true);
-      try {
-        const res = await fetch("/api/styles?publicOnly=true");
-        if (!res.ok) throw new Error("Failed to load styles");
-        const data = await res.json();
-        if (!cancelled && data.styles?.length) {
-          setStyles(data.styles);
-          if (!selectedStyleId) setSelectedStyleId(data.styles[0].id);
-        }
-      } catch {
-        if (!cancelled) setStyles([]);
-      } finally {
-        if (!cancelled) setStylesLoading(false);
+    if (step === 3 && !didExpandStylesRef.current) {
+      didExpandStylesRef.current = true;
+      setIncludeStyles(true);
+    }
+    if (step !== 3) didExpandStylesRef.current = false;
+  }, [step, setIncludeStyles]);
+
+  // When entering step 2, expand face section once so user sees the toggle and grid
+  useEffect(() => {
+    if (step === 2 && !didExpandFacesRef.current) {
+      didExpandFacesRef.current = true;
+      setIncludeFaces(true);
+    }
+    if (step !== 2) didExpandFacesRef.current = false;
+  }, [step, setIncludeFaces]);
+
+  // Detect generation completion: isGenerating went true then false, thumbnails count increased
+  // When thumbnails list updates after generation, advance to step 5 and set the new thumbnail (newest = thumbnails[0] with created_at desc)
+  useEffect(() => {
+    if (isGenerating) {
+      wasGeneratingRef.current = true;
+      prevThumbnailsCountRef.current = thumbnails.length;
+    }
+    if (wasGeneratingRef.current && !isGenerating && step === 4) {
+      if (thumbnails.length > prevThumbnailsCountRef.current && thumbnails[0]) {
+        wasGeneratingRef.current = false;
+        setGeneratedThumbnail(thumbnails[0]);
+        setStep(5);
+        toast.success("Your thumbnail is ready!");
       }
     }
-    load();
-    return () => {
-      cancelled = true;
-    };
+  }, [isGenerating, step, thumbnails]);
+
+  // Safeguard: if we're on step 5 but generatedThumbnail is missing (e.g. race), use newest thumbnail
+  useEffect(() => {
+    if (step === 5 && !generatedThumbnail?.imageUrl && thumbnails[0]?.imageUrl) {
+      setGeneratedThumbnail(thumbnails[0]);
+    }
+  }, [step, generatedThumbnail, thumbnails]);
+
+  const canProceedFromName = thumbnailText.trim().length > 0;
+  const canProceedFromStyle = selectedStyle != null;
+
+  const handleNext = useCallback((fromStep: number) => {
+    if (fromStep === 1) toast.success("Step 1 done – you're on a roll!");
+    if (fromStep === 2) toast.success("Step 2 done!");
+    if (fromStep === 3) toast.success("Step 3 done – almost there!");
+    setStep((s) => Math.min(s + 1, TOTAL_STEPS));
   }, []);
 
-  // Focus main input when step changes
-  useEffect(() => {
-    if (step === 1) {
-      nameInputRef.current?.focus();
-    }
-  }, [step]);
-
-  const canProceedFromName = name.trim().length > 0;
-
-  const handleNext = useCallback(() => {
-    setGenerateError(null);
-    if (step < TOTAL_STEPS) setStep((s) => s + 1);
-  }, [step]);
-
   const handleSkipFace = useCallback(() => {
-    setFaceUploadError(null);
+    toast.success("Step 2 done!");
     setStep(3);
   }, []);
 
-  const handleFaceUpload = useCallback(
-    async (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      e.target.value = "";
-      if (!file || !user?.id) return;
-      if (!file.type.startsWith("image/")) {
-        setFaceUploadError("Please choose an image file.");
-        return;
-      }
-      setFaceUploadError(null);
-      setFaceUploading(true);
-      try {
-        const path = `${user.id}/onboarding-${Date.now()}.${file.name.split(".").pop() || "jpg"}`;
-        const formData = new FormData();
-        formData.set("file", file);
-        formData.set("bucket", "faces");
-        formData.set("path", path);
-        const res = await fetch("/api/storage/upload", {
-          method: "POST",
-          body: formData,
-        });
-        const data = await res.json();
-        if (!res.ok) {
-          setFaceUploadError(data.error || "Upload failed");
-          return;
-        }
-        const url = data.url ?? data.path;
-        if (url) {
-          setFaceImageUrls((prev) => [...prev, url].slice(0, 3));
-        }
-      } catch {
-        setFaceUploadError("Upload failed");
-      } finally {
-        setFaceUploading(false);
-      }
-    },
-    [user?.id]
-  );
-
-  const handleRemoveFace = useCallback((index: number) => {
-    setFaceImageUrls((prev) => prev.filter((_, i) => i !== index));
-  }, []);
-
-  const handleGenerate = useCallback(async () => {
-    if (!name.trim()) return;
-    setGenerateError(null);
-    setIsGenerating(true);
-    try {
-      const body: Record<string, unknown> = {
-        title: name.trim(),
-        variations: 1,
-        resolution: "1K",
-        aspectRatio: "16:9",
-      };
-      if (selectedStyleId) body.style = selectedStyleId;
-      if (faceImageUrls.length > 0) {
-        body.faceCharacters = [{ images: faceImageUrls }];
-      }
-      const res = await fetch("/api/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setGenerateError(data.error || "Generation failed");
-        return;
-      }
-      const firstResult = data.results?.[0] ?? data;
-      const imageUrl = firstResult.imageUrl ?? firstResult.image_url;
-      const thumbId = firstResult.thumbnailId ?? firstResult.thumbnail_id ?? data.thumbnailId ?? data.thumbnail_id;
-      if (imageUrl) {
-        setGeneratedImageUrl(imageUrl);
-        setGeneratedThumbnailId(thumbId ?? null);
-        setStep(5);
-      } else {
-        setGenerateError("No image returned");
-      }
-    } catch {
-      setGenerateError("Something went wrong. Please try again.");
-    } finally {
-      setIsGenerating(false);
-    }
-  }, [name, selectedStyleId, faceImageUrls]);
-
   const handleCreateAnother = useCallback(() => {
     setStep(1);
-    setName("");
-    setFaceImageUrls([]);
-    setSelectedStyleId(styles[0]?.id ?? null);
-    setGeneratedImageUrl(null);
-    setGeneratedThumbnailId(null);
-    setGenerateError(null);
-    setFaceUploadError(null);
-  }, [styles]);
+    setGeneratedThumbnail(null);
+    setThumbnailText("");
+    setSelectedStyle(null);
+    setIncludeFaces(false);
+  }, [setThumbnailText, setSelectedStyle, setIncludeFaces]);
 
   const handleDownload = useCallback(() => {
-    if (!generatedImageUrl) return;
+    if (!generatedThumbnail?.imageUrl) return;
     const link = document.createElement("a");
-    link.href = generatedImageUrl;
-    link.download = `${name.trim() || "thumbnail"}.png`;
+    link.href = generatedThumbnail.imageUrl;
+    link.download = `${generatedThumbnail.name || "thumbnail"}.png`;
     link.click();
-  }, [generatedImageUrl, name]);
+  }, [generatedThumbnail]);
 
-  const selectedStyle = styles.find((s) => s.id === selectedStyleId);
+  const selectedStyleName =
+    selectedStyle &&
+    [...(defaultStyles || []), ...(styles || [])].find((s) => s.id === selectedStyle)?.name;
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col">
-      <header className="border-b border-border px-4 py-3 flex items-center justify-between">
+    <div
+      className="landing-page min-h-screen flex flex-col"
+      style={{
+        minHeight: "100vh",
+        position: "relative",
+        overflowX: "hidden",
+      }}
+    >
+      {/* Global CRT effects – same as root landing; pointer-events: none so they never block clicks */}
+      <div className="global-scanlines" aria-hidden style={{ pointerEvents: "none" }} />
+      <div className="crt-vignette" aria-hidden style={{ pointerEvents: "none" }} />
+      <div className="interference-line" aria-hidden style={{ pointerEvents: "none" }} />
+      <div className="noise" aria-hidden style={{ pointerEvents: "none" }} />
+
+      {/* Navigation – same as root landing for consistency */}
+      <nav
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          zIndex: 100,
+          padding: "16px var(--landing-padding-x)",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          background: "rgba(3,3,3,0.95)",
+          backdropFilter: "blur(20px) saturate(180%)",
+          borderBottom: "1px solid rgba(255,255,255,0.03)",
+          transition: "all 0.4s ease",
+        }}
+      >
         <Link
           href="/"
-          className="flex items-center gap-2 text-foreground hover:opacity-80 transition-opacity"
+          style={{ display: "flex", alignItems: "center", gap: "10px", textDecoration: "none", color: "inherit" }}
           aria-label="Back to home"
         >
-          <ViewBaitLogo className="size-8" />
-          <span className="font-semibold text-sm">ViewBait</span>
+          <div
+            style={{
+              width: "36px",
+              height: "36px",
+              background: "#ff0000",
+              borderRadius: "10px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              position: "relative",
+              boxShadow: "0 0 30px rgba(255,0,0,0.4), inset 0 0 20px rgba(255,255,255,0.1)",
+            }}
+          >
+            <div className="crop-mark tl" style={{ width: "6px", height: "6px", borderColor: "rgba(255,255,255,0.5)" }} />
+            <div className="crop-mark br" style={{ width: "6px", height: "6px", borderColor: "rgba(255,255,255,0.5)" }} />
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+              <path
+                d="M 10 3 H 8 C 5.23858 3 3 5.23858 3 8 V 16 C 3 18.7614 5.23858 21 8 21 H 16 C 18.7614 21 21 18.7614 21 16 V 8 C 21 5.23858 18.7614 3 16 3 H 15"
+                stroke="white"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M 3 13 L 8.5 8.5 L 12 12 L 15.5 9.5 L 21 14.5"
+                stroke="white"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </div>
+          <div>
+            <span
+              className="crt-text-heavy"
+              style={{
+                fontSize: "18px",
+                fontWeight: 900,
+                letterSpacing: "-0.02em",
+                display: "block",
+                lineHeight: 1,
+              }}
+            >
+              VIEWBAIT
+            </span>
+            <span
+              className="mono hide-mobile crt-text"
+              style={{
+                fontSize: "9px",
+                color: "#555",
+                letterSpacing: "0.1em",
+              }}
+            >
+              THUMBNAIL STUDIO
+            </span>
+          </div>
         </Link>
+
         <Link
           href="/studio"
-          className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+          className="btn-crt"
+          style={{
+            padding: "12px 24px",
+            background: "#fff",
+            border: "none",
+            borderRadius: "10px",
+            color: "#000",
+            fontSize: "14px",
+            fontWeight: 700,
+            cursor: "pointer",
+            position: "relative",
+            overflow: "hidden",
+            textDecoration: "none",
+            display: "inline-block",
+          }}
         >
           Skip to Studio
         </Link>
-      </header>
+      </nav>
 
-      <main className="flex-1 flex flex-col items-center justify-center px-4 py-8 max-w-lg mx-auto w-full">
-        <div className="mb-6 text-center">
-          <p className="text-xs text-muted-foreground mb-1">
-            Step {step} of {TOTAL_STEPS}
-          </p>
-          <h1 className="text-lg font-semibold">{STEP_NAMES[step - 1]}</h1>
+      {/* Confetti on success */}
+      {step === 5 &&
+        Array.from({ length: 20 }, (_, i) => (
+          <div
+            key={i}
+            className="confetti-piece"
+            style={{
+              left: `${Math.random() * 100}%`,
+              background: ["#ff0000", "#ff4444", "#ffaa00", "#44ff88", "#4488ff"][i % 5],
+              animationDelay: `${Math.random() * 0.5}s`,
+              borderRadius: Math.random() > 0.5 ? "50%" : "2px",
+            }}
+            aria-hidden
+          />
+        ))}
+
+      <main
+        className="flex-1 flex flex-col items-center justify-center w-full mx-auto max-w-[min(100%,480px)] sm:max-w-[520px] md:max-w-[600px] lg:max-w-[680px] xl:max-w-[720px] 2xl:max-w-[800px]"
+        style={{
+          padding: "100px var(--landing-padding-x) 40px",
+          position: "relative",
+          zIndex: 10000,
+        }}
+      >
+        {/* Progress bar */}
+        <div className="progress-container w-full">
+          {[1, 2, 3, 4, 5].map((s) => (
+            <div key={s} className="progress-step">
+              <div
+                className="progress-step-fill"
+                style={{ width: step >= s ? "100%" : "0%" }}
+              />
+            </div>
+          ))}
         </div>
 
-        {/* Step 1: Name */}
-        {step === 1 && (
-          <Card className="w-full" size="default">
-            <CardHeader>
-              <CardTitle className="text-sm">Thumbnail text</CardTitle>
-              <CardDescription>
-                This text will appear on your thumbnail or guide the image.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="onboarding-name">Name or phrase</Label>
-                <Input
-                  id="onboarding-name"
-                  ref={nameInputRef}
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g. MIND BLOWN"
-                  className="text-sm"
-                  aria-describedby="name-hint"
-                />
-                <p id="name-hint" className="text-xs text-muted-foreground">
-                  Great, that&apos;ll pop on the thumbnail.
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {EXAMPLE_NAMES.map((example) => (
-                  <Button
-                    key={example}
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setName(example)}
-                    className="text-xs"
-                  >
-                    {example}
-                  </Button>
-                ))}
-              </div>
-              <Button
-                onClick={handleNext}
-                disabled={!canProceedFromName}
-                className="w-full"
-              >
-                Next
-                <ChevronRight className="size-4" />
-              </Button>
-            </CardContent>
-          </Card>
-        )}
+        {/* Step label */}
+        <div className="text-center mb-6 w-full">
+          <span
+            className="mono crt-text block mb-2"
+            style={{
+              fontSize: "11px",
+              color: "#ff4444",
+              letterSpacing: "0.1em",
+            }}
+          >
+            STEP {step} OF {TOTAL_STEPS}
+          </span>
+          <h1
+            className="crt-text-heavy"
+            style={{
+              fontSize: "clamp(20px, 5vw, 28px)",
+              fontWeight: 800,
+              letterSpacing: "-0.02em",
+            }}
+          >
+            {STEP_NAMES[step - 1]}
+          </h1>
+        </div>
 
-        {/* Step 2: Face (optional) */}
-        {step === 2 && (
-          <Card className="w-full" size="default">
-            <CardHeader>
-              <CardTitle className="text-sm flex items-center gap-2">
-                <User className="size-4" />
-                Add your face (optional)
-              </CardTitle>
-              <CardDescription>
-                Upload a photo so the thumbnail can include your face. You can add faces later in Studio.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={handleFaceUpload}
-                aria-label="Upload face image"
-              />
-              {faceImageUrls.length > 0 && (
-                <div className="flex gap-2 flex-wrap">
-                  {faceImageUrls.map((url, i) => (
-                    <div
-                      key={url}
-                      className="relative rounded-lg overflow-hidden border border-border size-20 shrink-0"
-                    >
-                      <Image
-                        src={url}
-                        alt={`Face ${i + 1}`}
-                        fill
-                        className="object-cover"
-                        unoptimized
-                        sizes="80px"
-                      />
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        size="icon-xs"
-                        className="absolute top-1 right-1"
-                        onClick={() => handleRemoveFace(i)}
-                        aria-label="Remove face"
-                      >
-                        ×
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              )}
-              {faceImageUrls.length < 3 && (
-                <Button
+        {/* Single card with crop marks – content changes per step */}
+        <div className="onboarding-card w-full" key={step}>
+          <div className="crop-mark tl" />
+          <div className="crop-mark tr" />
+          <div className="crop-mark bl" />
+          <div className="crop-mark br" />
+
+          {/* Step 1: Name */}
+          {step === 1 && (
+            <div className="relative z-[1]">
+              <p
+                className="crt-text mb-5"
+                style={{ fontSize: "14px", color: "#777", lineHeight: 1.6 }}
+              >
+                What text should appear on your thumbnail? Make it catchy!
+              </p>
+              <StudioGeneratorThumbnailText />
+              <div className="mt-6 flex gap-3">
+                <button
                   type="button"
-                  variant="outline"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={faceUploading}
-                  className="w-full"
+                  className="btn-primary"
+                  disabled={!canProceedFromName}
+                  onClick={() => handleNext(1)}
                 >
-                  {faceUploading ? (
-                    <Spinner className="size-4" />
-                  ) : (
-                    <>
-                      <ImagePlus className="size-4" />
-                      Upload face
-                    </>
-                  )}
-                </Button>
-              )}
-              {faceUploadError && (
-                <p className="text-xs text-destructive">{faceUploadError}</p>
-              )}
-              <div className="flex gap-2">
-                <Button
+                  Continue
+                  <ChevronRight size={18} strokeWidth={2.5} />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Step 2: Face (optional) */}
+          {step === 2 && (
+            <div className="relative z-[1]">
+              <p
+                className="crt-text mb-5"
+                style={{ fontSize: "14px", color: "#777", lineHeight: 1.6 }}
+              >
+                Add a face to make your thumbnail more personal. This step is optional.
+              </p>
+              <StudioGeneratorFaces />
+              <p className="text-xs text-muted-foreground mt-2">
+                You can add more faces anytime in Studio.
+              </p>
+              <div className="mt-6 flex gap-3">
+                <button
                   type="button"
-                  variant="ghost"
+                  className="btn-secondary flex-1"
                   onClick={handleSkipFace}
-                  className="flex-1"
                 >
                   Skip
-                </Button>
-                <Button
+                </button>
+                <button
                   type="button"
-                  onClick={handleNext}
-                  className="flex-1"
+                  className="btn-primary flex-1"
+                  onClick={() => handleNext(2)}
                 >
-                  Next
-                  <ChevronRight className="size-4" />
-                </Button>
+                  Continue
+                  <ChevronRight size={18} strokeWidth={2.5} />
+                </button>
               </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Step 3: Style */}
-        {step === 3 && (
-          <Card className="w-full" size="default">
-            <CardHeader>
-              <CardTitle className="text-sm flex items-center gap-2">
-                <Palette className="size-4" />
-                Pick a style
-              </CardTitle>
-              <CardDescription>
-                Choose a look for your thumbnail. Nice choice—ready to generate?
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {stylesLoading ? (
-                <div className="grid grid-cols-2 gap-2">
-                  {[1, 2, 3, 4].map((i) => (
-                    <div
-                      key={i}
-                      className="aspect-video rounded-lg bg-muted animate-pulse"
-                    />
-                  ))}
-                </div>
-              ) : styles.length === 0 ? (
-                <p className="text-xs text-muted-foreground">
-                  No styles available. You can still generate with just your text.
-                </p>
-              ) : (
-                <div className="grid grid-cols-2 gap-2">
-                  {styles.slice(0, 8).map((s) => (
-                    <button
-                      key={s.id}
-                      type="button"
-                      onClick={() => setSelectedStyleId(s.id)}
-                      className={cn(
-                        "rounded-lg border-2 overflow-hidden text-left transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                        selectedStyleId === s.id
-                          ? "border-primary ring-2 ring-primary/20"
-                          : "border-transparent hover:border-border"
-                      )}
-                      aria-pressed={selectedStyleId === s.id}
-                      aria-label={`Select style ${s.name}`}
-                    >
-                      <div className="aspect-video relative bg-muted">
-                        {s.preview_thumbnail_url ? (
-                          <Image
-                            src={s.preview_thumbnail_url}
-                            alt=""
-                            fill
-                            className="object-cover"
-                            sizes="(max-width: 400px) 50vw, 200px"
-                            unoptimized
-                          />
-                        ) : (
-                          <div className="absolute inset-0 flex items-center justify-center">
-                            <Sparkles className="size-6 text-muted-foreground" />
-                          </div>
-                        )}
-                        {selectedStyleId === s.id && (
-                          <div className="absolute top-1 right-1 rounded-full bg-primary p-0.5">
-                            <Check className="size-3 text-primary-foreground" />
-                          </div>
-                        )}
-                      </div>
-                      <p className="px-2 py-1 text-xs font-medium truncate">
-                        {s.name}
-                      </p>
-                    </button>
-                  ))}
-                </div>
-              )}
-              <Button onClick={handleNext} className="w-full">
-                Next
-                <ChevronRight className="size-4" />
-              </Button>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Step 4: Generate */}
-        {step === 4 && (
-          <Card className="w-full" size="default">
-            <CardHeader>
-              <CardTitle className="text-sm">Review & generate</CardTitle>
-              <CardDescription>
-                Review your choices below, then hit Generate.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <dl className="text-xs space-y-1">
-                <div>
-                  <dt className="text-muted-foreground">Name</dt>
-                  <dd className="font-medium">{name.trim() || "—"}</dd>
-                </div>
-                <div>
-                  <dt className="text-muted-foreground">Style</dt>
-                  <dd className="font-medium">{selectedStyle?.name ?? "Default"}</dd>
-                </div>
-                <div>
-                  <dt className="text-muted-foreground">Face</dt>
-                  <dd className="font-medium">
-                    {faceImageUrls.length > 0 ? "Yes" : "No"}
-                  </dd>
-                </div>
-              </dl>
-              {generateError && (
-                <p className="text-xs text-destructive">{generateError}</p>
-              )}
-              <Button
-                onClick={handleGenerate}
-                disabled={isGenerating || !name.trim()}
-                className="w-full"
+              <button
+                type="button"
+                className="btn-secondary mt-3 w-full"
+                onClick={() => setStep(1)}
               >
-                {isGenerating ? (
-                  <>
-                    <Spinner className="size-4" />
-                    Creating your thumbnail…
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="size-4" />
-                    Generate my thumbnail
-                  </>
-                )}
-              </Button>
-            </CardContent>
-          </Card>
-        )}
+                Back
+              </button>
+            </div>
+          )}
 
-        {/* Step 5: Success */}
-        {step === 5 && generatedImageUrl && (
-          <Card className="w-full" size="default">
-            <CardHeader>
-              <CardTitle className="text-sm flex items-center gap-2">
-                <Check className="size-4 text-green-600" />
-                Your thumbnail is ready
-              </CardTitle>
-              <CardDescription>
-                Download it or open Studio to create more.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="relative aspect-video rounded-lg overflow-hidden border border-border bg-muted">
+          {/* Step 3: Style */}
+          {step === 3 && (
+            <div className="relative z-[1]">
+              <p
+                className="crt-text mb-5"
+                style={{ fontSize: "14px", color: "#777", lineHeight: 1.6 }}
+              >
+                Choose a style that matches your content.
+              </p>
+              <StudioGeneratorStyleSelection />
+              <div className="mt-6 flex gap-3">
+                <button
+                  type="button"
+                  className="btn-primary"
+                  disabled={!canProceedFromStyle}
+                  onClick={() => handleNext(3)}
+                >
+                  Continue
+                  <ChevronRight size={18} strokeWidth={2.5} />
+                </button>
+              </div>
+              <button
+                type="button"
+                className="btn-secondary mt-3 w-full"
+                onClick={() => setStep(2)}
+              >
+                Back
+              </button>
+            </div>
+          )}
+
+          {/* Step 4: Generate – summary + submit, or generating state */}
+          {step === 4 && !isGenerating && (
+            <div className="relative z-[1]">
+              <p
+                className="crt-text mb-6"
+                style={{ fontSize: "14px", color: "#777", lineHeight: 1.6 }}
+              >
+                Review your choices and generate your thumbnail.
+              </p>
+              <div
+                className="rounded-xl p-5 mb-6"
+                style={{ background: "rgba(0,0,0,0.3)" }}
+              >
+                <div className="mb-4">
+                  <span
+                    className="mono block mb-1"
+                    style={{ fontSize: "10px", color: "#555" }}
+                  >
+                    TEXT
+                  </span>
+                  <span className="crt-text" style={{ fontSize: "15px", fontWeight: 600 }}>
+                    {thumbnailText.trim() || "—"}
+                  </span>
+                </div>
+                <div className="mb-4">
+                  <span
+                    className="mono block mb-1"
+                    style={{ fontSize: "10px", color: "#555" }}
+                  >
+                    STYLE
+                  </span>
+                  <span className="crt-text" style={{ fontSize: "15px", fontWeight: 600 }}>
+                    {selectedStyleName ?? "—"}
+                  </span>
+                </div>
+                <div>
+                  <span
+                    className="mono block mb-1"
+                    style={{ fontSize: "10px", color: "#555" }}
+                  >
+                    FACES
+                  </span>
+                  <span className="crt-text" style={{ fontSize: "15px", fontWeight: 600 }}>
+                    {includeFaces && selectedFaces.length > 0 ? "Yes" : "No"}
+                  </span>
+                </div>
+              </div>
+              <StudioGeneratorSubmit
+                className="btn-primary pulse-glow"
+                buttonLabel="Generate Thumbnail"
+                icon={<Zap className="size-5 mr-2 shrink-0" />}
+                hideCredits
+                hideSaveToProject
+              />
+              <button
+                type="button"
+                className="btn-secondary mt-3 w-full"
+                onClick={() => setStep(3)}
+              >
+                Back
+              </button>
+            </div>
+          )}
+
+          {/* Step 4: Generating state – thumbnail-shaped CRT effect, then loading message */}
+          {step === 4 && isGenerating && (
+            <div className="flex flex-col gap-4 w-full">
+              {/* Thumbnail slot with CRT effect while waiting for generation */}
+              <div className="relative aspect-video w-full overflow-hidden rounded-xl">
+                <CRTLoadingEffect className="absolute inset-0 h-full w-full !aspect-auto rounded-xl" />
+                <div className="absolute inset-0 flex items-center justify-center z-[1]">
+                  <ViewBaitLogo className="h-14 w-14 animate-spin shrink-0 text-primary/90" aria-hidden />
+                </div>
+              </div>
+              <div className="text-center">
+                <p
+                  className="crt-text-heavy mb-1"
+                  style={{ fontSize: "18px", fontWeight: 700 }}
+                >
+                  Creating your thumbnail
+                </p>
+                <p className="generating-text mono">
+                  AI is working its magic<span>...</span>
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Step 5: Success */}
+          {step === 5 && generatedThumbnail?.imageUrl && (
+            <div className="success-container relative z-[1]">
+              <div className="success-preview relative">
                 <Image
-                  src={generatedImageUrl}
+                  src={generatedThumbnail.imageUrl}
                   alt="Generated thumbnail"
                   fill
                   className="object-cover"
@@ -554,31 +525,75 @@ export default function OnboardingPage() {
                   sizes="(max-width: 512px) 100vw, 512px"
                 />
               </div>
-              <div className="flex flex-col gap-2">
-                <Button onClick={handleDownload} variant="outline" className="w-full">
-                  <Download className="size-4" />
-                  Download
-                </Button>
-                <Link href="/studio" className="block">
-                  <Button className="w-full">
-                    <ExternalLink className="size-4" />
-                    Open in Studio
-                  </Button>
-                </Link>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={handleCreateAnother}
-                  className="w-full"
+              <div
+                className="text-center mb-6 p-4 rounded-xl border"
+                style={{
+                  background: "rgba(34,197,94,0.1)",
+                  borderColor: "rgba(34,197,94,0.2)",
+                }}
+              >
+                <div className="text-3xl mb-2">🎉</div>
+                <p
+                  className="crt-text"
+                  style={{ fontSize: "15px", fontWeight: 600, color: "#22c55e" }}
                 >
-                  <RefreshCw className="size-4" />
-                  Create another
-                </Button>
+                  Your thumbnail is ready!
+                </p>
               </div>
-            </CardContent>
-          </Card>
+              <div className="flex flex-col gap-3">
+                <button
+                  type="button"
+                  className="btn-primary"
+                  onClick={handleDownload}
+                >
+                  <Download className="size-[18px]" strokeWidth={2.5} />
+                  Download Thumbnail
+                </button>
+                <Link
+                  href="/studio"
+                  className="btn-secondary w-full inline-flex items-center justify-center gap-2 no-underline"
+                >
+                  <ExternalLink className="size-4 shrink-0" strokeWidth={2} />
+                  Open in Studio
+                </Link>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={handleCreateAnother}
+                  style={{ color: "#666" }}
+                >
+                  <RefreshCw className="size-4 mr-2 inline" strokeWidth={2} />
+                  Create Another
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Encouragement text */}
+        {step < 4 && (
+          <p
+            className="mono crt-text mt-6 text-center"
+            style={{ fontSize: "11px", color: "#444" }}
+          >
+            {step === 1 && "Great thumbnails start with great hooks 🎣"}
+            {step === 2 && "Faces increase CTR by up to 40% 📈"}
+            {step === 3 && "Almost there! Pick what fits your vibe ✨"}
+          </p>
         )}
       </main>
     </div>
+  );
+}
+
+export default function OnboardingPage() {
+  return (
+    <OnboardingProvider isOnboarding>
+      <StudioProvider>
+        <StudioDndContext>
+          <OnboardingFlow />
+        </StudioDndContext>
+      </StudioProvider>
+    </OnboardingProvider>
   );
 }

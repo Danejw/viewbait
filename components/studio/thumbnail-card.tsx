@@ -23,7 +23,7 @@ import { Heart, Download, Share2, Copy, Pencil, Trash2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ViewBaitLogo } from "@/components/ui/viewbait-logo";
+import { CRTLoadingEffect } from "@/components/ui/crt-loading-effect";
 import {
   HoverCard,
   HoverCardContent,
@@ -94,15 +94,15 @@ export function ThumbnailCardSkeleton({ text }: { text?: string }) {
 
 /**
  * Card shown while a thumbnail is being generated.
- * Displays ViewBait logo as loading spinner (pulse) instead of skeleton.
+ * Uses CRT loading effect (retro static/noise) for brand-consistent loading state.
  */
 function ThumbnailCardGenerating({ text }: { text?: string }) {
   return (
     <Card className="group relative overflow-hidden p-0">
-      <div className="relative flex aspect-video w-full items-center justify-center bg-muted/50">
-        <ViewBaitLogo className="h-12 w-12 animate-pulse text-primary" />
+      <div className="relative aspect-video w-full">
+        <CRTLoadingEffect className="absolute inset-0 h-full w-full !aspect-auto rounded-lg" />
         {text && (
-          <div className="absolute inset-x-0 bottom-0 p-2">
+          <div className="absolute inset-x-0 bottom-0 z-[1] p-2">
             <p className="truncate text-xs text-muted-foreground">{text}</p>
           </div>
         )}

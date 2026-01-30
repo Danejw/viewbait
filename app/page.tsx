@@ -534,57 +534,6 @@ export default function ViewBaitLanding() {
                   </svg>
                 </Link>
 
-                <a
-                  href="#product"
-                  className="btn-crt crt-glow"
-                  style={{
-                    padding: "16px 20px",
-                    background: "transparent",
-                    border: "1px solid rgba(255,255,255,0.1)",
-                    borderRadius: "12px",
-                    color: "#fff",
-                    fontSize: "15px",
-                    fontWeight: 600,
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "10px",
-                    transition: "all 0.3s ease",
-                    textDecoration: "none",
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.borderColor = "rgba(255,255,255,0.25)";
-                    e.currentTarget.style.background = "rgba(255,255,255,0.03)";
-                    !isMobile && setCursorVariant("hover");
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)";
-                    e.currentTarget.style.background = "transparent";
-                    !isMobile && setCursorVariant("default");
-                  }}
-                >
-                  <div
-                    style={{
-                      width: "28px",
-                      height: "28px",
-                      borderRadius: "50%",
-                      background: "rgba(255,255,255,0.1)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  >
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="white">
-                      <polygon points="6 4 20 12 6 20 6 4" />
-                    </svg>
-                  </div>
-                  <span className="hide-mobile crt-text" style={{ display: "inline" }}>
-                    See it in action
-                  </span>
-                  <span className="hide-desktop crt-text" style={{ display: "inline" }}>
-                    Watch
-                  </span>
-                </a>
               </div>
 
               <div
@@ -1299,37 +1248,7 @@ export default function ViewBaitLanding() {
             </div>
           </div>
 
-          <div
-            className="bento-item bento-small"
-            onMouseEnter={() => !isMobile && setCursorVariant("hover")}
-            onMouseLeave={() => !isMobile && setCursorVariant("default")}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              textAlign: "center",
-            }}
-          >
-            <div style={{ position: "relative", zIndex: 2 }}>
-              <div
-                style={{
-                  fontSize: "24px",
-                  fontWeight: 900,
-                  marginBottom: "4px",
-                  background: "linear-gradient(135deg, #ff0000, #ff8800)",
-                  WebkitBackgroundClip: "text",
-                  WebkitTextFillColor: "transparent",
-                  backgroundClip: "text",
-                  filter: "drop-shadow(0 0 10px rgba(255,68,0,0.5))",
-                }}
-              >
-                SOTA
-              </div>
-              <div className="mono crt-text" style={{ fontSize: "9px", color: "#555", letterSpacing: "0.1em" }}>
-                AI MODELS
-              </div>
-            </div>
-          </div>
+          
         </div>
         </ScrollReveal>
       </section>

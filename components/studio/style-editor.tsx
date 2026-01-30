@@ -248,7 +248,7 @@ function PreviewThumbnail({
         <Skeleton className="h-full w-full" />
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
           <span className="text-sm text-muted-foreground">
-            Generating preview...
+            Creating preview...
           </span>
         </div>
       </div>
@@ -642,7 +642,7 @@ export function StyleEditor({
           <div className="space-y-2">
             <Label htmlFor="style-prompt">Generation Prompt</Label>
             <p className="text-xs text-muted-foreground">
-              Detailed instructions for AI to recreate this style when generating thumbnails.
+              Detailed instructions for AI to recreate this style when creating thumbnails.
             </p>
             <Textarea
               id="style-prompt"
@@ -669,12 +669,12 @@ export function StyleEditor({
                 {isGeneratingPreview ? (
                   <>
                     <ViewBaitLogo className="h-4 w-4 animate-spin" />
-                    Generating...
+                    Creating...
                   </>
                 ) : (
                   <>
                     <Wand2 className="h-4 w-4" />
-                    Generate Preview
+                    Create Preview
                   </>
                 )}
               </Button>

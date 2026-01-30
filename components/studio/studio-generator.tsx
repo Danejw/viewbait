@@ -42,6 +42,8 @@ import { DROP_ZONE_IDS, type DragData } from "@/components/studio/studio-dnd-con
 import type { StyleInsert, StyleUpdate, DbStyle } from "@/lib/types/database";
 import { ASPECT_RATIO_DISPLAY_ORDER } from "@/lib/constants/subscription-tiers";
 import { enhanceTitle } from "@/lib/services/thumbnails";
+import { useOnboarding } from "@/lib/contexts/onboarding-context";
+import { toast } from "sonner";
 
 const MAX_STYLE_REFERENCES = 10;
 const RESOLUTION_OPTIONS = ["1K", "2K", "4K"] as const;
@@ -103,6 +105,7 @@ export function StudioGeneratorThumbnailText() {
     actions: { setThumbnailText },
     meta: { thumbnailTextRef },
   } = useStudio();
+  const { canUseEnhance } = useSubscription();
 
   const [isEnhancing, setIsEnhancing] = useState(false);
   const [suggestions, setSuggestions] = useState<string[]>([]);
@@ -137,7 +140,8 @@ export function StudioGeneratorThumbnailText() {
     [setThumbnailText]
   );
 
-  const canEnhance = !!thumbnailText.trim() && !isEnhancing;
+  const canEnhance = canUseEnhance() && !!thumbnailText.trim() && !isEnhancing;
+  const isLocked = !canUseEnhance();
 
   return (
     <div className="mb-6">
@@ -154,12 +158,28 @@ export function StudioGeneratorThumbnailText() {
           type="button"
           variant="ghost"
           size="icon-sm"
-          className="absolute right-1 top-1/2 -translate-y-1/2"
-          disabled={!canEnhance}
+          className={cn(
+            "absolute right-1 top-1/2 -translate-y-1/2",
+            isLocked && "cursor-not-allowed opacity-50 text-muted-foreground"
+          )}
+          disabled={isLocked || !canEnhance}
           onClick={handleEnhanceClick}
-          aria-label="Enhance title for click-through"
+          aria-label={
+            isLocked
+              ? "Title enhancement (Starter and above)"
+              : isEnhancing
+                ? "Enhancing title…"
+                : "Enhance title for click-through"
+          }
+          aria-busy={isEnhancing}
         >
-          <Sparkles className="h-4 w-4" />
+          {isEnhancing ? (
+            <ViewBaitLogo className="h-4 w-4 animate-spin" />
+          ) : isLocked ? (
+            <Lock className="h-4 w-4" />
+          ) : (
+            <Sparkles className="h-4 w-4" />
+          )}
         </Button>
       </div>
       {enhanceError && (
@@ -494,6 +514,7 @@ export function StudioGeneratorStyleSelection() {
     state: { includeStyles, selectedStyle },
     actions: { setIncludeStyles, setSelectedStyle, setView },
   } = useStudio();
+  const { isOnboarding } = useOnboarding();
 
   // Setup drop zone for style items
   const { active } = useDndContext();
@@ -514,8 +535,8 @@ export function StudioGeneratorStyleSelection() {
     addReferenceImages,
     updatePreview,
   } = useStyles({
-    enabled: includeStyles, // Only fetch when section is enabled
-    autoFetch: includeStyles,
+    enabled: includeStyles || isOnboarding, // Fetch when enabled or in onboarding (grid always visible)
+    autoFetch: includeStyles || isOnboarding,
   });
 
   // State for quick-create modal
@@ -646,16 +667,19 @@ export function StudioGeneratorStyleSelection() {
               // No styles: single full-width message cell
               <div className="col-span-3 py-2">
                 <p className="text-xs text-muted-foreground">
-                  No styles available.{" "}
-                  <Button
-                    type="button"
-                    variant="link"
-                    size="sm"
-                    onClick={handleQuickCreate}
-                    className="h-auto p-0 text-primary"
-                  >
-                    Create your first style
-                  </Button>
+                  No styles available.
+                  {!isOnboarding && " "}
+                  {!isOnboarding && (
+                    <Button
+                      type="button"
+                      variant="link"
+                      size="sm"
+                      onClick={handleQuickCreate}
+                      className="h-auto p-0 text-primary"
+                    >
+                      Create your first style
+                    </Button>
+                  )}
                 </p>
               </div>
             ) : (
@@ -702,8 +726,8 @@ export function StudioGeneratorStyleSelection() {
               ))
             )}
 
-            {/* Quick-create cell – same aspect as grid items */}
-            {!isLoading && (
+            {/* Quick-create cell – same aspect as grid items (hidden in onboarding) */}
+            {!isLoading && !isOnboarding && (
               <Button
                 type="button"
                 variant="outline"
@@ -716,8 +740,8 @@ export function StudioGeneratorStyleSelection() {
             </div>
           </div>
 
-          {/* Link to full styles management */}
-          {availableStyles.length > 0 && (
+          {/* Link to full styles management (hidden in onboarding) */}
+          {availableStyles.length > 0 && !isOnboarding && (
             <Button
               type="button"
               variant="link"
@@ -1030,9 +1054,16 @@ export function StudioGeneratorFaces() {
     state: { includeFaces, selectedFaces, faceExpression, facePose },
     actions: { setIncludeFaces, toggleFace, setFaceExpression, setFacePose, setView, onViewFace },
   } = useStudio();
+  const { isOnboarding } = useOnboarding();
 
   // Use real faces from database
-  const { faces, isLoading } = useFaces();
+  const { faces, isLoading, createFace } = useFaces();
+
+  // Onboarding: upload first face – local state for name and uploading
+  const [firstFaceName, setFirstFaceName] = useState("");
+  const [isUploadingFirst, setIsUploadingFirst] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Setup drop zone for face items
   const { active } = useDndContext();
@@ -1043,10 +1074,43 @@ export function StudioGeneratorFaces() {
     id: DROP_ZONE_IDS.FACES,
   });
 
-  // Navigate to faces management view to add new face
+  // Navigate to faces management view to add new face (no-op in onboarding)
   const handleAddFace = useCallback(() => {
+    if (isOnboarding) return;
     setView("faces");
-  }, [setView]);
+  }, [isOnboarding, setView]);
+
+  // Onboarding: upload first face via file input
+  const handleUploadFirstFace = useCallback(
+    async (file: File) => {
+      setUploadError(null);
+      setIsUploadingFirst(true);
+      try {
+        const name = firstFaceName.trim() || "My face";
+        const face = await createFace(name, [file]);
+        if (face) {
+          toggleFace(face.id);
+          setFirstFaceName("");
+          if (fileInputRef.current) fileInputRef.current.value = "";
+          toast.success("Face added! You can use it in your thumbnail.");
+        } else {
+          setUploadError("Upload failed. Try again.");
+        }
+      } finally {
+        setIsUploadingFirst(false);
+      }
+    },
+    [firstFaceName, createFace, toggleFace]
+  );
+
+  const handleFirstFaceFileChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file || !file.type.startsWith("image/")) return;
+      handleUploadFirstFace(file);
+    },
+    [handleUploadFirstFace]
+  );
 
   return (
     <div
@@ -1074,27 +1138,87 @@ export function StudioGeneratorFaces() {
 
       {includeFaces && (
         <>
+          {/* Hidden file input for onboarding: used by "first face" block and by "+" add-new cell */}
+          {isOnboarding && (
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="sr-only"
+              aria-label="Choose face photo"
+              onChange={handleFirstFaceFileChange}
+              disabled={isUploadingFirst}
+            />
+          )}
           <div className="max-h-[22rem] overflow-y-auto hide-scrollbar">
             <div className="grid grid-cols-3 gap-1">
-              {isLoading ? (
+              {/* When onboarding and no faces, always show upload UI (even while uploading) */}
+              {isLoading && !(isOnboarding && faces.length === 0) ? (
                 // Loading state – same tight grid as style selection
                 Array.from({ length: 6 }).map((_, i) => (
                   <Skeleton key={i} className="aspect-square rounded-md" />
                 ))
               ) : faces.length === 0 ? (
-                <div className="col-span-3 py-2">
-                  <p className="text-xs text-muted-foreground">
-                    No faces saved yet.{" "}
-                    <Button
-                      type="button"
-                      variant="link"
-                      size="sm"
-                      onClick={handleAddFace}
-                      className="h-auto p-0 text-primary"
-                    >
-                      Add your first face
-                    </Button>
-                  </p>
+                <div className="col-span-3 space-y-3 py-2">
+                  {isOnboarding ? (
+                    <>
+                      <p className="text-xs text-muted-foreground">
+                        Upload a photo so we can use your face in thumbnails. You can add more later in Studio.
+                      </p>
+                      <div className="space-y-2">
+                        <input
+                          type="text"
+                          placeholder="Face name (e.g. My face)"
+                          value={firstFaceName}
+                          onChange={(e) => setFirstFaceName(e.target.value)}
+                          className="w-full rounded-lg border border-border bg-muted/50 px-3 py-2 text-sm placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                          disabled={isUploadingFirst}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          disabled={isUploadingFirst}
+                          className={cn(
+                            "flex w-full items-center justify-center gap-2 rounded-lg border-2 border-dashed py-6 text-sm transition-colors",
+                            "border-border text-muted-foreground hover:border-primary hover:text-primary",
+                            "focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background",
+                            "disabled:pointer-events-none disabled:opacity-60"
+                          )}
+                        >
+                          {isUploadingFirst ? (
+                            <>
+                              <ViewBaitLogo className="h-5 w-5 animate-spin" />
+                              Uploading…
+                            </>
+                          ) : (
+                            <>
+                              <Plus className="h-5 w-5" />
+                              Choose photo to upload your first face
+                            </>
+                          )}
+                        </button>
+                      </div>
+                      {uploadError && (
+                        <p className="text-xs text-destructive">{uploadError}</p>
+                      )}
+                      <p className="text-xs text-muted-foreground">
+                        You can add more faces anytime in Studio.
+                      </p>
+                    </>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      No faces saved yet.{" "}
+                      <Button
+                        type="button"
+                        variant="link"
+                        size="sm"
+                        onClick={handleAddFace}
+                        className="h-auto p-0 text-primary"
+                      >
+                        Add your first face
+                      </Button>
+                    </p>
+                  )}
                 </div>
               ) : (
                 faces.map((face) => (
@@ -1108,15 +1232,20 @@ export function StudioGeneratorFaces() {
                   />
                 ))
               )}
-              {/* Add new face cell – same aspect as grid items */}
+              {/* Add new face cell – same aspect as grid items; in onboarding opens file picker */}
               {!isLoading && (
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={handleAddFace}
-                  className="aspect-square h-auto w-full border-2 border-dashed border-border text-muted-foreground hover:border-primary hover:text-primary"
+                  onClick={isOnboarding ? () => fileInputRef.current?.click() : handleAddFace}
+                  disabled={isOnboarding && isUploadingFirst}
+                  className="aspect-square h-auto w-full border-2 border-dashed border-border text-muted-foreground hover:border-primary hover:text-primary disabled:opacity-60"
                 >
-                  <Plus className="h-5 w-5" />
+                  {isOnboarding && isUploadingFirst ? (
+                    <ViewBaitLogo className="h-5 w-5 animate-spin" />
+                  ) : (
+                    <Plus className="h-5 w-5" />
+                  )}
                 </Button>
               )}
             </div>
@@ -1189,11 +1318,30 @@ export function StudioGeneratorFaces() {
 //   );
 // }
 
+type StudioGeneratorSubmitProps = {
+  /** Optional class for the main button (e.g. onboarding btn-primary pulse-glow) */
+  className?: string;
+  /** Optional label when not generating (e.g. "Generate Thumbnail") */
+  buttonLabel?: string;
+  /** Optional icon element shown before label when not generating */
+  icon?: React.ReactNode;
+  /** When true, hide the credits line (e.g. onboarding) */
+  hideCredits?: boolean;
+  /** When true, hide "Save settings to project" (e.g. onboarding) */
+  hideSaveToProject?: boolean;
+};
+
 /**
  * StudioGeneratorSubmit
  * Generate button with validation and loading state; optional Save settings to project when a project is selected.
  */
-export function StudioGeneratorSubmit() {
+export function StudioGeneratorSubmit({
+  className,
+  buttonLabel = "CREATE THUMBNAILS",
+  icon,
+  hideCredits = false,
+  hideSaveToProject = false,
+}: StudioGeneratorSubmitProps = {}) {
   const {
     state: { isGenerating, isButtonDisabled, thumbnailText, variations, selectedResolution, activeProjectId },
     data: { isSavingProjectSettings },
@@ -1209,25 +1357,30 @@ export function StudioGeneratorSubmit() {
 
   return (
     <div className="space-y-2">
-      <p className="text-center text-xs text-muted-foreground">
-        {variations} thumbnail{variations > 1 ? "s" : ""} • {totalCost} credit{totalCost > 1 ? "s" : ""}
-      </p>
+      {!hideCredits && (
+        <p className="text-center text-xs text-muted-foreground">
+          {variations} thumbnail{variations > 1 ? "s" : ""} • {totalCost} credit{totalCost > 1 ? "s" : ""}
+        </p>
+      )}
       <Button
         onClick={generateThumbnails}
         disabled={isDisabled}
         size="lg"
-        className="w-full"
+        className={cn("w-full", className)}
       >
         {isGenerating ? (
           <span className="flex items-center gap-2">
             <ViewBaitLogo className="h-4 w-4 animate-spin" />
-            Generating...
+            Creating...
           </span>
         ) : (
-          "CREATE THUMBNAILS"
+          <>
+            {icon}
+            {buttonLabel}
+          </>
         )}
       </Button>
-      {activeProjectId && (
+      {!hideSaveToProject && activeProjectId && (
         <Button
           type="button"
           variant="outline"

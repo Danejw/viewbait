@@ -12,6 +12,9 @@ export {
   type StudioContextValue,
 } from "@/components/studio/studio-provider";
 
+// Studio DnD Context (wraps generator for drag-and-drop)
+export { StudioDndContext } from "@/components/studio/studio-dnd-context";
+
 // Studio Frame Components
 export {
   StudioFrame,

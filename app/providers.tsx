@@ -12,6 +12,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider } from "@/lib/hooks/useAuth";
 import { SubscriptionProvider } from "@/lib/hooks/useSubscription";
 import { ThemeProvider } from "@/components/theme-provider";
+import { Toaster } from "@/components/ui/sonner";
 
 interface ProvidersProps {
   children: ReactNode;
@@ -38,7 +39,10 @@ export function Providers({ children }: ProvidersProps) {
     >
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
-          <SubscriptionProvider>{children}</SubscriptionProvider>
+          <SubscriptionProvider>
+            {children}
+            <Toaster richColors position="top-center" />
+          </SubscriptionProvider>
         </AuthProvider>
       </QueryClientProvider>
     </ThemeProvider>
