@@ -268,13 +268,12 @@ export async function callGeminiWithFunctionCalling(
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`
 
+  // Gemini best practice: place the text prompt after the image part so the model can understand the image as context.
   const parts: Array<{ text?: string; inlineData?: { mimeType: string; data: string } }> = []
   
   if (systemPrompt) {
     parts.push({ text: systemPrompt })
   }
-  
-  parts.push({ text: userPrompt })
   
   if (imageData) {
     const images = Array.isArray(imageData) ? imageData : [imageData]
@@ -287,6 +286,8 @@ export async function callGeminiWithFunctionCalling(
       })
     }
   }
+  
+  parts.push({ text: userPrompt })
 
   // Note: Gemini API does not support using googleSearch tool with function calling in the same request
   // When Google Search is enabled, we must choose: either use googleSearch OR function calling, not both

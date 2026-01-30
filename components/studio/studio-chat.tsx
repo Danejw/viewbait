@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { MessageSquare, Send, RotateCcw, X } from "lucide-react";
+import { MessageSquare, Send, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CloseButton } from "@/components/ui/close-button";
 import { Input } from "@/components/ui/input";
@@ -12,8 +12,11 @@ import { ChatMessage } from "./chat-message";
 import { ThinkingMessage, type ThinkingState } from "./thinking-message";
 import { DynamicUIRenderer, type UIComponentName } from "./dynamic-ui-renderer";
 import { cn } from "@/lib/utils";
+import { getItemSafe, setItemWithCap } from "@/lib/utils/safe-storage";
 
 const CHAT_HISTORY_KEY = "thumbnail-assistant-chat-history";
+const MAX_CHAT_MESSAGES = 50;
+const MAX_CHAT_PAYLOAD_BYTES = 2 * 1024 * 1024; // 2 MB
 const MAX_ATTACHED_IMAGES = 4;
 const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
 const ALLOWED_IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif"];
@@ -48,13 +51,16 @@ export interface ChatPanelMessage {
   timestamp?: Date;
   uiComponents?: UIComponentName[];
   suggestions?: string[];
+  /** Attached images for user messages; shown above the bubble. Not persisted to storage. */
+  attachedImages?: Array<{ data: string; mimeType: string }>;
 }
 
 function loadHistoryFromStorage(): ChatPanelMessage[] {
   if (typeof window === "undefined") return [];
+  const raw = getItemSafe(CHAT_HISTORY_KEY);
+  if (!raw) return [];
+  if (raw.length > MAX_CHAT_PAYLOAD_BYTES) return [WELCOME_MESSAGE];
   try {
-    const raw = localStorage.getItem(CHAT_HISTORY_KEY);
-    if (!raw) return [];
     const parsed = JSON.parse(raw) as Array<{
       role: "user" | "assistant";
       content: string;
@@ -62,29 +68,44 @@ function loadHistoryFromStorage(): ChatPanelMessage[] {
       uiComponents?: UIComponentName[];
       suggestions?: string[];
     }>;
+    if (!Array.isArray(parsed)) return [WELCOME_MESSAGE];
     return parsed.map((m) => ({
       ...m,
       timestamp: m.timestamp ? new Date(m.timestamp) : undefined,
     }));
   } catch {
-    return [];
+    return [WELCOME_MESSAGE];
+  }
+}
+
+/** Trims chat payload string by removing the oldest message (first array element). Used when over maxBytes or on quota error. */
+function trimChatPayload(payload: string): string {
+  try {
+    const arr = JSON.parse(payload) as unknown[];
+    if (!Array.isArray(arr)) return payload;
+    if (arr.length <= 1) return "[]";
+    arr.shift();
+    return JSON.stringify(arr);
+  } catch {
+    return payload;
   }
 }
 
 function saveHistoryToStorage(messages: ChatPanelMessage[]) {
   if (typeof window === "undefined") return;
-  try {
-    const toSave = messages.map((m) => ({
-      role: m.role,
-      content: m.content,
-      timestamp: m.timestamp?.toISOString(),
-      uiComponents: m.uiComponents,
-      suggestions: m.suggestions,
-    }));
-    localStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(toSave));
-  } catch {
-    // ignore
-  }
+  const trimmed = messages.slice(-MAX_CHAT_MESSAGES);
+  const toSave = trimmed.map((m) => ({
+    role: m.role,
+    content: m.content,
+    timestamp: m.timestamp?.toISOString(),
+    uiComponents: m.uiComponents,
+    suggestions: m.suggestions,
+  }));
+  const payload = JSON.stringify(toSave);
+  setItemWithCap(CHAT_HISTORY_KEY, payload, {
+    maxBytes: MAX_CHAT_PAYLOAD_BYTES,
+    trim: trimChatPayload,
+  });
 }
 
 /**
@@ -227,13 +248,14 @@ export function StudioChatPanel() {
         ? `${text} (with ${attachedImages.length} image(s))`
         : text
       : `[${attachedImages.length} image(s) attached]`;
+    const imagesToSend = [...attachedImages];
     const userMessage: ChatPanelMessage = {
       role: "user",
       content: displayContent,
       timestamp: new Date(),
+      attachedImages: imagesToSend.length > 0 ? imagesToSend : undefined,
     };
     setMessages((prev) => [...prev, userMessage]);
-    const imagesToSend = [...attachedImages];
     setAttachedImages([]);
     setIsLoading(true);
     setThinkingState({ status: "analyzing", message: "Analyzing conversation..." });
@@ -463,6 +485,7 @@ export function StudioChatPanel() {
               role={msg.role}
               content={msg.content}
               timestamp={msg.timestamp}
+              attachedImages={msg.role === "user" ? msg.attachedImages : undefined}
             />
             {msg.role === "assistant" && (
               <>
@@ -515,14 +538,12 @@ export function StudioChatPanel() {
                   alt=""
                   className="h-full w-full object-cover"
                 />
-                <button
-                  type="button"
+                <CloseButton
+                  size="small"
                   onClick={() => removeAttachedImage(index)}
-                  className="absolute right-0.5 top-0.5 rounded-full bg-muted-foreground/80 p-0.5 text-muted hover:bg-muted-foreground"
+                  className="absolute right-0.5 top-0.5"
                   aria-label="Remove image"
-                >
-                  <X className="h-3 w-3 text-background" />
-                </button>
+                />
               </div>
             ))}
           </div>

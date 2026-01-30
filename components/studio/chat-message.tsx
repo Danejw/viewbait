@@ -8,13 +8,15 @@ export interface ChatMessageProps {
   role: "user" | "assistant";
   content: string;
   timestamp?: Date;
+  /** Attached images (user messages only); rendered above the text inside the bubble. */
+  attachedImages?: Array<{ data: string; mimeType: string }>;
 }
 
 /**
  * ChatMessage
  * Renders a single chat message: user (plain text) or assistant (Markdown).
  */
-export function ChatMessage({ role, content, timestamp }: ChatMessageProps) {
+export function ChatMessage({ role, content, timestamp, attachedImages }: ChatMessageProps) {
   const isUser = role === "user";
 
   return (
@@ -32,6 +34,18 @@ export function ChatMessage({ role, content, timestamp }: ChatMessageProps) {
             : "bg-muted text-foreground"
         )}
       >
+        {attachedImages && attachedImages.length > 0 && (
+          <div className="mb-2 flex flex-wrap gap-1.5">
+            {attachedImages.map((img, index) => (
+              <img
+                key={index}
+                src={`data:${img.mimeType};base64,${img.data}`}
+                alt=""
+                className="max-h-24 max-w-full rounded-md object-cover"
+              />
+            ))}
+          </div>
+        )}
         {isUser ? (
           <p className="whitespace-pre-wrap break-words">{content}</p>
         ) : (

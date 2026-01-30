@@ -92,7 +92,7 @@ export function useLocalStorage<T>({
         setValueState(parsed);
       }
     } catch (error) {
-      console.error(`Failed to load value from localStorage for key "${key}":`, error);
+      console.warn(`Failed to load from localStorage for key "${key}" (storage may be full or unavailable):`, error);
     } finally {
       setIsLoading(false);
     }
@@ -125,10 +125,7 @@ export function useLocalStorage<T>({
             localStorage.setItem(key, serialized);
             pendingValueRef.current = null;
           } catch (error) {
-            console.error(`Failed to save value to localStorage for key "${key}":`, error);
-            if (error instanceof DOMException && error.name === "QuotaExceededError") {
-              console.warn(`localStorage quota exceeded for key "${key}"`);
-            }
+            console.warn(`localStorage write failed for key "${key}" (quota or storage error):`, error);
           }
         }
       }, debounceMs);
@@ -138,10 +135,7 @@ export function useLocalStorage<T>({
         const serialized = serialize(value);
         localStorage.setItem(key, serialized);
       } catch (error) {
-        console.error(`Failed to save value to localStorage for key "${key}":`, error);
-        if (error instanceof DOMException && error.name === "QuotaExceededError") {
-          console.warn(`localStorage quota exceeded for key "${key}"`);
-        }
+        console.warn(`localStorage write failed for key "${key}" (quota or storage error):`, error);
       }
     }
 
@@ -195,7 +189,7 @@ export function useLocalStorage<T>({
       localStorage.removeItem(key);
       setValueState(defaultValue);
     } catch (error) {
-      console.error(`Failed to remove value from localStorage for key "${key}":`, error);
+      console.warn(`Failed to remove from localStorage for key "${key}":`, error);
     }
   }, [key, defaultValue]);
 

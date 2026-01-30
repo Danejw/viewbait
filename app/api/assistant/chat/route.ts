@@ -13,6 +13,72 @@ import { processGroundingCitations } from '@/lib/utils/citation-processor'
 import { logError } from '@/lib/server/utils/logger'
 import { getExpressionValues, getPoseValues, formatExpressionsForPrompt, formatPosesForPrompt } from '@/lib/constants/face-options'
 
+const MAX_STYLE_REFERENCES = 10
+const STYLE_REFERENCES_BUCKET = 'style-references'
+const SIGNED_URL_EXPIRY_SECONDS = 31536000 // 1 year
+
+/**
+ * Upload a base64-encoded image to the style-references bucket and return a signed URL.
+ * Used when the user asks the agent to add an attached image to style references.
+ */
+async function uploadBase64ToStyleReferences(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  base64: string,
+  mimeType: string,
+  index: number
+): Promise<string | null> {
+  const ext = mimeType === 'image/png' ? 'png' : mimeType === 'image/webp' ? 'webp' : mimeType === 'image/gif' ? 'gif' : 'jpg'
+  const path = `${userId}/ref-${Date.now()}-${index}.${ext}`
+  const buffer = Buffer.from(base64, 'base64')
+  const { error: uploadError } = await supabase.storage
+    .from(STYLE_REFERENCES_BUCKET)
+    .upload(path, buffer, { contentType: mimeType, cacheControl: '3600', upsert: true })
+  if (uploadError) return null
+  const { data: urlData, error: urlError } = await supabase.storage
+    .from(STYLE_REFERENCES_BUCKET)
+    .createSignedUrl(path, SIGNED_URL_EXPIRY_SECONDS)
+  if (urlError || !urlData?.signedUrl) return null
+  return urlData.signedUrl
+}
+
+/**
+ * If the agent set add_attached_images_to_style_references and the user attached images,
+ * upload them to style-references and merge URLs into form_state_updates.
+ */
+async function enrichFormStateWithAttachedStyleReferences(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  currentStyleReferences: string[],
+  attachedImages: Array<{ data: string; mimeType: string }>,
+  formStateUpdates: Record<string, unknown> | undefined
+): Promise<Record<string, unknown> | undefined> {
+  const addAttached = formStateUpdates && (formStateUpdates as { add_attached_images_to_style_references?: boolean }).add_attached_images_to_style_references === true
+  if (!addAttached || attachedImages.length === 0) return formStateUpdates
+  const existing = currentStyleReferences ?? []
+  const remaining = Math.max(0, MAX_STYLE_REFERENCES - existing.length)
+  if (remaining === 0) return { ...formStateUpdates, includeStyleReferences: true, styleReferences: existing }
+  const toUpload = attachedImages.slice(0, remaining)
+  const uploadedUrls: string[] = []
+  for (let i = 0; i < toUpload.length; i++) {
+    const url = await uploadBase64ToStyleReferences(supabase, userId, toUpload[i].data, toUpload[i].mimeType, i)
+    if (url) uploadedUrls.push(url)
+  }
+  const merged = [...existing, ...uploadedUrls]
+  const out: Record<string, unknown> = { ...formStateUpdates, includeStyleReferences: true, styleReferences: merged }
+  delete out.add_attached_images_to_style_references
+  return out
+}
+
+/** Remove server-only flag from form_state_updates before sending to client. */
+function stripAddAttachedFlag(
+  updates: Record<string, unknown> | undefined
+): AssistantChatResponse['form_state_updates'] {
+  if (!updates || typeof updates !== 'object') return undefined
+  const { add_attached_images_to_style_references: _, ...rest } = updates
+  return Object.keys(rest).length > 0 ? (rest as AssistantChatResponse['form_state_updates']) : undefined
+}
+
 export interface AssistantChatRequest {
   conversationHistory: Array<{
     role: 'user' | 'assistant'
@@ -67,6 +133,8 @@ export interface AssistantChatResponse {
     expression?: string | null
     pose?: string | null
     customInstructions?: string
+    includeStyleReferences?: boolean
+    styleReferences?: string[]
   }
   suggestions?: string[]
 }
@@ -156,7 +224,20 @@ const assistantToolDefinition = {
             type: 'string',
             description: 'Custom instructions text. Set when surfacing CustomInstructionsSection - copy the user\'s instruction verbatim (e.g., "Make it more dramatic", "Add a glowing effect").',
           },
+          includeStyleReferences: {
+            type: 'boolean',
+            description: 'Whether to enable style reference images. Set to true when surfacing StyleReferencesSection or when the user wants to add an image to style references.',
+          },
+          styleReferences: {
+            type: 'array',
+            description: 'Full list of style reference image URLs. Only set when you are replacing or appending URLs (e.g. after backend adds uploaded images). Normally leave unset; use add_attached_images_to_style_references when user asks to add attached image(s).',
+            items: { type: 'string' },
+          },
         },
+      },
+      add_attached_images_to_style_references: {
+        type: 'boolean',
+        description: 'Set to true when the user has attached one or more images to this message AND asks to add them to style references (e.g. "add this to my style references", "use this as a style reference"). Surface StyleReferencesSection and set includeStyleReferences to true. The backend will upload the attached images and add their URLs to style references.',
       },
       suggestions: {
         type: 'array',
@@ -291,6 +372,7 @@ PRE-FILL MAPPING (when surfacing these components, set these values):
 - CustomInstructionsSection -> set customInstructions to the user's instruction verbatim
 - StyleSelectionSection -> set selectedStyle when user names a style
 - ColorPaletteSection -> set selectedColor when user names a palette
+- StyleReferencesSection -> set includeStyleReferences: true when user wants style reference images. If the user has ATTACHED images to this message and asks to add them to style references (e.g. "add this to my style references", "use this as a style reference"), also set add_attached_images_to_style_references: true; the backend will upload the attached images and add their URLs.
 - AspectRatioSection -> set selectedAspectRatio when user specifies (16:9, 1:1, 4:3, 9:16)
 - ResolutionSection -> set selectedResolution when user specifies (1K, 2K, 4K)
 - VariationsSection -> set variations when user says how many (1-4)
@@ -312,7 +394,7 @@ IMPORTANT:
     }
     const imageDataForGemini = attachedImages.length > 0 ? attachedImages : null
     const systemPromptWithImages = imageDataForGemini
-      ? `${systemPrompt}\n\nThe user has attached one or more images to this message. Use them as visual reference for style, composition, or content when responding.`
+      ? `${systemPrompt}\n\nThe user has attached one or more images to this message. Use them as visual reference for style, composition, or content when responding. If the user asks to add the attached image(s) to their style references (e.g. "add this to my style references", "use this as a style reference"), surface StyleReferencesSection, set add_attached_images_to_style_references to true and includeStyleReferences to true.`
       : systemPrompt
 
     // Build user prompt from conversation history
@@ -488,6 +570,19 @@ IMPORTANT:
             console.log('[API] form_state_updates from AI:', functionCallResult.form_state_updates);
             console.log('[API] customInstructions in form_state_updates:', functionCallResult.form_state_updates?.customInstructions);
 
+            // If agent asked to add attached images to style references, upload and merge URLs
+            let formStateUpdates = functionCallResult.form_state_updates
+            if (user && attachedImages.length > 0) {
+              const enriched = await enrichFormStateWithAttachedStyleReferences(
+                supabase,
+                user.id,
+                body.formState.styleReferences ?? [],
+                attachedImages,
+                formStateUpdates
+              )
+              if (enriched) formStateUpdates = enriched as typeof functionCallResult.form_state_updates
+            }
+
             const response: AssistantChatResponse = {
               human_readable_message: humanReadableMessage,
               ui_components: Array.isArray(functionCallResult.ui_components) 
@@ -511,7 +606,7 @@ IMPORTANT:
                     ].includes(comp)
                   )
                 : [],
-              form_state_updates: functionCallResult.form_state_updates || undefined,
+              form_state_updates: stripAddAttachedFlag(formStateUpdates as Record<string, unknown>),
               suggestions: Array.isArray(functionCallResult.suggestions) 
                 ? functionCallResult.suggestions 
                 : [],
@@ -662,6 +757,19 @@ IMPORTANT:
     console.log('[API] form_state_updates from AI:', functionCallResult.form_state_updates);
     console.log('[API] customInstructions in form_state_updates:', functionCallResult.form_state_updates?.customInstructions);
 
+    // If agent asked to add attached images to style references, upload and merge URLs
+    let formStateUpdates = functionCallResult.form_state_updates
+    if (user && attachedImages.length > 0) {
+      const enriched = await enrichFormStateWithAttachedStyleReferences(
+        supabase,
+        user.id,
+        body.formState.styleReferences ?? [],
+        attachedImages,
+        formStateUpdates
+      )
+      if (enriched) formStateUpdates = enriched as typeof functionCallResult.form_state_updates
+    }
+
     const response: AssistantChatResponse = {
       human_readable_message: humanReadableMessage,
       ui_components: Array.isArray(functionCallResult.ui_components) 
@@ -685,7 +793,7 @@ IMPORTANT:
             ].includes(comp)
           )
         : [],
-      form_state_updates: functionCallResult.form_state_updates || undefined,
+      form_state_updates: stripAddAttachedFlag(formStateUpdates as Record<string, unknown>),
       suggestions: Array.isArray(functionCallResult.suggestions) 
         ? functionCallResult.suggestions 
         : [],

@@ -106,8 +106,9 @@ The agent does **not** call external tools (e.g. generate image). It returns **s
 ### 3.7 API Route: `app/api/assistant/chat/route.ts`
 
 - **Auth**: `getOptionalAuth(supabase)`; returns 401 if no user.
-- **Input**: `AssistantChatRequest`: `conversationHistory[]`, `formState` (all current form fields), optional `availableStyles`, `availablePalettes`.
+- **Input**: `AssistantChatRequest`: `conversationHistory[]`, `formState` (all current form fields), optional `availableStyles`, `availablePalettes`, optional `attachedImages` (base64 + mimeType for the current message).
 - **Modes**: `stream=true` → SSE response; otherwise JSON.
+- **Attached images → style references**: If the user attaches image(s) and asks to add them to style references (e.g. "add this to my style references"), the agent sets `add_attached_images_to_style_references: true` and surfaces `StyleReferencesSection`. The route then uploads each attached image to the `style-references` bucket, creates signed URLs, and merges them into `form_state_updates.styleReferences` (capped at 10 total). The client applies these via `applyFormStateUpdates`; no client change required.
 - **System prompt**: Defines the assistant’s role (guide users through thumbnail creation), lists all allowed UI component names and when to use them, thumbnail generation requirements, current form state, available styles/palettes, expressions/poses from `lib/constants/face-options.ts`, and rules: return only 1–2 relevant components, always pre-fill via `form_state_updates` when surfacing a section.
 - **Two-step flow (optional grounding)**:
   1. **Search step**: Call Gemini with `googleSearch` tool (no function calling) to get search context and grounding metadata. If search fails, continue without it.
@@ -117,7 +118,7 @@ The agent does **not** call external tools (e.g. generate image). It returns **s
 
 ### 3.8 AI Core: `lib/services/ai-core.ts`
 
-- **callGeminiWithFunctionCalling**: Sends one user turn (system + user prompt, optional image). Uses a single tool declaration; Gemini returns a function call; the route parses the args into `human_readable_message`, `ui_components`, `form_state_updates`, `suggestions`. No image is sent for chat today.
+- **callGeminiWithFunctionCalling**: Sends one user turn (system + user prompt, optional image). Uses a single tool declaration; Gemini returns a function call; the route parses the args into `human_readable_message`, `ui_components`, `form_state_updates`, `suggestions`, and optionally `add_attached_images_to_style_references`. When the user attaches images, they are sent as visual context; if the agent sets `add_attached_images_to_style_references`, the route uploads them to storage and injects URLs into `form_state_updates.styleReferences`.
 - **Grounding**: Chat route performs grounding in a separate search call; citations are merged into the message in the route via `processGroundingCitations` (`lib/utils/citation-processor.ts`).
 
 ### 3.9 Allowed UI component names (contract)

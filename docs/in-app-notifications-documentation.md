@@ -85,9 +85,19 @@ So the “event” side is **ready to be wired** from features (e.g. generation 
 
 ---
 
-### 1.6 What Is Not Yet Wired
+### 1.6 Wired Events (Backend-Only)
 
-- **No feature-originated events:** No code path in the app (e.g. after generation, purchase, referral reward) currently calls the create-notification API.
+Notifications are created **only by the backend**. Users cannot send notifications to other users.
+
+- **Server-only creation:** `lib/server/notifications/create.ts` provides `createNotification()` and `createNotificationIfNew()` (milestone idempotency). Both use the service role client. Use these from API routes, server actions, or services—never from the client.
+- **POST /api/notifications:** Requires `x-internal-secret` header matching `INTERNAL_API_SECRET`. Requests without it receive 403 Forbidden. Use the server helper instead of calling this route from feature code.
+- **Wired events:**
+  - **First project** and **project milestones (5, 10, 25):** After project create in `POST /api/projects`.
+  - **First thumbnail** and **thumbnail milestones (10, 50, 100):** After successful generation in `POST /api/generate` (single and batch).
+  - **Referral reward claimed:** After `rpc_grant_referral_credits` succeeds in `lib/services/stripe.ts` (recordPurchaseAndProcessReferrals); referrer receives a reward notification.
+
+### 1.7 What Is Not Yet Wired
+
 - **Notification preferences:** `notification_preferences` (and types) exist and are exported in account export; they are **not** yet used to filter or gate in-app notifications. Future expansion can respect `in_app_enabled` and `types_enabled` before inserting or when returning list.
 - **Realtime:** Must be enabled in Supabase (Replication) for `notifications` if live updates are desired; otherwise polling/refetch is used.
 
@@ -98,9 +108,9 @@ So the “event” side is **ready to be wired** from features (e.g. generation 
 ### 2.1 Adding a New Notification From a Feature (Server-Side)
 
 1. **Where:** In the **server-side** code path that completes the meaningful event (e.g. API route, server action, webhook handler, background job).
-2. **How:** Call `POST /api/notifications` with a body that conforms to `NotificationInsert`. The route uses the **service role** client, so it must be invoked from the server (e.g. `fetch` from a route handler to your own API, or a shared server-side helper that uses the service role Supabase client to insert into `notifications`).
+2. **How:** Prefer the server-only helper: `import { createNotification, createNotificationIfNew } from '@/lib/server/notifications/create'`. Call `createNotification(insert)` for one-off notifications, or `createNotificationIfNew(userId, milestoneKey, payload)` for milestone-style events (idempotent by `metadata.milestone`). Do **not** call `POST /api/notifications` from the client; that route requires `x-internal-secret` and is for internal/server use only.
 3. **Payload:** Include at least `user_id`, `type`, `title`, `body`; set `severity`, `action_url`, `action_label`, `metadata` as needed.
-4. **Idempotency:** For events that might be processed more than once (e.g. webhooks), consider storing a unique key in `metadata` and skipping creation if a notification with that key already exists for that user/type.
+4. **Idempotency:** For events that might be processed more than once (e.g. webhooks), use `createNotificationIfNew` with a stable `milestoneKey`, or store a unique key in `metadata` and skip creation if a notification with that key already exists for that user.
 
 ### 2.2 Adding a New Type or Severity
 
@@ -188,6 +198,7 @@ Use **error** sparingly; reserve for things that require action or that the user
 |--------|------|
 | DB schema, RLS, RPCs | `supabase/migrations/001_create_notifications.sql` |
 | Types | `lib/types/database.ts` (Notification, NotificationInsert, NotificationPreferences) |
+| Server-only create helper | `lib/server/notifications/create.ts` (createNotification, createNotificationIfNew) |
 | API list/create | `app/api/notifications/route.ts` |
 | API broadcast | `app/api/notifications/broadcast/route.ts` |
 | API by id (read/archive) | `app/api/notifications/[id]/route.ts` |

@@ -100,15 +100,28 @@ export async function GET(request: Request) {
 
 /**
  * POST /api/notifications
- * Create a notification (service role only)
- * This endpoint should only be called from server-side code using service role.
+ * Create a notification (server-side only).
+ * Requires x-internal-secret header matching INTERNAL_API_SECRET. Rejects client requests.
  */
 export async function POST(request: Request) {
   try {
-    // Use service role client for creating notifications
+    const internalSecret = request.headers.get('x-internal-secret')
+    const expectedSecret = process.env.INTERNAL_API_SECRET
+
+    if (!expectedSecret) {
+      logError(new Error('INTERNAL_API_SECRET not configured'), {
+        route: 'POST /api/notifications',
+        operation: 'create-notification-auth',
+      })
+      return NextResponse.json({ error: 'Not configured' }, { status: 500 })
+    }
+
+    if (!internalSecret || internalSecret !== expectedSecret) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
     const supabaseService = createServiceClient()
 
-    // Parse request body
     const body: NotificationInsert = await request.json()
 
     // Validate required fields

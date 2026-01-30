@@ -453,9 +453,6 @@ export const ViewControls = memo(function ViewControls({
               ) : (
                 <Plus className={cn("pointer-events-none h-3.5 w-3.5 shrink-0", !isCompact && "h-4 w-4")} />
               )}
-              {showFullText && (
-                <span className="text-xs sm:text-sm">{addLabel}</span>
-              )}
             </Button>
             {addDisabled && onUpgradeClick && (
               <Button

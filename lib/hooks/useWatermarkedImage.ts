@@ -4,7 +4,20 @@ import { useEffect, useState } from "react";
 import { applyQrWatermark } from "@/lib/utils/watermarkUtils";
 import type { WatermarkOptions } from "@/lib/utils/watermarkUtils";
 
+const MAX_CACHED_WATERMARKS = 50;
 const urlCache = new Map<string, string>();
+
+function setCachedUrl(key: string, objectUrl: string): void {
+  if (urlCache.size >= MAX_CACHED_WATERMARKS) {
+    const oldestKey = urlCache.keys().next().value;
+    if (oldestKey !== undefined) {
+      const revokeUrl = urlCache.get(oldestKey);
+      urlCache.delete(oldestKey);
+      if (revokeUrl) URL.revokeObjectURL(revokeUrl);
+    }
+  }
+  urlCache.set(key, objectUrl);
+}
 
 export interface UseWatermarkedImageOptions {
   /** When false, returns original imageUrl without fetching/watermarking. */
@@ -73,7 +86,7 @@ export function useWatermarkedImage(
         });
         if (cancelled) return;
         const objectUrl = URL.createObjectURL(watermarked);
-        urlCache.set(cacheKey!, objectUrl);
+        setCachedUrl(cacheKey!, objectUrl);
         setUrl(objectUrl);
         setError(null);
       } catch (e) {

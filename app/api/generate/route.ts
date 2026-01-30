@@ -31,6 +31,7 @@ import {
   aiServiceErrorResponse,
 } from '@/lib/server/utils/error-handler'
 import { getProjectById } from '@/lib/server/data/projects'
+import { createNotificationIfNew } from '@/lib/server/notifications/create'
 
 export interface GenerateThumbnailRequest {
   title: string
@@ -804,6 +805,31 @@ export async function POST(request: Request) {
       // Success: use remaining credits from atomic function
       const newCreditsRemaining = creditResult.remaining ?? creditsRemaining - creditCost
 
+      const { count: thumbnailCount } = await supabase
+        .from('thumbnails')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .not('image_url', 'is', null)
+      if (thumbnailCount === 1) {
+        await createNotificationIfNew(user.id, 'first_thumbnail', {
+          type: 'reward',
+          title: 'Your first thumbnail is ready',
+          body: 'Check it out and share it.',
+          severity: 'success',
+          action_url: '/studio',
+          action_label: 'View thumbnail',
+        })
+      } else if ([10, 50, 100].includes(thumbnailCount ?? 0)) {
+        await createNotificationIfNew(user.id, `thumbnail_milestone_${thumbnailCount}`, {
+          type: 'reward',
+          title: `${thumbnailCount} thumbnails generated`,
+          body: "You're on a roll.",
+          severity: 'success',
+          action_url: '/studio',
+          action_label: 'View gallery',
+        })
+      }
+
       return NextResponse.json({
         imageUrl: singleResult.imageUrl,
         thumbnailId: singleResult.thumbnailId,
@@ -817,6 +843,31 @@ export async function POST(request: Request) {
     const finalCreditsRemaining = creditResult && creditResult.remaining !== undefined
       ? creditResult.remaining + (creditCost * failedResults.length) // Add back refunded credits
       : creditsRemaining - finalCreditsUsed
+
+    const { count: thumbnailCount } = await supabase
+      .from('thumbnails')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .not('image_url', 'is', null)
+    if (thumbnailCount === 1) {
+      await createNotificationIfNew(user.id, 'first_thumbnail', {
+        type: 'reward',
+        title: 'Your first thumbnail is ready',
+        body: 'Check it out and share it.',
+        severity: 'success',
+        action_url: '/studio',
+        action_label: 'View thumbnail',
+      })
+    } else if ([10, 50, 100].includes(thumbnailCount ?? 0)) {
+      await createNotificationIfNew(user.id, `thumbnail_milestone_${thumbnailCount}`, {
+        type: 'reward',
+        title: `${thumbnailCount} thumbnails generated`,
+        body: "You're on a roll.",
+        severity: 'success',
+        action_url: '/studio',
+        action_label: 'View gallery',
+      })
+    }
 
     // For batch variations, return batch response
     return NextResponse.json({

@@ -16,6 +16,7 @@ import { logError } from '@/lib/server/utils/logger'
 import { NextResponse } from 'next/server'
 import type { ProjectInsert, ProjectDefaultSettings } from '@/lib/types/database'
 import { listProjects, createProject } from '@/lib/server/data/projects'
+import { createNotificationIfNew } from '@/lib/server/notifications/create'
 
 export const revalidate = 60
 
@@ -83,6 +84,29 @@ export async function POST(request: Request) {
         operation: 'create-project',
       })
       return databaseErrorResponse('Failed to create project')
+    }
+
+    const { data: projects } = await listProjects(supabase, user.id)
+    const projectCount = projects?.length ?? 0
+
+    if (projectCount === 1) {
+      await createNotificationIfNew(user.id, 'first_project', {
+        type: 'reward',
+        title: 'Your first project',
+        body: 'Start adding thumbnails to see it in action.',
+        severity: 'success',
+        action_url: '/studio',
+        action_label: 'Go to Studio',
+      })
+    } else if ([5, 10, 25].includes(projectCount)) {
+      await createNotificationIfNew(user.id, `project_milestone_${projectCount}`, {
+        type: 'reward',
+        title: `${projectCount} projects`,
+        body: `You've created ${projectCount} projects. You're building a real library.`,
+        severity: 'success',
+        action_url: '/studio',
+        action_label: 'View projects',
+      })
     }
 
     return NextResponse.json({ project: data }, { status: 201 })

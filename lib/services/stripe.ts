@@ -10,6 +10,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { getTierByProductId as getTierByProductIdServer } from '@/lib/server/data/subscription-tiers'
 import { logError } from '@/lib/server/utils/logger'
+import { createNotification } from '@/lib/server/notifications/create'
 
 // Initialize Stripe client
 let stripeInstance: Stripe | null = null
@@ -514,6 +515,17 @@ export async function recordPurchaseAndProcessReferrals(
             success: false,
             error: new Error(result.message || 'Failed to grant referral credits'),
           }
+        }
+        if (result.status === 'success') {
+          await createNotification({
+            user_id: pendingReferral.referrer_user_id,
+            type: 'reward',
+            title: 'Referral reward claimed',
+            body: 'Someone joined with your link. Credits have been added to your account.',
+            severity: 'success',
+            action_url: '/studio',
+            action_label: 'View credits',
+          })
         }
       }
     }
