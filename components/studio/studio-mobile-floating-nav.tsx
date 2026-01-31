@@ -179,7 +179,7 @@ export function StudioMobileFloatingNav() {
             </Tooltip>
           </FloatingButtonItem>
           {/* Theme */}
-          <FloatingButtonItem label="Toggle theme">
+          <FloatingButtonItem label="Theme">
             <Tooltip>
               <TooltipTrigger asChild>
                 <span className="inline-flex">
@@ -189,7 +189,7 @@ export function StudioMobileFloatingNav() {
                   />
                 </span>
               </TooltipTrigger>
-              <TooltipContent side="right">Toggle theme</TooltipContent>
+              <TooltipContent side="right">Theme</TooltipContent>
             </Tooltip>
           </FloatingButtonItem>
           {/* Referral */}
@@ -210,7 +210,7 @@ export function StudioMobileFloatingNav() {
             </Tooltip>
           </FloatingButtonItem>
           {/* Credits - opens subscription modal */}
-          <FloatingButtonItem label="Credits and subscription">
+          <FloatingButtonItem label="Credits">
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -218,13 +218,13 @@ export function StudioMobileFloatingNav() {
                   variant="outline"
                   size="icon-lg"
                   onClick={() => setSubscriptionModalOpen(true)}
-                  className="rounded-full shadow-md bg-background dark:bg-card border-border text-foreground text-xs font-medium hover:bg-primary hover:text-primary-foreground hover:border-primary min-w-10 h-10"
-                  aria-label="Credits and subscription"
+                  className="rounded-full shadow-md bg-background dark:bg-card border-border text-primary text-xs font-medium hover:bg-primary hover:text-primary-foreground hover:border-primary min-w-10 h-10"
+                  aria-label="Credits"
                 >
                   {creditsLoading ? "…" : creditsRemaining}
                 </Button>
               </TooltipTrigger>
-              <TooltipContent side="right">Credits and subscription</TooltipContent>
+              <TooltipContent side="right">Credits</TooltipContent>
             </Tooltip>
           </FloatingButtonItem>
           {/* Nav items: white by default; red (primary) when selected or on hover */}
@@ -233,7 +233,7 @@ export function StudioMobileFloatingNav() {
             const isSelected = currentView === item.view;
             const tooltipLabel = item.locked ? `${item.label} (coming soon)` : item.label;
             return (
-              <FloatingButtonItem key={item.view} label={tooltipLabel}>
+              <FloatingButtonItem key={item.view} label={item.locked ? undefined : tooltipLabel}>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
