@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import {
   StudioProvider,
   StudioFrame,
@@ -55,7 +56,9 @@ export default function StudioPage() {
   return (
     <StudioProvider>
       <StudioDndContext>
-        <ProcessCheckoutOnReturn />
+        <Suspense fallback={null}>
+          <ProcessCheckoutOnReturn />
+        </Suspense>
         <StudioPageContent />
       </StudioDndContext>
     </StudioProvider>
