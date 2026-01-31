@@ -178,14 +178,14 @@
         <div className="interference-line" aria-hidden style={{ pointerEvents: "none" }} />
         <div className="noise" aria-hidden style={{ pointerEvents: "none" }} />
 
-        {/* Navigation – same as root landing for consistency */}
+        {/* Navigation – same as root landing for consistency. z-index above main so "Skip to Studio" receives taps on mobile. */}
         <nav
           style={{
             position: "fixed",
             top: 0,
             left: 0,
             right: 0,
-            zIndex: 100,
+            zIndex: 10001,
             padding: "16px var(--landing-padding-x)",
             display: "flex",
             justifyContent: "space-between",
@@ -302,7 +302,7 @@
           style={{
             padding: "100px var(--landing-padding-x) 40px",
             position: "relative",
-            zIndex: 10000,
+            zIndex: 1,
           }}
         >
           {/* Progress bar – 6 segments for steps 0–5 */}
