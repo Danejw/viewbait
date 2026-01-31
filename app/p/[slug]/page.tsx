@@ -5,21 +5,25 @@
  *
  * Displays a project's gallery by share slug. View-only; no edit/delete actions.
  * Refetches periodically so new thumbnails added by the owner appear.
+ * Clicking a thumbnail opens ImageModal for full-size view.
  */
 
-import React from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { ArrowLeft, ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ImageModal } from "@/components/ui/modal";
 import { useSharedProjectGallery } from "@/lib/hooks/useProjects";
 import { SharedGalleryCard, SharedGalleryCardSkeleton } from "@/components/studio/shared-gallery-card";
+import type { PublicThumbnailData } from "@/lib/types/database";
 
 export default function SharedProjectGalleryPage() {
   const params = useParams();
   const slug = typeof params?.slug === "string" ? params.slug : null;
   const { data, isLoading, error, refetch } = useSharedProjectGallery(slug);
+  const [selectedThumbnail, setSelectedThumbnail] = useState<PublicThumbnailData | null>(null);
 
   if (!slug) {
     return (
@@ -99,11 +103,26 @@ export default function SharedProjectGalleryPage() {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
-            {thumbnails.map((thumb) => (
-              <SharedGalleryCard key={thumb.id} thumbnail={thumb} />
-            ))}
-          </div>
+          <>
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
+              {thumbnails.map((thumb) => (
+                <SharedGalleryCard
+                  key={thumb.id}
+                  thumbnail={thumb}
+                  onClick={(t) => setSelectedThumbnail(t)}
+                />
+              ))}
+            </div>
+            {selectedThumbnail && (
+              <ImageModal
+                open={selectedThumbnail !== null}
+                onOpenChange={(open) => !open && setSelectedThumbnail(null)}
+                src={selectedThumbnail.image_url}
+                alt={selectedThumbnail.title}
+                title={selectedThumbnail.title}
+              />
+            )}
+          </>
         )}
       </div>
     </div>

@@ -180,7 +180,7 @@ function ImageModal({ open, onOpenChange, src, alt, title }: ImageModalProps) {
     <Modal open={open} onOpenChange={onOpenChange}>
       <ModalContent
         size="4xl"
-        className="flex flex-col gap-0 p-0 border-0 max-w-[95vw] max-h-[95vh] overflow-hidden bg-white dark:bg-black"
+        className="flex flex-col gap-0 p-0 border-0 max-w-[75vw] max-h-[95vh] overflow-hidden bg-white dark:bg-black"
         showCloseButton={true}
       >
         {title && (
