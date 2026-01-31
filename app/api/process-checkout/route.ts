@@ -37,8 +37,8 @@ export async function POST(request: Request) {
       return configErrorResponse('Stripe service not configured')
     }
 
-    // Process the checkout session
-    const result = await processCheckoutSession(body.sessionId.trim())
+    // Process the checkout session (pass current user so only the checkout owner can complete it)
+    const result = await processCheckoutSession(body.sessionId.trim(), user.id)
 
     if (!result.success) {
       logError(result.error || new Error('Unknown error'), {

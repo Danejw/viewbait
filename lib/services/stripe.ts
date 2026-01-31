@@ -284,10 +284,13 @@ export async function createCheckoutSession(
 
 /**
  * Process a completed checkout session and update subscription
- * This is called by webhooks or when user returns from checkout
+ * This is called by webhooks or when user returns from checkout.
+ * When expectedUserId is provided (e.g. from the process-checkout route), the session
+ * must belong to that user; otherwise the request is rejected (security hardening).
  */
 export async function processCheckoutSession(
-  sessionId: string
+  sessionId: string,
+  expectedUserId?: string
 ): Promise<{
   success: boolean
   error: Error | null
@@ -315,6 +318,14 @@ export async function processCheckoutSession(
       return {
         success: false,
         error: new Error('User ID not found in checkout session metadata'),
+      }
+    }
+
+    // Security: when called from the return flow, only the user who owned the checkout can complete it
+    if (expectedUserId != null && userId !== expectedUserId) {
+      return {
+        success: false,
+        error: new Error('Session does not belong to the authenticated user'),
       }
     }
 

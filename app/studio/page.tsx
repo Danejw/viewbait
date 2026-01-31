@@ -11,6 +11,7 @@ import {
   StudioMobileFloatingNav,
 } from "@/components/studio";
 import { StudioDndContext } from "@/components/studio/studio-dnd-context";
+import { ProcessCheckoutOnReturn } from "@/components/studio/process-checkout-return";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 /**
@@ -54,6 +55,7 @@ export default function StudioPage() {
   return (
     <StudioProvider>
       <StudioDndContext>
+        <ProcessCheckoutOnReturn />
         <StudioPageContent />
       </StudioDndContext>
     </StudioProvider>
