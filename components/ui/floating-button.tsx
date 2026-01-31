@@ -8,10 +8,14 @@ type FloatingButtonProps = {
   className?: string;
   children: ReactNode;
   triggerContent: ReactNode;
+  /** Called when the menu open state changes (for overlays, e.g. gradient backdrop). */
+  onOpenChange?: (open: boolean) => void;
 };
 
 type FloatingButtonItemProps = {
   children: ReactNode;
+  /** Always-visible label shown to the right of the button (for touch/mobile where hover tooltips don’t apply). */
+  label?: string;
 };
 
 const list = {
@@ -41,11 +45,16 @@ const btn = {
   hidden: { rotate: 0 }
 };
 
-function FloatingButton({ className, children, triggerContent }: FloatingButtonProps) {
+function FloatingButton({ className, children, triggerContent, onOpenChange }: FloatingButtonProps) {
   const ref = useRef<HTMLDivElement>(null);
   const [isOpen, setIsOpen] = useState(false);
 
-  useOnClickOutside(ref as RefObject<HTMLElement>, () => setIsOpen(false));
+  const setOpen = (open: boolean) => {
+    setIsOpen(open);
+    onOpenChange?.(open);
+  };
+
+  useOnClickOutside(ref as RefObject<HTMLElement>, () => setOpen(false));
 
   return (
     <div className={className}>
@@ -63,7 +72,7 @@ function FloatingButton({ className, children, triggerContent }: FloatingButtonP
             variants={btn}
             animate={isOpen ? 'visible' : 'hidden'}
             ref={ref}
-            onClick={() => setIsOpen(!isOpen)}
+            onClick={() => setOpen(!isOpen)}
           >
             {triggerContent}
           </motion.div>
@@ -73,8 +82,20 @@ function FloatingButton({ className, children, triggerContent }: FloatingButtonP
   );
 }
 
-function FloatingButtonItem({ children }: FloatingButtonItemProps) {
-  return <motion.li variants={item}>{children}</motion.li>;
+function FloatingButtonItem({ children, label }: FloatingButtonItemProps) {
+  return (
+    <motion.li variants={item} className="relative">
+      {children}
+      {label != null && label !== "" && (
+        <span
+          className="absolute left-full ml-2 top-1/2 -translate-y-1/2 whitespace-nowrap rounded-md px-3 py-1.5 text-xs bg-popover text-popover-foreground border border-border shadow-md pointer-events-none z-10"
+          aria-hidden
+        >
+          {label}
+        </span>
+      )}
+    </motion.li>
+  );
 }
 
 export { FloatingButton, FloatingButtonItem };

@@ -1,215 +1,112 @@
 # Supabase RLS & Storage Security Audit
 
-**Version:** 2025-01-29  
-**Date:** Thursday, January 29, 2025
+**Version:** 2025-01-30  
+**Date:** Friday, January 30, 2025
 
 ---
 
-## Methodology
-
-The **Supabase MCP** was used to discover database structure and RLS capabilities: `list_projects`, `list_tables` (with `rls_enabled` per table), and `list_migrations` were invoked. The project ref configured in this repo (`.env`: `eqxagfhgfgrcdbtmxepl`) returned *"You do not have permission to perform this action"* when queried via the connected MCP account, so **audit findings are based on in-repo migrations, application code references, and (where available) MCP schema/rls_enabled patterns**. For a project that was accessible via MCP, `list_tables` confirmed that tables can report `rls_enabled: true/false` and that tables with RLS disabled (e.g. rate-limit or nonce tables) represent a deliberate pattern to avoid for user data.
+**Summary:** ✅ Core tables (profiles, thumbnails, styles, palettes, faces, favorites, experiments, user_subscriptions, analytics_snapshots, notifications, projects, feedback) have RLS in repo. ⚠️ Public read (is_public) not in RLS for thumbnails/styles/palettes—GET /api/thumbnails/public returns no rows for anon. ❌ sync-analytics trusts `body.user_id` when unauthenticated. ❌ No storage policies in repo; tables referenced in code (youtube_*, credit_transactions, referrals, etc.) have no RLS migrations.
 
 ---
 
 ## Overview
 
-This audit of Row Level Security (RLS) and Storage Access Policies for the Viewbait application found **two database objects with correct, in-repo RLS** (✅ **notifications** and **projects**), and **multiple tables and all four storage buckets** with **no RLS or storage policies defined in the repository** (❌/⚠️), creating risk of unauthorized read/write if RLS is not enabled and properly configured in Supabase. **Profiles** is modified by a migration (e.g. `is_admin`) but has **no RLS enable or policies in repo** (⚠️). **Storage buckets** (thumbnails, faces, style-references, style-previews) have **no storage policies in repo**; private buckets rely on server-side routes and path conventions, so storage RLS is recommended to enforce per-user access at the storage layer. One **API route** (POST `/api/experiments/sync-analytics`) accepts **client-provided `user_id` when the user is unauthenticated** (❌), which can allow arbitrary user impersonation for analytics sync. Recommended actions: (1) run an RLS export query in Supabase and persist results for future diff; (2) add migrations that enable RLS and define policies for every user-owned table and for storage buckets using the path convention `{user_id}/...`; (3) remove or secure the sync-analytics fallback so only authenticated users can sync their own analytics.
+This audit of Row Level Security (RLS) and Storage Access Policies for the Viewbait application reflects the **current in-repo migrations** including `006_rls_core_tables.sql`. ✅ **Core user-scoped tables** (profiles, thumbnails, styles, palettes, faces, favorites, experiments, user_subscriptions, analytics_snapshots) **have RLS enabled and policies** that restrict access to `auth.uid()`. ✅ **notifications** and **projects** have RLS with correct policies; ✅ **feedback** has RLS enabled with no policies (service-role-only access). ⚠️ **Thumbnails, styles, and palettes** RLS policies allow only **own rows** (`user_id = auth.uid()`); the app’s **public** behavior (is_public thumbnails, public styles/palettes) is **not** reflected in RLS—so **GET /api/thumbnails/public** uses the session client and, for **unauthenticated** callers, returns **no rows** (RLS blocks all). Either use the **service client** for that route or add RLS SELECT for `is_public = true`. ❌ **POST /api/experiments/sync-analytics** still accepts **client-provided `user_id`** when the user is unauthenticated, allowing impersonation. ❌ **Storage buckets** (thumbnails, faces, style-references, style-previews) have **no storage policies in repo**; access is enforced only in API routes (path must start with user id). Tables such as **youtube_integrations**, **youtube_channels**, **youtube_analytics**, **credit_transactions**, **referral_codes**, **referrals**, **user_purchases**, **experiment_variants**, **experiment_results**, **stripe_webhook_events**, **subscription_tiers**, **subscription_settings**, and **notification_preferences** are referenced in code but have **no RLS migrations in repo**—if they exist in the live DB, they need RLS. Recommended actions: (1) Fix public thumbnails by using the service client in GET /api/thumbnails/public or add RLS SELECT for `is_public = true` (and optionally for styles/palettes); (2) Remove sync-analytics fallback to `body.user_id` and require authentication; (3) Add storage policies for all buckets using path convention `{user_id}/...`; (4) Add migrations for any tables that exist in DB but lack RLS in repo.
 
 ---
 
 ## Resource-by-Resource Matrix
 
-### Database tables
+### Database tables (in-repo migrations)
 
 | Resource | Intended access | Actual policy (in repo) | Risk | Fix |
 |----------|-----------------|--------------------------|------|-----|
-| **notifications** | Users read/update/delete own rows; only service role inserts | ✅ RLS enabled. SELECT/UPDATE/DELETE for authenticated with `user_id = auth.uid()`. No INSERT for authenticated. | ✅ Low | None; keep as-is. |
-| **projects** | Users CRUD own rows only | ✅ RLS enabled (migration 003). SELECT/INSERT/UPDATE/DELETE for authenticated with `user_id = auth.uid()`. | ✅ Low | None; keep as-is. |
-| **profiles** | Users read/update own row; service role for admin fields | ⚠️ Migration 002 only adds `is_admin`. No RLS enable or policies in repo. | ⚠️ High if RLS not enabled in Supabase | Enable RLS; add SELECT/UPDATE for own row using `id = auth.uid()`. |
-| **thumbnails** | Users CRUD own rows; public read for `is_public` rows | ❌ No RLS migration or policies in repo (003 only adds `project_id`). | ❌ High | Enable RLS; SELECT own or public; INSERT/UPDATE/DELETE own only. |
-| **user_subscriptions** | Users read own; only service role writes | ❌ No migration or policies in repo. | ❌ High | Enable RLS; SELECT where `user_id = auth.uid()`; no INSERT/UPDATE/DELETE for authenticated. |
-| **styles** | Users CRUD own; public read for public styles (view) | ❌ No migration or policies in repo. | ❌ High | Enable RLS; SELECT own or via public_styles; INSERT/UPDATE/DELETE own only. |
-| **palettes** | Users CRUD own; public read for public palettes (view) | ❌ No migration or policies in repo. | ❌ High | Enable RLS; SELECT own or via public_palettes; INSERT/UPDATE/DELETE own only. |
-| **faces** | Users CRUD own rows | ❌ No migration or policies in repo. | ❌ High | Enable RLS; SELECT/INSERT/UPDATE/DELETE where `user_id = auth.uid()`. |
-| **favorites** | Users CRUD own favorite rows | ❌ No migration or policies in repo. | ❌ High | Enable RLS; SELECT/INSERT/UPDATE/DELETE where `user_id = auth.uid()`. |
-| **youtube_integrations** | Users read/update own; service role for token writes | ❌ No migration or policies in repo. | ❌ High | Enable RLS; SELECT/UPDATE own; INSERT only service role or RPC. |
-| **youtube_channels**, **youtube_analytics** | Per-user or service-only | ❌ No migration or policies in repo. | ❌ High | Enable RLS; restrict to own user or service role. |
-| **credit_transactions** | Users read own; only RPC/service role writes | ❌ No migration or policies in repo. | ❌ High | Enable RLS; SELECT where `user_id = auth.uid()`; no direct INSERT/UPDATE/DELETE for authenticated. |
-| **referral_codes**, **referrals**, **user_purchases** | Per-user or service role | ❌ No migration or policies in repo. | ❌ High | Enable RLS; restrict by `user_id` or service role. |
-| **experiments**, **experiment_variants**, **experiment_results**, **analytics_snapshots** | Per-user or service | ❌ No migration or policies in repo. | ❌ High | Enable RLS; restrict by ownership or service role. |
-| **stripe_webhook_events** | Service role only (idempotency) | ❌ No migration or policies in repo. | ❌ High | Enable RLS; no policies for authenticated; service role only. |
-| **subscription_tiers**, **subscription_settings** | Read-only for app; no user rows | ❌ No migration or policies in repo. | ⚠️ Medium | Enable RLS; SELECT for authenticated (or anon) if needed; no INSERT/UPDATE/DELETE. |
-| **public_styles**, **public_palettes** (views) | Read-only; only public/non-sensitive columns | ❌ No view definitions or underlying RLS in repo. | ⚠️ Medium | Ensure views use RLS-safe underlying tables; expose only intended columns. |
-| **notification_preferences** (if exists) | Users read/update own | ❌ Referenced in account export; no RLS in repo. | ⚠️ Medium | Enable RLS; SELECT/UPDATE where `user_id = auth.uid()`. |
+| **profiles** | Users read/update own; no self-grant of is_admin | ✅ RLS enabled (006_rls). SELECT/INSERT/UPDATE for authenticated; UPDATE WITH CHECK prevents is_admin change. | ✅ Low | None; keep as-is. |
+| **thumbnails** | Users CRUD own; public read for is_public | ⚠️ RLS (006_rls): SELECT only `user_id = auth.uid()`. No SELECT for is_public rows by others/anon. | ⚠️ Medium | Use service client in GET /api/thumbnails/public **or** add RLS SELECT for `user_id = auth.uid() OR is_public = true` (and anon SELECT where is_public = true if needed). |
+| **styles** | Users CRUD own; public read for is_public | ⚠️ RLS (006_rls): SELECT only `user_id = auth.uid()`. App uses is_public in API. | ⚠️ Low–Medium | If public styles are read without auth, add SELECT for `user_id = auth.uid() OR is_public = true` or use service client for public listing. |
+| **palettes** | Users CRUD own; public read for is_public | ⚠️ Same as styles. | ⚠️ Low–Medium | Same as styles. |
+| **faces** | Users CRUD own | ✅ RLS (006_rls). SELECT/INSERT/UPDATE/DELETE where user_id = auth.uid(). | ✅ Low | None. |
+| **favorites** | Users CRUD own | ✅ RLS (006_rls). Same pattern. | ✅ Low | None. |
+| **experiments** | Users CRUD own | ✅ RLS (006_rls). Same pattern. | ✅ Low | None. |
+| **user_subscriptions** | Users read own; service role writes | ✅ RLS (006_rls). SELECT where user_id = auth.uid(); no INSERT/UPDATE/DELETE for authenticated. | ✅ Low | None. |
+| **analytics_snapshots** | Read only where user has experiment for video_id | ✅ RLS (006_rls). SELECT via EXISTS on experiments. | ✅ Low | None. |
+| **notifications** | Users read/update/delete own; service role inserts | ✅ RLS (001). SELECT/UPDATE/DELETE where user_id = auth.uid(); no INSERT for authenticated. | ✅ Low | None. |
+| **projects** | Users CRUD own; public share by slug via service client | ✅ RLS (003). SELECT/INSERT/UPDATE/DELETE where user_id = auth.uid(). Share route uses service client. | ✅ Low | None. |
+| **feedback** | Insert-only from API; no direct client access | ✅ RLS enabled (006_create_feedback). No policies = only service role. | ✅ Low | None. |
+
+### Database tables (referenced in code; no RLS in repo)
+
+| Resource | Intended access | Actual policy (in repo) | Risk | Fix |
+|----------|-----------------|--------------------------|------|-----|
+| **youtube_integrations** | Users read/update own; service for token writes | ❌ No RLS migration in repo. | ❌ High | Enable RLS; SELECT/UPDATE where user_id = auth.uid(); INSERT via service/RPC only. |
+| **youtube_channels**, **youtube_analytics** | Per-user or service-only | ❌ No RLS migration in repo. | ❌ High | Enable RLS; restrict by ownership or service role. |
+| **credit_transactions** | Users read own; only RPC/service writes | ❌ No RLS migration in repo. | ❌ High | Enable RLS; SELECT where user_id = auth.uid(); no INSERT/UPDATE/DELETE for authenticated. |
+| **referral_codes**, **referrals**, **user_purchases** | Per-user or service role | ❌ No RLS migration in repo. | ❌ High | Enable RLS; restrict by user_id or service role. |
+| **experiment_variants**, **experiment_results** | Tied to experiments (user-owned) | ❌ No RLS migration in repo. | ❌ High | Enable RLS; SELECT/UPDATE/DELETE only where parent experiment belongs to auth.uid(). |
+| **stripe_webhook_events** | Service role only (idempotency) | ❌ No RLS migration in repo. | ❌ High | Enable RLS; no policies for authenticated; service role only. |
+| **subscription_tiers**, **subscription_settings** | Read-only reference data | ❌ No RLS migration in repo. | ⚠️ Medium | Enable RLS; SELECT for authenticated/anon if needed; no INSERT/UPDATE/DELETE. |
+| **notification_preferences** | Users read/update own | ❌ Referenced in account export; no RLS in repo. | ⚠️ Medium | Enable RLS; SELECT/UPDATE where user_id = auth.uid(). |
+| **public_styles**, **public_palettes** (views) | Read-only; public/non-sensitive columns | ❌ No view definitions in repo. | ⚠️ Medium | Ensure views use RLS-safe base tables; expose only intended columns. |
 
 ### Storage buckets
 
 | Resource | Intended access | Actual policy (in repo) | Risk | Fix |
 |----------|-----------------|--------------------------|------|-----|
-| **thumbnails** | Private; path `{user_id}/{id}/...`; user read/write own path only | ❌ No storage policy in repo. | ❌ High | Add policy: SELECT/INSERT/UPDATE/DELETE where `(bucket_id = 'thumbnails' AND (storage.foldername(name))[1] = auth.uid()::text)`. |
-| **faces** | Private; path `{user_id}/...`; user read/write own path only | ❌ No storage policy in repo. | ❌ High | Same pattern: first path segment = `auth.uid()::text`. |
-| **style-references** | Private; path includes user; user read/write own path only | ❌ No storage policy in repo. | ❌ High | Same pattern: enforce first folder = user id. |
-| **style-previews** | Public read or private; path `{user_id}/...` if private | ❌ No storage policy in repo. | ⚠️ Medium | If private: same as above. If public read: allow SELECT for all; INSERT/UPDATE/DELETE for own path. |
+| **thumbnails** | Private; path `{user_id}/{id}/...`; user read/write own only | ❌ No storage policy in repo. API validates path. | ❌ High | Add storage policies: SELECT/INSERT/UPDATE/DELETE where first path segment = auth.uid()::text. |
+| **faces** | Private; path `{user_id}/...` | ❌ No storage policy in repo. | ❌ High | Same pattern as thumbnails. |
+| **style-references** | Private; path `{user_id}/...` | ❌ No storage policy in repo. | ❌ High | Same pattern. |
+| **style-previews** | Public read or path `{user_id}/...` | ❌ No storage policy in repo. | ⚠️ Medium | If private: same as above. If public: allow SELECT for all; INSERT/UPDATE/DELETE for own path. |
 
 ### Application / API
 
 | Resource | Intended access | Actual behavior | Risk | Fix |
 |----------|-----------------|-----------------|------|-----|
-| **POST /api/experiments/sync-analytics** | Authenticated user syncs own analytics | ⚠️ If not authenticated, uses `body.user_id` for "service calls". | ❌ High | Require authentication; remove fallback to body `user_id`. |
-| **POST /api/notifications** (broadcast) | Service role only; body includes `user_id` for target | Uses service role; body.user_id is intentional for broadcast. RLS on notifications has no INSERT for authenticated. | ✅ Acceptable | None; keep service role and validate body server-side. |
+| **GET /api/thumbnails/public** | Public list of is_public thumbnails | Uses session client; for unauthenticated, RLS returns no rows. | ⚠️ Medium | Use service client for thumbnails query (and favorites count already uses service client) **or** add RLS SELECT for is_public. |
+| **POST /api/experiments/sync-analytics** | Authenticated user syncs own analytics | If not authenticated, uses body.user_id. | ❌ High | Require authentication; remove body user_id fallback. |
+| **POST /api/notifications** (broadcast) | Service role only | Uses service role; body.user_id is intentional. | ✅ Acceptable | None. |
+| **GET /api/projects/share/[slug]** | Public shared project | Uses service client. | ✅ Acceptable | None. |
 
 ---
 
 ## Recommended SQL (per fix)
 
-### 1. profiles: Enable RLS and add policies
+### 1. Thumbnails: Allow public read (optional alternative to service client in API)
+
+If you prefer RLS to allow reading public thumbnails instead of using the service client in GET /api/thumbnails/public:
 
 ```sql
--- Enable RLS
-ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
-
--- Users can read their own profile
-CREATE POLICY profiles_select_own ON profiles
-  FOR SELECT TO authenticated
-  USING (id = auth.uid());
-
--- Users can update their own profile (e.g. full_name, avatar_url; restrict is_admin updates via trigger or app)
-CREATE POLICY profiles_update_own ON profiles
-  FOR UPDATE TO authenticated
-  USING (id = auth.uid())
-  WITH CHECK (id = auth.uid());
-
--- No INSERT/DELETE for authenticated (profiles created by trigger or service role)
-```
-
-### 2. thumbnails: Enable RLS and add policies
-
-```sql
-ALTER TABLE thumbnails ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY thumbnails_select_own_or_public ON thumbnails
+-- Allow authenticated users to read own or public thumbnails
+DROP POLICY IF EXISTS thumbnails_select_policy ON thumbnails;
+CREATE POLICY thumbnails_select_policy ON thumbnails
   FOR SELECT TO authenticated
   USING (user_id = auth.uid() OR is_public = true);
 
-CREATE POLICY thumbnails_insert_own ON thumbnails
-  FOR INSERT TO authenticated
-  WITH CHECK (user_id = auth.uid());
-
-CREATE POLICY thumbnails_update_own ON thumbnails
-  FOR UPDATE TO authenticated
-  USING (user_id = auth.uid())
-  WITH CHECK (user_id = auth.uid());
-
-CREATE POLICY thumbnails_delete_own ON thumbnails
-  FOR DELETE TO authenticated
-  USING (user_id = auth.uid());
+-- Allow anon to read only public thumbnails (if you want true public API without service client)
+DROP POLICY IF EXISTS thumbnails_select_public_policy ON thumbnails;
+CREATE POLICY thumbnails_select_public_policy ON thumbnails
+  FOR SELECT TO anon
+  USING (is_public = true);
 ```
 
-### 3. user_subscriptions: Enable RLS (read-only for users)
+### 2. Styles / palettes: Allow public read (optional)
+
+If public styles/palettes are read without auth:
 
 ```sql
-ALTER TABLE user_subscriptions ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY user_subscriptions_select_own ON user_subscriptions
-  FOR SELECT TO authenticated
-  USING (user_id = auth.uid());
-
--- No INSERT/UPDATE/DELETE for authenticated; only service role / RPC.
-```
-
-### 4. styles: Enable RLS and add policies
-
-```sql
-ALTER TABLE styles ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY styles_select_own_or_public ON styles
+-- Styles: allow reading own or public
+DROP POLICY IF EXISTS styles_select_policy ON styles;
+CREATE POLICY styles_select_policy ON styles
   FOR SELECT TO authenticated
   USING (user_id = auth.uid() OR is_public = true);
 
-CREATE POLICY styles_insert_own ON styles
-  FOR INSERT TO authenticated
-  WITH CHECK (user_id = auth.uid());
-
-CREATE POLICY styles_update_own ON styles
-  FOR UPDATE TO authenticated
-  USING (user_id = auth.uid())
-  WITH CHECK (user_id = auth.uid());
-
-CREATE POLICY styles_delete_own ON styles
-  FOR DELETE TO authenticated
-  USING (user_id = auth.uid());
-```
-
-### 5. palettes: Enable RLS and add policies
-
-```sql
-ALTER TABLE palettes ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY palettes_select_own_or_public ON palettes
+-- Palettes: same
+DROP POLICY IF EXISTS palettes_select_policy ON palettes;
+CREATE POLICY palettes_select_policy ON palettes
   FOR SELECT TO authenticated
   USING (user_id = auth.uid() OR is_public = true);
-
-CREATE POLICY palettes_insert_own ON palettes
-  FOR INSERT TO authenticated
-  WITH CHECK (user_id = auth.uid());
-
-CREATE POLICY palettes_update_own ON palettes
-  FOR UPDATE TO authenticated
-  USING (user_id = auth.uid())
-  WITH CHECK (user_id = auth.uid());
-
-CREATE POLICY palettes_delete_own ON palettes
-  FOR DELETE TO authenticated
-  USING (user_id = auth.uid());
 ```
 
-### 6. faces: Enable RLS and add policies
-
-```sql
-ALTER TABLE faces ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY faces_select_own ON faces
-  FOR SELECT TO authenticated
-  USING (user_id = auth.uid());
-
-CREATE POLICY faces_insert_own ON faces
-  FOR INSERT TO authenticated
-  WITH CHECK (user_id = auth.uid());
-
-CREATE POLICY faces_update_own ON faces
-  FOR UPDATE TO authenticated
-  USING (user_id = auth.uid())
-  WITH CHECK (user_id = auth.uid());
-
-CREATE POLICY faces_delete_own ON faces
-  FOR DELETE TO authenticated
-  USING (user_id = auth.uid());
-```
-
-### 7. favorites: Enable RLS and add policies
-
-```sql
-ALTER TABLE favorites ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY favorites_select_own ON favorites
-  FOR SELECT TO authenticated
-  USING (user_id = auth.uid());
-
-CREATE POLICY favorites_insert_own ON favorites
-  FOR INSERT TO authenticated
-  WITH CHECK (user_id = auth.uid());
-
-CREATE POLICY favorites_update_own ON favorites
-  FOR UPDATE TO authenticated
-  USING (user_id = auth.uid())
-  WITH CHECK (user_id = auth.uid());
-
-CREATE POLICY favorites_delete_own ON favorites
-  FOR DELETE TO authenticated
-  USING (user_id = auth.uid());
-```
-
-### 8. Storage: thumbnails bucket (private, path = {user_id}/...)
+### 3. Storage: thumbnails bucket (path = {user_id}/...)
 
 ```sql
 CREATE POLICY "Users can read own thumbnails"
@@ -230,7 +127,7 @@ ON storage.objects FOR DELETE TO authenticated
 USING (bucket_id = 'thumbnails' AND (storage.foldername(name))[1] = auth.uid()::text);
 ```
 
-### 9. Storage: faces bucket (private, path = {user_id}/...)
+### 4. Storage: faces bucket
 
 ```sql
 CREATE POLICY "Users can read own faces"
@@ -251,7 +148,7 @@ ON storage.objects FOR DELETE TO authenticated
 USING (bucket_id = 'faces' AND (storage.foldername(name))[1] = auth.uid()::text);
 ```
 
-### 10. Storage: style-references bucket (private, path includes user_id)
+### 5. Storage: style-references bucket
 
 ```sql
 CREATE POLICY "Users can read own style-references"
@@ -272,9 +169,9 @@ ON storage.objects FOR DELETE TO authenticated
 USING (bucket_id = 'style-references' AND (storage.foldername(name))[1] = auth.uid()::text);
 ```
 
-### 11. Sync-analytics: Remove trust in body user_id when unauthenticated
+### 6. Sync-analytics: no SQL
 
-No SQL; application change only (see Instructional Prompt below).
+Application change only (see Instructional Prompts below).
 
 ---
 
@@ -282,87 +179,17 @@ No SQL; application change only (see Instructional Prompt below).
 
 ---
 
-### Fix 1: profiles RLS
+### Fix 1: Public thumbnails — use service client or add RLS
 
 **Prompt:**
 
 ```
-Add a new Supabase migration file in viewbait/supabase/migrations/ that enables RLS on the profiles table and creates policies so that authenticated users can only SELECT and UPDATE their own profile row (where id = auth.uid()). Do not add INSERT or DELETE policies for authenticated (profiles are created by auth trigger or service role). Use the exact policy names profiles_select_own and profiles_update_own. Include a short comment that is_admin must not be updatable by regular users (enforce in app or with a trigger if needed). Run the migration locally or document that it must be run in Supabase. Make the migration idempotent (DROP POLICY IF EXISTS before CREATE POLICY).
+In viewbait/app/api/thumbnails/public/route.ts, the GET handler lists public thumbnails using createClient() (session client). For unauthenticated callers, RLS on thumbnails allows only user_id = auth.uid(), so no rows are returned. Fix this by either: (A) Using createServiceClient() for the thumbnails .from('thumbnails').select(...).eq('is_public', true) query (and keep the rest of the flow as-is), or (B) Adding a new migration that creates an RLS policy on thumbnails allowing SELECT for anon where is_public = true, and optionally for authenticated where user_id = auth.uid() OR is_public = true (and drop/recreate the existing thumbnails_select_policy to include is_public). Prefer (A) if you want to avoid exposing any direct anon access to the table. Document the choice in a one-line comment in the route.
 ```
 
 ---
 
-### Fix 2: thumbnails RLS
-
-**Prompt:**
-
-```
-Add a new Supabase migration file in viewbait/supabase/migrations/ that enables RLS on the thumbnails table and creates policies: (1) SELECT for authenticated where user_id = auth.uid() OR is_public = true; (2) INSERT for authenticated WITH CHECK (user_id = auth.uid()); (3) UPDATE for authenticated USING and WITH CHECK (user_id = auth.uid()); (4) DELETE for authenticated USING (user_id = auth.uid()). Use policy names thumbnails_select_own_or_public, thumbnails_insert_own, thumbnails_update_own, thumbnails_delete_own. Ensure the migration is idempotent (DROP POLICY IF EXISTS before CREATE POLICY).
-```
-
----
-
-### Fix 3: user_subscriptions RLS
-
-**Prompt:**
-
-```
-Add a new Supabase migration file in viewbait/supabase/migrations/ that enables RLS on the user_subscriptions table and creates a single policy: SELECT for authenticated USING (user_id = auth.uid()). Do not add INSERT, UPDATE, or DELETE policies for authenticated (only service role / RPC should write). Name the policy user_subscriptions_select_own. Make the migration idempotent.
-```
-
----
-
-### Fix 4: styles RLS
-
-**Prompt:**
-
-```
-Add a new Supabase migration file in viewbait/supabase/migrations/ that enables RLS on the styles table and creates policies: SELECT for authenticated where user_id = auth.uid() OR is_public = true; INSERT/UPDATE/DELETE for authenticated only for own rows (user_id = auth.uid()). Use names styles_select_own_or_public, styles_insert_own, styles_update_own, styles_delete_own. Make the migration idempotent.
-```
-
----
-
-### Fix 5: palettes RLS
-
-**Prompt:**
-
-```
-Add a new Supabase migration file in viewbait/supabase/migrations/ that enables RLS on the palettes table and creates policies: SELECT for authenticated where user_id = auth.uid() OR is_public = true; INSERT/UPDATE/DELETE for authenticated only for own rows (user_id = auth.uid()). Use names palettes_select_own_or_public, palettes_insert_own, palettes_update_own, palettes_delete_own. Make the migration idempotent.
-```
-
----
-
-### Fix 6: faces RLS
-
-**Prompt:**
-
-```
-Add a new Supabase migration file in viewbait/supabase/migrations/ that enables RLS on the faces table and creates policies so that authenticated users can SELECT, INSERT, UPDATE, and DELETE only rows where user_id = auth.uid(). Use policy names faces_select_own, faces_insert_own, faces_update_own, faces_delete_own. Make the migration idempotent.
-```
-
----
-
-### Fix 7: favorites RLS
-
-**Prompt:**
-
-```
-Add a new Supabase migration file in viewbait/supabase/migrations/ that enables RLS on the favorites table and creates policies so that authenticated users can SELECT, INSERT, UPDATE, and DELETE only rows where user_id = auth.uid(). Use policy names favorites_select_own, favorites_insert_own, favorites_update_own, favorites_delete_own. Make the migration idempotent.
-```
-
----
-
-### Fix 8: Storage policies for thumbnails, faces, style-references buckets
-
-**Prompt:**
-
-```
-Add a new Supabase migration file (or document in a markdown file under supabase/migrations/ or docs/) that defines storage policies for the buckets thumbnails, faces, and style-references. The application uses the path convention {user_id}/... for these private buckets. Create policies on storage.objects so that authenticated users can SELECT, INSERT, UPDATE, and DELETE only objects where the first path segment equals auth.uid()::text. Use Supabase storage policy syntax: (storage.foldername(name))[1] = auth.uid()::text. If your project uses a different migration pattern for storage (e.g. dashboard-only), produce the SQL that would be run in the Supabase SQL editor and save it in a file under supabase/migrations/ with a descriptive name (e.g. 004_storage_rls_policies.sql).
-```
-
----
-
-### Fix 9: Remove body user_id fallback in sync-analytics
+### Fix 2: Remove body user_id fallback in sync-analytics
 
 **Prompt:**
 
@@ -372,12 +199,33 @@ In viewbait/app/api/experiments/sync-analytics/route.ts, remove the fallback tha
 
 ---
 
+### Fix 3: Storage policies for thumbnails, faces, style-references
+
+**Prompt:**
+
+```
+Add a new Supabase migration file that defines storage policies for the buckets thumbnails, faces, and style-references. The application uses the path convention {user_id}/... for these private buckets. Create policies on storage.objects so that authenticated users can SELECT, INSERT, UPDATE, and DELETE only objects where the first path segment equals auth.uid()::text. Use Supabase storage policy syntax: (storage.foldername(name))[1] = auth.uid()::text. Use DROP POLICY IF EXISTS for each policy name before CREATE POLICY. Save the migration under supabase/migrations/ with a descriptive name (e.g. 007_storage_rls_policies.sql). If storage.objects already has existing policies with the same names, use distinct names or document that the migration should be run in a clean state.
+```
+
+---
+
+### Fix 4: RLS for tables referenced in code but not in migrations
+
+**Prompt:**
+
+```
+Review the Viewbait codebase for Supabase table references (e.g. youtube_integrations, youtube_channels, youtube_analytics, credit_transactions, referral_codes, referrals, user_purchases, experiment_variants, experiment_results, stripe_webhook_events, subscription_tiers, subscription_settings, notification_preferences). For each table that exists in the project's Supabase schema but has no RLS migration in supabase/migrations/, add a new migration that: (1) Enables RLS on the table, (2) Creates policies that match the intended access (e.g. user_id = auth.uid() for user-scoped tables, service-role-only for stripe_webhook_events). Use idempotent patterns (DROP POLICY IF EXISTS before CREATE POLICY). Do not invent tables; only add RLS for tables that are confirmed to exist (e.g. from schema dump or existing migrations in other repos). If in doubt, add a single migration file that documents and implements RLS for the most critical user-data tables (youtube_integrations, credit_transactions, referral_codes, referrals, user_purchases, experiment_variants, experiment_results) and note the rest in a comment.
+```
+
+---
+
 ## Verification steps
 
-1. **Export current RLS state:** Run a query in the Supabase SQL Editor that lists all tables and their RLS status plus policy names (e.g. query `pg_policies` and `pg_tables` for `relrowsecurity`), and save the result (e.g. in `supabase/tables/rls-policies-export.csv` or in the repo) so future audits can diff.
+1. **Export current RLS state:** Run a query in the Supabase SQL Editor that lists all tables and their RLS status plus policy names (e.g. query `pg_policies` and `pg_tables` for `relrowsecurity`), and save the result for future diff.
 2. **Test with two users:** For each user-owned table, log in as user A and verify that user A cannot read or write user B's rows (use Supabase client with anon key and user A's session).
-3. **Storage:** For each private bucket, try to read/write an object under another user's path using an authenticated client; expect 403 or empty result.
-4. **Service role:** Ensure that server-side code that must bypass RLS (notifications insert, credits RPC, webhooks) uses createServiceClient() only and never exposes it to the client.
+3. **Public thumbnails:** Call GET /api/thumbnails/public unauthenticated; confirm thumbnails with is_public = true are returned after applying Fix 1.
+4. **Storage:** For each private bucket, try to read/write an object under another user's path using an authenticated client; expect 403 or empty result after storage policies are applied.
+5. **Service role:** Ensure server-side code that must bypass RLS (notifications insert, credits, webhooks, shared project by slug) uses createServiceClient() only and never exposes it to the client.
 
 ---
 

@@ -2,7 +2,8 @@
 
 import React, { useState, useRef, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
+import { useTheme } from "next-themes";
 import { PanelLeft, LogOut, Gift } from "lucide-react";
 import { FloatingButton, FloatingButtonItem } from "@/components/ui/floating-button";
 import { Button } from "@/components/ui/button";
@@ -21,7 +22,8 @@ import ReferralModal from "@/components/referral-modal";
 import { cn } from "@/lib/utils";
 
 const STORAGE_KEY = "studio-floating-nav-bottom";
-const DEFAULT_BOTTOM_PX = 64;
+/** Default distance from viewport bottom so the stack sits lower and the top button isn’t cut off. */
+const DEFAULT_BOTTOM_PX = 12;
 const MIN_BOTTOM_PX = 16;
 
 function getMaxBottomPx() {
@@ -44,6 +46,8 @@ export function StudioMobileFloatingNav() {
   const { creditsRemaining, isLoading: creditsLoading, productId, tier } = useSubscription();
   const [subscriptionModalOpen, setSubscriptionModalOpen] = useState(false);
   const [referralModalOpen, setReferralModalOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const { resolvedTheme } = useTheme();
 
   const [bottomPx, setBottomPx] = useState(DEFAULT_BOTTOM_PX);
   const dragStartBottomRef = useRef(DEFAULT_BOTTOM_PX);
@@ -103,8 +107,26 @@ export function StudioMobileFloatingNav() {
   // Order: from bottom (near trigger) to top: Log out, Theme, Credits, then nav items reversed (Generator at top)
   const navItemsReversed = [...navItems].reverse();
 
+  const isDark = resolvedTheme === "dark";
+  const gradientOverlayStyle = isDark
+    ? { background: "linear-gradient(to right, rgba(0,0,0,0.85) 0%, transparent 100%)" }
+    : { background: "linear-gradient(to right, rgba(255,255,255,0.9) 0%, transparent 100%)" };
+
   return (
     <>
+      <AnimatePresence>
+        {menuOpen && (
+          <motion.div
+            className="fixed left-0 top-0 bottom-0 z-40 w-[min(900px,100vw)] pointer-events-none"
+            style={gradientOverlayStyle}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            aria-hidden
+          />
+        )}
+      </AnimatePresence>
       <motion.div
         className="fixed left-0 z-50 p-4 pl-[max(1rem,env(safe-area-inset-left))] pb-[max(1rem,env(safe-area-inset-bottom))] cursor-grab active:cursor-grabbing"
         style={{ bottom: bottomPx }}
@@ -122,6 +144,7 @@ export function StudioMobileFloatingNav() {
       >
         <FloatingButton
           className="flex flex-col items-center"
+          onOpenChange={setMenuOpen}
           triggerContent={
             <Tooltip>
               <TooltipTrigger asChild>
@@ -139,7 +162,7 @@ export function StudioMobileFloatingNav() {
           }
         >
           {/* Bottom of stack (closest to trigger): Log out */}
-          <FloatingButtonItem>
+          <FloatingButtonItem label="Log out">
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -156,7 +179,7 @@ export function StudioMobileFloatingNav() {
             </Tooltip>
           </FloatingButtonItem>
           {/* Theme */}
-          <FloatingButtonItem>
+          <FloatingButtonItem label="Toggle theme">
             <Tooltip>
               <TooltipTrigger asChild>
                 <span className="inline-flex">
@@ -170,7 +193,7 @@ export function StudioMobileFloatingNav() {
             </Tooltip>
           </FloatingButtonItem>
           {/* Referral */}
-          <FloatingButtonItem>
+          <FloatingButtonItem label="Referral code">
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -187,7 +210,7 @@ export function StudioMobileFloatingNav() {
             </Tooltip>
           </FloatingButtonItem>
           {/* Credits - opens subscription modal */}
-          <FloatingButtonItem>
+          <FloatingButtonItem label="Credits and subscription">
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -210,7 +233,7 @@ export function StudioMobileFloatingNav() {
             const isSelected = currentView === item.view;
             const tooltipLabel = item.locked ? `${item.label} (coming soon)` : item.label;
             return (
-              <FloatingButtonItem key={item.view}>
+              <FloatingButtonItem key={item.view} label={tooltipLabel}>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
