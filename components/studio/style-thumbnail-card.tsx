@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { blobToJpeg } from "@/lib/utils/blobToJpeg";
+import { ActionBarIcon } from "@/components/studio/action-bar-icon";
 import type { PublicStyle, DbStyle } from "@/lib/types/database";
 import type { DragData } from "./studio-dnd-context";
 
@@ -96,7 +97,7 @@ export interface StyleThumbnailCardProps {
 }
 
 /**
- * Action button with tooltip
+ * Action button with tooltip (uses shared ActionBarIcon for consistent dock-style hover)
  */
 function ActionButton({
   icon: Icon,
@@ -114,18 +115,20 @@ function ActionButton({
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          onClick={onClick}
-          className={cn(
-            "h-7 w-7 bg-muted/80 hover:bg-muted",
-            variant === "destructive" && "hover:bg-destructive/20 hover:text-destructive",
-            active && "text-red-500"
-          )}
-        >
-          <Icon className={cn("h-4 w-4", active && "fill-red-500")} />
-        </Button>
+        <ActionBarIcon>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={onClick}
+            className={cn(
+              "h-7 w-7 bg-muted/80 hover:bg-muted",
+              variant === "destructive" && "hover:bg-destructive/20 hover:text-destructive",
+              active && "text-red-500"
+            )}
+          >
+            <Icon className={cn("h-4 w-4", active && "fill-red-500")} />
+          </Button>
+        </ActionBarIcon>
       </TooltipTrigger>
       <TooltipContent side="bottom" className="text-xs">
         {label}
@@ -294,12 +297,13 @@ export const StyleThumbnailCard = memo(function StyleThumbnailCard({
           )}
         </div>
 
-        {/* Top overlay - Title - shown on hover */}
+        {/* Top overlay - Title; smooth in/out from top */}
         <div
           className={cn(
             "absolute inset-x-0 top-0 flex items-start justify-between p-2",
             "bg-gradient-to-b from-black/60 to-transparent",
-            "opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+            "opacity-0 -translate-y-2 transition-all duration-200 ease-out",
+            "group-hover:opacity-100 group-hover:translate-y-0"
           )}
         >
           {/* Title */}
@@ -308,12 +312,13 @@ export const StyleThumbnailCard = memo(function StyleThumbnailCard({
           </p>
         </div>
 
-        {/* Action bar - absolutely positioned at bottom, shown on hover */}
+        {/* Action bar - absolutely positioned at bottom; smooth in/out (opacity + slide) */}
         <div
           className={cn(
             "absolute inset-x-0 bottom-0 flex items-center justify-center gap-1 p-2",
             "bg-gradient-to-t from-black/60 via-black/40 to-transparent",
-            "opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+            "opacity-0 translate-y-2 transition-all duration-200 ease-out",
+            "group-hover:opacity-100 group-hover:translate-y-0"
           )}
         >
           {/* Use Style button - shown for all styles */}

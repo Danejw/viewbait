@@ -19,6 +19,7 @@
 
 import React, { memo, useCallback, useMemo, useState } from "react";
 import { useDraggable } from "@dnd-kit/core";
+import { motion } from "framer-motion";
 import { Heart, Download, Share2, Copy, Pencil, Trash2, FolderPlus } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -45,6 +46,7 @@ import { useIntersectionObserver } from "@/lib/hooks/useIntersectionObserver";
 import { useWatermarkedImage } from "@/lib/hooks/useWatermarkedImage";
 import { useSubscription } from "@/lib/hooks/useSubscription";
 import { useThumbnailActions } from "@/components/studio/studio-provider";
+import { ActionBarIcon } from "@/components/studio/action-bar-icon";
 import type { Thumbnail } from "@/lib/types/database";
 import type { DragData } from "./studio-dnd-context";
 
@@ -225,18 +227,20 @@ function ActionButton({
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          onClick={onClick}
-          className={cn(
-            "h-7 w-7 bg-muted hover:bg-muted",
-            variant === "destructive" && "hover:bg-destructive/20 hover:text-destructive",
-            active && "text-red-500"
-          )}
-        >
-          <Icon className={cn("h-4 w-4", active && "fill-red-500")} />
-        </Button>
+        <ActionBarIcon>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={onClick}
+            className={cn(
+              "h-7 w-7 bg-muted hover:bg-muted",
+              variant === "destructive" && "hover:bg-destructive/20 hover:text-destructive",
+              active && "text-red-500"
+            )}
+          >
+            <Icon className={cn("h-4 w-4", active && "fill-red-500")} />
+          </Button>
+        </ActionBarIcon>
       </TooltipTrigger>
       <TooltipContent side="bottom" className="text-xs">
         {label}
@@ -393,7 +397,15 @@ export const ThumbnailCard = memo(function ThumbnailCard({
 
   /** Action bar content - shared between HoverCard pop-up (keeps design consistent) */
   const actionBar = (
-    <div className="flex items-center justify-center gap-1">
+    <motion.div
+      className="flex items-center justify-center gap-1"
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{
+        duration: 0.25,
+        ease: [0.25, 0.46, 0.45, 0.94],
+      }}
+    >
       <ActionButton
         icon={Heart}
         label={isFavorite ? "Remove from favorites" : "Add to favorites"}
@@ -420,15 +432,17 @@ export const ThumbnailCard = memo(function ThumbnailCard({
           <Tooltip>
             <TooltipTrigger asChild>
               <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  className="h-7 w-7 bg-muted hover:bg-muted"
-                  disabled={!hasProjects}
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <FolderPlus className="h-4 w-4" />
-                </Button>
+                <ActionBarIcon className="disabled:hover:scale-100 [&:has(button:disabled)]:hover:scale-100">
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    className="h-7 w-7 bg-muted hover:bg-muted"
+                    disabled={!hasProjects}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <FolderPlus className="h-4 w-4" />
+                  </Button>
+                </ActionBarIcon>
               </DropdownMenuTrigger>
             </TooltipTrigger>
             <TooltipContent side="bottom" className="text-xs">
@@ -475,7 +489,7 @@ export const ThumbnailCard = memo(function ThumbnailCard({
           variant="destructive"
         />
       )}
-    </div>
+    </motion.div>
   );
 
   return (
@@ -510,12 +524,13 @@ export const ThumbnailCard = memo(function ThumbnailCard({
               />
             </div>
 
-            {/* Top overlay - Title (left) and Resolution (right) - shown on hover */}
+            {/* Top overlay - Title (left) and Resolution (right); smooth in/out from top */}
             <div
               className={cn(
                 "absolute inset-x-0 top-0 flex items-start justify-between p-2",
                 "bg-gradient-to-b from-black/60 to-transparent",
-                "opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+                "opacity-0 -translate-y-2 transition-all duration-200 ease-out",
+                "group-hover:opacity-100 group-hover:translate-y-0"
               )}
             >
               <p className="max-w-[70%] truncate text-sm font-medium text-white drop-shadow-sm">
@@ -526,12 +541,12 @@ export const ThumbnailCard = memo(function ThumbnailCard({
           </div>
         </Card>
       </HoverCardTrigger>
-      {/* Action bar in pop-up above thumbnail - icons only, no card background */}
+      {/* Action bar in pop-up above thumbnail - icons only, no card background; smooth in/out */}
       <HoverCardContent
         side="top"
         align="center"
         sideOffset={8}
-        className="w-auto border-0 bg-transparent p-0 shadow-none ring-0"
+        className="w-auto border-0 bg-transparent p-0 shadow-none ring-0 duration-200 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-[side=top]:data-open:slide-in-from-bottom-2 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 data-[side=top]:data-closed:slide-out-to-bottom-2"
       >
         {actionBar}
       </HoverCardContent>

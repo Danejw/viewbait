@@ -26,6 +26,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import { ActionBarIcon } from "@/components/studio/action-bar-icon";
 import type { PublicPalette, DbPalette } from "@/lib/types/database";
 import type { DragData } from "./studio-dnd-context";
 
@@ -37,7 +38,7 @@ function hasUserId(p: PublicPalette | DbPalette): p is DbPalette {
 }
 
 /**
- * Action button with tooltip (matches thumbnail-card pattern)
+ * Action button with tooltip (uses shared ActionBarIcon for consistent dock-style hover)
  */
 function ActionButton({
   icon: Icon,
@@ -55,19 +56,21 @@ function ActionButton({
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          onClick={onClick}
-          className={cn(
-            "h-7 w-7 bg-muted/80 hover:bg-muted",
-            variant === "destructive" &&
-              "hover:bg-destructive/20 hover:text-destructive",
-            active && "text-red-500"
-          )}
-        >
-          <Icon className={cn("h-4 w-4", active && "fill-red-500")} />
-        </Button>
+        <ActionBarIcon>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={onClick}
+            className={cn(
+              "h-7 w-7 bg-muted/80 hover:bg-muted",
+              variant === "destructive" &&
+                "hover:bg-destructive/20 hover:text-destructive",
+              active && "text-red-500"
+            )}
+          >
+            <Icon className={cn("h-4 w-4", active && "fill-red-500")} />
+          </Button>
+        </ActionBarIcon>
       </TooltipTrigger>
       <TooltipContent side="bottom" className="text-xs">
         {label}
@@ -264,12 +267,13 @@ export const PaletteThumbnailCard = memo(function PaletteThumbnailCard({
           <PaletteColorStrip colors={colors} fill rounded="rounded-lg" />
         </div>
 
-        {/* Top overlay – title + optional badges (left), public icon / like count (right); visible only on hover */}
+        {/* Top overlay – title + badges; smooth in/out from top */}
         <div
           className={cn(
             "absolute inset-x-0 top-0 flex items-start justify-between gap-2 p-2",
             "bg-gradient-to-b from-black/60 to-transparent",
-            "opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+            "opacity-0 -translate-y-2 transition-all duration-200 ease-out",
+            "group-hover:opacity-100 group-hover:translate-y-0"
           )}
         >
           <div className="flex min-w-0 flex-1 items-center gap-2">
@@ -293,12 +297,13 @@ export const PaletteThumbnailCard = memo(function PaletteThumbnailCard({
           </div>
         </div>
 
-        {/* Bottom overlay: action buttons only; visible only on hover */}
+        {/* Bottom overlay: action buttons; smooth in/out (opacity + slide) */}
         <div
           className={cn(
             "absolute inset-x-0 bottom-0 flex items-center justify-center gap-1 p-3",
             "bg-gradient-to-t from-black/70 via-black/40 to-transparent",
-            "opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+            "opacity-0 translate-y-2 transition-all duration-200 ease-out",
+            "group-hover:opacity-100 group-hover:translate-y-0"
           )}
         >
             {onUsePalette && (

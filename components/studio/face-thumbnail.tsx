@@ -27,6 +27,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import { ActionBarIcon } from "@/components/studio/action-bar-icon";
 import type { DbFace } from "@/lib/types/database";
 import type { DragData } from "./studio-dnd-context";
 
@@ -69,7 +70,7 @@ export interface FaceThumbnailProps {
 }
 
 /**
- * Action button with tooltip (matches thumbnail-card pattern)
+ * Action button with tooltip (uses shared ActionBarIcon for consistent dock-style hover)
  */
 function ActionButton({
   icon: Icon,
@@ -87,18 +88,20 @@ function ActionButton({
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          onClick={onClick}
-          className={cn(
-            "h-7 w-7 bg-muted/80 hover:bg-muted",
-            variant === "destructive" && "hover:bg-destructive/20 hover:text-destructive",
-            active && "text-primary"
-          )}
-        >
-          <Icon className={cn("h-4 w-4", active && "fill-primary")} />
-        </Button>
+        <ActionBarIcon>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={onClick}
+            className={cn(
+              "h-7 w-7 bg-muted/80 hover:bg-muted",
+              variant === "destructive" && "hover:bg-destructive/20 hover:text-destructive",
+              active && "text-primary"
+            )}
+          >
+            <Icon className={cn("h-4 w-4", active && "fill-primary")} />
+          </Button>
+        </ActionBarIcon>
       </TooltipTrigger>
       <TooltipContent side="bottom" className="text-xs">
         {label}
@@ -215,11 +218,12 @@ export const FaceThumbnail = memo(function FaceThumbnail({
             <User className="h-6 w-6 text-muted-foreground" />
           </div>
         )}
-        {/* Hover overlay: View only (click thumbnail = select/deselect) */}
+        {/* Hover overlay: View only; smooth in/out */}
         <div
           className={cn(
             "absolute right-0.5 top-0.5 flex gap-0.5",
-            "opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+            "opacity-0 -translate-y-0.5 transition-all duration-200 ease-out",
+            "group-hover:opacity-100 group-hover:translate-y-0"
           )}
         >
           <ActionButton
@@ -231,9 +235,9 @@ export const FaceThumbnail = memo(function FaceThumbnail({
             }}
           />
         </div>
-        {/* Name overlay – visible only on hover (same as style selection) */}
+        {/* Name overlay – smooth in/out from bottom */}
         <span
-          className="absolute inset-x-0 bottom-0 truncate bg-black/75 px-1.5 py-1 text-center text-xs text-white opacity-0 transition-opacity group-hover:opacity-100"
+          className="absolute inset-x-0 bottom-0 truncate bg-black/75 px-1.5 py-1 text-center text-xs text-white opacity-0 translate-y-2 transition-all duration-200 ease-out group-hover:opacity-100 group-hover:translate-y-0"
           title={face.name}
         >
           {face.name}
@@ -280,12 +284,13 @@ export const FaceThumbnail = memo(function FaceThumbnail({
           )}
         </div>
 
-        {/* Top overlay – name, shown on hover */}
+        {/* Top overlay – name; smooth in/out from top */}
         <div
           className={cn(
             "absolute inset-x-0 top-0 flex items-start justify-between p-2",
             "bg-gradient-to-b from-black/60 to-transparent",
-            "opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+            "opacity-0 -translate-y-2 transition-all duration-200 ease-out",
+            "group-hover:opacity-100 group-hover:translate-y-0"
           )}
         >
           <p className="max-w-[85%] truncate text-sm font-medium text-white drop-shadow-sm">
@@ -293,12 +298,13 @@ export const FaceThumbnail = memo(function FaceThumbnail({
           </p>
         </div>
 
-        {/* Action bar – bottom overlay, shown on hover */}
+        {/* Action bar – bottom overlay; smooth in/out (opacity + slide) */}
         <div
           className={cn(
             "absolute inset-x-0 bottom-0 flex items-center justify-center gap-1 p-2",
             "bg-gradient-to-t from-black/60 via-black/40 to-transparent",
-            "opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+            "opacity-0 translate-y-2 transition-all duration-200 ease-out",
+            "group-hover:opacity-100 group-hover:translate-y-0"
           )}
         >
           <ActionButton
