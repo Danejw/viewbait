@@ -434,13 +434,16 @@ export function StudioSidebarToggle() {
 
 /**
  * StudioSidebar
- * Complete sidebar composition - content only (frame wrapper is in page)
+ * Complete sidebar composition - content only (frame wrapper is in page).
+ * When onCloseRequested is provided (e.g. mobile overlay), logo button calls it instead of toggle.
  */
-export function StudioSidebar() {
+export function StudioSidebar({ onCloseRequested }: { onCloseRequested?: () => void } = {}) {
   const {
     state: { leftSidebarCollapsed },
     actions: { toggleLeftSidebar },
   } = useStudio();
+
+  const handleLogoClick = onCloseRequested ?? toggleLeftSidebar;
 
   return (
     <div className="flex h-full flex-col">
@@ -450,12 +453,12 @@ export function StudioSidebar() {
                 type="button"
                 variant="ghost"
                 size={leftSidebarCollapsed ? "icon-sm" : "sm"}
-                onClick={toggleLeftSidebar}
+                onClick={handleLogoClick}
                 className={cn(
                   "w-full hover:bg-sidebar-accent/50 text-sidebar-foreground",
                   leftSidebarCollapsed ? "justify-center" : "justify-start gap-2 text-left"
                 )}
-                aria-label={leftSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+                aria-label={onCloseRequested ? "Close menu" : leftSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
               >
                 <div className="flex h-8 w-8 items-center justify-center shrink-0">
                   <ViewBaitLogo className="h-4 w-4" />
