@@ -13,6 +13,7 @@ import { AuthProvider } from "@/lib/hooks/useAuth";
 import { SubscriptionProvider } from "@/lib/hooks/useSubscription";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
+import { PwaRegister } from "@/components/pwa-register";
 
 interface ProvidersProps {
   children: ReactNode;
@@ -42,6 +43,7 @@ export function Providers({ children }: ProvidersProps) {
           <SubscriptionProvider>
             {children}
             <Toaster richColors position="top-center" />
+            <PwaRegister />
           </SubscriptionProvider>
         </AuthProvider>
       </QueryClientProvider>

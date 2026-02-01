@@ -208,7 +208,7 @@ Identifies free-tier users by `user_subscriptions.product_id IS NULL` and delete
 - **Provider:** [components/studio/studio-provider.tsx](viewbait/components/studio/studio-provider.tsx) gets `tier` from `useSubscription()`, computes `cooldownMs = getGenerateCooldownMs(tier)`, passes it to `useThumbnailGeneration({ cooldownMs })`, and syncs `generationState.isButtonDisabled` into `StudioState.isButtonDisabled`.
 - **Button:** [components/studio/studio-generator.tsx](viewbait/components/studio/studio-generator.tsx) `StudioGeneratorSubmit` uses `isDisabled = isGenerating || isButtonDisabled || !thumbnailText.trim()`.
 
-So the “generate thumbnail” button is debounced per tier: Free 12s, Starter 8s, Advanced 4s, Pro 2s.
+So the create thumbnail” button is debounced per tier: Free 12s, Starter 8s, Advanced 4s, Pro 2s.
 
 ### 5.3 Watermark
 
