@@ -827,18 +827,25 @@ export const StudioViewStyles = memo(function StudioViewStyles() {
       ) : (
         // Styles grid
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {filteredStyles.map((style) => (
-            <StyleThumbnailCard
-              key={style.id}
-              style={style}
-              currentUserId={user?.id}
-              isFavorite={favoriteIds.has(style.id)}
-              onView={actions.onViewStyle}
-              onEdit={handleEdit}
-              onDelete={handleDeleteClick}
-              onToggleFavorite={handleToggleFavorite}
-            />
-          ))}
+          {filteredStyles.map((style) => {
+            const isDb = "user_id" in style && (style as DbStyle).user_id != null;
+            const dbStyle = isDb ? (style as DbStyle) : null;
+            const canTogglePublic = dbStyle && !dbStyle.is_default;
+            return (
+              <StyleThumbnailCard
+                key={style.id}
+                style={style}
+                currentUserId={user?.id}
+                isFavorite={favoriteIds.has(style.id)}
+                onView={actions.onViewStyle}
+                onEdit={handleEdit}
+                onDelete={handleDeleteClick}
+                onToggleFavorite={handleToggleFavorite}
+                onTogglePublic={canTogglePublic ? handleTogglePublic : undefined}
+                isPublic={dbStyle ? dbStyle.is_public : false}
+              />
+            );
+          })}
         </div>
       )}
 

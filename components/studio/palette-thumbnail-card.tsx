@@ -329,7 +329,7 @@ export const PaletteThumbnailCard = memo(function PaletteThumbnailCard({
 
             {isOwner && onTogglePublic && (
               <ActionButton
-                icon={isPublic ? Lock : Globe}
+                icon={isPublic ? Globe : Lock}
                 label={isPublic ? "Make Private" : "Make Public"}
                 onClick={handleTogglePublic}
               />

@@ -23,6 +23,8 @@ import {
   Sparkles,
   Wand2,
   AlertCircle,
+  Globe,
+  Lock,
 } from "lucide-react";
 import { ViewBaitLogo } from "@/components/ui/viewbait-logo";
 import {
@@ -37,6 +39,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
@@ -297,6 +300,7 @@ export function StyleEditor({
   const [prompt, setPrompt] = useState("");
   const [images, setImages] = useState<ImagePreview[]>([]);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [isPublic, setIsPublic] = useState(true);
 
   // Operation states
   const [isSaving, setIsSaving] = useState(false);
@@ -313,6 +317,7 @@ export function StyleEditor({
         setDescription(style.description || "");
         setPrompt(style.prompt || "");
         setPreviewUrl(style.preview_thumbnail_url);
+        setIsPublic(style.is_public ?? false);
         setImages(
           (style.reference_images || []).map((url, index) => ({
             id: `existing-${index}`,
@@ -326,6 +331,7 @@ export function StyleEditor({
         setDescription("");
         setPrompt("");
         setPreviewUrl(null);
+        setIsPublic(true);
         setImages([]);
         setAnalysisComplete(false);
       }
@@ -411,17 +417,17 @@ export function StyleEditor({
         return;
       }
 
-      // Auto-fill form with AI-generated values
-      setName(result.name || name);
-      setDescription(result.description || description);
-      setPrompt(result.prompt || prompt);
+      // Auto-fill form with AI-generated values (prefer result; fallback to empty string)
+      setName(typeof result.name === "string" ? result.name : "");
+      setDescription(typeof result.description === "string" ? result.description : "");
+      setPrompt(typeof result.prompt === "string" ? result.prompt : "");
       setAnalysisComplete(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Analysis failed");
     } finally {
       setIsAnalyzing(false);
     }
-  }, [images, name, description, prompt]);
+  }, [images]);
 
   /**
    * Generate preview thumbnail using AI
@@ -485,6 +491,7 @@ export function StyleEditor({
         name: trimmedName,
         description: description.trim() || null,
         prompt: prompt.trim() || null,
+        is_public: isPublic,
       };
 
       await onSave(data, newFiles, existingUrls, previewUrl);
@@ -494,7 +501,7 @@ export function StyleEditor({
     } finally {
       setIsSaving(false);
     }
-  }, [name, description, prompt, images, previewUrl, onSave, onOpenChange]);
+  }, [name, description, prompt, images, previewUrl, isPublic, onSave, onOpenChange]);
 
   const remainingSlots = MAX_REFERENCE_IMAGES - images.length;
   const hasImages = images.length > 0;
@@ -607,6 +614,29 @@ export function StyleEditor({
               )}
             </div>
           )}
+
+          {/* Public / Private Toggle */}
+          <div className="flex items-center justify-between gap-4 rounded-lg border border-border p-4">
+            <div className="flex items-center gap-2">
+              {isPublic ? (
+                <Globe className="h-5 w-5 text-muted-foreground" />
+              ) : (
+                <Lock className="h-5 w-5 text-muted-foreground" />
+              )}
+              <div className="space-y-0.5">
+                <Label htmlFor="style-public-toggle">Visibility</Label>
+                <p className="text-xs text-muted-foreground">
+                  {isPublic ? "Public – others can discover and use this style" : "Private – only you can use this style"}
+                </p>
+              </div>
+            </div>
+            <Switch
+              id="style-public-toggle"
+              checked={isPublic}
+              onCheckedChange={setIsPublic}
+              disabled={isProcessing}
+            />
+          </div>
 
           {/* Name Input */}
           <div className="space-y-2">

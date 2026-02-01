@@ -18,7 +18,7 @@
 
 import React, { memo, useCallback, useState } from "react";
 import { useDraggable } from "@dnd-kit/core";
-import { Sparkles, Pencil, Trash2, Heart, Download } from "lucide-react";
+import { Sparkles, Pencil, Trash2, Heart, Download, Globe, Lock } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -92,6 +92,14 @@ export interface StyleThumbnailCardProps {
   onDelete?: (id: string) => void;
   /** Callback when toggle favorite is clicked */
   onToggleFavorite?: (id: string) => void;
+  /** Callback when toggle public/private is clicked (owner only) */
+  onTogglePublic?: (id: string) => void;
+  /** Whether this style is public (for icon and toggle label; Lock = private, Globe = public) */
+  isPublic?: boolean;
+  /** Optional badges to render top-left on hover (e.g. Default) */
+  topLeftBadges?: React.ReactNode;
+  /** Optional icon to render top-right on hover (e.g. Globe for public, Lock for private) */
+  topRightIcon?: React.ReactNode;
   /** Whether drag-and-drop is enabled (default: true) */
   draggable?: boolean;
 }
@@ -151,9 +159,14 @@ export const StyleThumbnailCard = memo(function StyleThumbnailCard({
   onEdit,
   onDelete,
   onToggleFavorite,
+  onTogglePublic,
+  isPublic = false,
+  topLeftBadges,
+  topRightIcon,
   draggable = true,
 }: StyleThumbnailCardProps) {
   const { id, name, preview_thumbnail_url } = style;
+  const displayTopRightIcon = topRightIcon ?? (isPublic ? <Globe className="h-4 w-4" /> : <Lock className="h-4 w-4" />);
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
 
@@ -211,6 +224,14 @@ export const StyleThumbnailCard = memo(function StyleThumbnailCard({
       onToggleFavorite?.(id);
     },
     [id, onToggleFavorite]
+  );
+
+  const handleTogglePublic = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      onTogglePublic?.(id);
+    },
+    [id, onTogglePublic]
   );
 
   const handleDownload = useCallback(
@@ -297,19 +318,26 @@ export const StyleThumbnailCard = memo(function StyleThumbnailCard({
           )}
         </div>
 
-        {/* Top overlay - Title; smooth in/out from top */}
+        {/* Top overlay – title + badges/icon; smooth in/out from top */}
         <div
           className={cn(
-            "absolute inset-x-0 top-0 flex items-start justify-between p-2",
+            "absolute inset-x-0 top-0 flex items-start justify-between gap-2 p-2",
             "bg-gradient-to-b from-black/60 to-transparent",
             "opacity-0 -translate-y-2 transition-all duration-200 ease-out",
             "group-hover:opacity-100 group-hover:translate-y-0"
           )}
         >
-          {/* Title */}
-          <p className="max-w-[85%] truncate text-sm font-medium text-white drop-shadow-sm">
-            {name}
-          </p>
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            {topLeftBadges}
+            <p className="min-w-0 truncate text-sm font-medium text-white drop-shadow-sm">
+              {name}
+            </p>
+          </div>
+          {(topRightIcon != null || (isOwner && onTogglePublic != null)) && (
+            <div className="flex shrink-0 items-center justify-center rounded-full bg-black/60 text-white [&>svg]:h-4 [&>svg]:w-4 h-7 w-7">
+              {displayTopRightIcon}
+            </div>
+          )}
         </div>
 
         {/* Action bar - absolutely positioned at bottom; smooth in/out (opacity + slide) */}
@@ -355,6 +383,15 @@ export const StyleThumbnailCard = memo(function StyleThumbnailCard({
               icon={Pencil}
               label="Edit"
               onClick={handleEdit}
+            />
+          )}
+
+          {/* Toggle public/private - only shown if user owns the style */}
+          {isOwner && onTogglePublic && (
+            <ActionButton
+              icon={isPublic ? Globe : Lock}
+              label={isPublic ? "Make Private" : "Make Public"}
+              onClick={handleTogglePublic}
             />
           )}
           

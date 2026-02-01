@@ -95,16 +95,17 @@ export const ThumbnailGrid = memo(function ThumbnailGrid({
   isLoading = false,
 }: ThumbnailGridProps) {
   // Combine generating items and db thumbnails
-  // Generating items appear first (newest at top)
+  // Newest first: generating items reversed (Map insertion order is oldest-first), then thumbnails (API returns created_at desc)
   const combinedItems = useMemo(() => {
     const generatingArray = Array.from(generatingItems.values());
-    
+    const generatingNewestFirst = [...generatingArray].reverse();
+
     // Filter out thumbnails that are in generatingItems (by id match)
     // This prevents duplicates when a generating item gets its real ID
     const generatingIds = new Set(generatingArray.map(item => item.id));
     const filteredThumbnails = thumbnails.filter(t => !generatingIds.has(t.id));
-    
-    return [...generatingArray, ...filteredThumbnails];
+
+    return [...generatingNewestFirst, ...filteredThumbnails];
   }, [thumbnails, generatingItems]);
 
   // Calculate empty slots

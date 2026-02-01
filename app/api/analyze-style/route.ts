@@ -165,10 +165,10 @@ You MUST call the extract_style_info function with your analysis.`
       },
     }
 
-    // Call AI core service
-    let result
+    // Call AI core service (returns { functionName, functionCallResult, groundingMetadata? })
+    let raw
     try {
-      result = await callGeminiWithFunctionCalling(
+      raw = await callGeminiWithFunctionCalling(
         null, // No system prompt for style analysis
         userPrompt,
         imageData,
@@ -184,10 +184,13 @@ You MUST call the extract_style_info function with your analysis.`
       )
     }
 
+    // Structured output is in functionCallResult (args from Gemini)
+    const result = (raw as { functionCallResult?: { name?: string; description?: string; prompt?: string } })
+      .functionCallResult ?? {}
     return NextResponse.json({
-      prompt: result.prompt || '',
-      description: result.description || '',
-      name: result.name || '',
+      name: result.name ?? '',
+      description: result.description ?? '',
+      prompt: result.prompt ?? '',
     })
   } catch (error) {
     // requireAuth throws NextResponse, so check if it's already a response

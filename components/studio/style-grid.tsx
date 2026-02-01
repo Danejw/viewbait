@@ -45,6 +45,7 @@ export interface StyleGridProps {
   onEdit?: (style: DbStyle) => void;
   onDelete?: (id: string) => void;
   onToggleFavorite?: (id: string) => void;
+  onTogglePublic?: (id: string) => void;
 }
 
 /**
@@ -105,6 +106,7 @@ export const StyleGrid = memo(function StyleGrid({
   onEdit,
   onDelete,
   onToggleFavorite,
+  onTogglePublic,
 }: StyleGridProps) {
   // Calculate empty slots
   const emptySlotCount = showEmptySlots
@@ -137,6 +139,15 @@ export const StyleGrid = memo(function StyleGrid({
     [onToggleFavorite]
   );
 
+  const handleTogglePublic = useCallback(
+    (id: string) => onTogglePublic?.(id),
+    [onTogglePublic]
+  );
+
+  /** Type guard for DbStyle (has user_id / is_public) */
+  const isDbStyle = (s: PublicStyle | DbStyle): s is DbStyle =>
+    "user_id" in s && "is_public" in s;
+
   // Show loading skeleton
   if (isLoading) {
     return <StyleGridSkeleton count={minSlots} />;
@@ -161,7 +172,8 @@ export const StyleGrid = memo(function StyleGrid({
             onEdit={handleEdit}
             onDelete={handleDelete}
             onToggleFavorite={handleToggleFavorite}
-            // First 6 items are above the fold - priority load
+            onTogglePublic={onTogglePublic}
+            isPublic={isDbStyle(style) ? style.is_public : false}
             priority={index < 6}
           />
         </GridItem>
