@@ -24,6 +24,9 @@ const spaceMono = Space_Mono({
 export const metadata: Metadata = {
   title: "ViewBait - Create Viral Thumbnails with AI",
   description: "AI-powered thumbnail generation that helps creators design eye-catching, conversion-optimized thumbnails in seconds.",
+};
+
+export const viewport = {
   themeColor: "#b91c3c",
 };
 
