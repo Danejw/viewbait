@@ -283,6 +283,50 @@ a:focus-visible {
   }
 }
 
+/* Public Beta banner – full-width strip in its own block above hero */
+.landing-page .public-beta-banner-wrap {
+  width: 100vw;
+  position: relative;
+  top: 80px;
+  left: 50%;
+  right: 50%;
+  margin-left: -50vw;
+  margin-right: -50vw;
+  flex-shrink: 0;
+}
+.landing-page .public-beta-banner {
+  position: relative;
+  width: 100%;
+  background: #ff0000;
+  color: #000;
+  padding: 6px 0;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.landing-page .public-beta-banner-track {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  animation: public-beta-banner-scroll 25s linear infinite;
+}
+.landing-page .public-beta-banner-item {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding-right: 0.25em;
+}
+.landing-page .public-beta-banner-sep {
+  opacity: 0.6;
+  padding: 0 0.5em;
+  user-select: none;
+}
+@keyframes public-beta-banner-scroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-12.5%); }
+}
+
 /* Global CRT effects – only when inside .landing-page */
 .landing-page .global-scanlines {
   position: fixed;
@@ -793,7 +837,7 @@ a:focus-visible {
   animation: landing-pulse-ring 2s ease-out infinite;
 }
 
-/* Mobile menu */
+/* Mobile menu – above global-scanlines (9997) so menu/overlay are visible */
 .landing-page .mobile-menu {
   position: fixed;
   top: 0;
@@ -803,7 +847,7 @@ a:focus-visible {
   max-width: 80vw;
   background: rgba(10, 10, 11, 0.98);
   backdrop-filter: blur(20px);
-  z-index: 200;
+  z-index: 9999;
   padding: 100px 32px 32px;
   border-left: 1px solid rgba(255, 255, 255, 0.05);
   transform: translateX(100%);
@@ -818,7 +862,7 @@ a:focus-visible {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.5);
-  z-index: 199;
+  z-index: 9998;
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.3s ease;
@@ -827,6 +871,20 @@ a:focus-visible {
 .landing-page .mobile-menu-overlay.open {
   opacity: 1;
   pointer-events: auto;
+}
+
+/* Nav hamburger toggle – hover */
+.landing-page .landing-nav-toggle {
+  transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+.landing-page .landing-nav-toggle:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.15);
+  transform: scale(1.05);
+}
+.landing-page .landing-nav-toggle:active {
+  background: rgba(255, 255, 255, 0.08);
+  transform: scale(0.98);
 }
 
 /* Only show mobile menu / overlay on small screens */
@@ -926,7 +984,23 @@ a:focus-visible {
   }
 }
 
-.landing-page .btn-crt { position: relative; overflow: hidden; }
+.landing-page .btn-crt {
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
+}
+.landing-page .btn-crt:hover {
+  transform: translateY(-2px) scale(1.02);
+  filter: brightness(1.06);
+}
+.landing-page .btn-crt:active {
+  transform: translateY(0) scale(0.98);
+  filter: brightness(0.98);
+}
+/* Red primary CTAs – stronger glow on hover (use with btn-crt) */
+.landing-page .btn-crt-primary:hover {
+  box-shadow: 0 24px 48px -12px rgba(255, 0, 0, 0.5), 0 0 32px rgba(255, 0, 0, 0.35);
+}
 
 .landing-page .btn-crt::after {
   content: "";

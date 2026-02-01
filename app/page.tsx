@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { Crown } from "lucide-react";
 import { LenisRoot } from "@/components/landing/lenis-root";
+import { PublicBetaBanner } from "@/components/landing/public-beta-banner";
 import { ScrollReveal } from "@/components/landing/scroll-reveal";
 import { useAuth } from "@/lib/hooks/useAuth";
 
@@ -160,7 +161,7 @@ export default function ViewBaitLanding() {
           <Link
             href={studioOrAuthHref}
             onClick={handleNavClick}
-            className="btn-crt"
+            className="btn-crt btn-crt-primary"
             style={{
               marginTop: "16px",
               padding: "16px 24px",
@@ -189,7 +190,7 @@ export default function ViewBaitLanding() {
           top: 0,
           left: 0,
           right: 0,
-          zIndex: 100,
+          zIndex: 9998,
           padding: "16px var(--landing-padding-x)",
           display: "flex",
           justifyContent: "space-between",
@@ -317,7 +318,7 @@ export default function ViewBaitLanding() {
 
         <button
           type="button"
-          className="hide-desktop"
+          className="hide-desktop landing-nav-toggle"
           onClick={() => setMenuOpen(!menuOpen)}
           aria-expanded={menuOpen}
           aria-label={menuOpen ? "Close menu" : "Open menu"}
@@ -370,6 +371,11 @@ export default function ViewBaitLanding() {
         </button>
       </nav>
 
+      {/* Public Beta banner – full-width strip above hero */}
+      <div className="public-beta-banner-wrap">
+        <PublicBetaBanner />
+      </div>
+
       {/* Hero Section */}
       <section
         className="screen-flicker"
@@ -377,7 +383,7 @@ export default function ViewBaitLanding() {
           minHeight: "100vh",
           display: "flex",
           alignItems: "center",
-          padding: "max(100px, 15vh) var(--landing-padding-x) 60px",
+          padding: "max(50px, 15vh) var(--landing-padding-x) 60px",
           position: "relative",
           overflow: "hidden",
         }}
@@ -421,33 +427,6 @@ export default function ViewBaitLanding() {
         >
           <div className="hero-grid">
             <div style={{ animation: "landing-fadeUp 1s ease-out both" }}>
-              <div
-                className="scanline-texture"
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "10px",
-                  padding: "8px 16px",
-                  background: "rgba(255,0,0,0.08)",
-                  border: "1px solid rgba(255,0,0,0.15)",
-                  borderRadius: "100px",
-                  marginBottom: "24px",
-                }}
-              >
-                <div
-                  style={{
-                    width: "8px",
-                    height: "8px",
-                    borderRadius: "50%",
-                    background: "#ff0000",
-                    boxShadow: "0 0 12px #ff0000, 0 0 24px rgba(255,0,0,0.5)",
-                  }}
-                />
-                <span className="mono crt-text" style={{ fontSize: "11px", color: "#ff6666", letterSpacing: "0.08em" }}>
-                  NOW IN PUBLIC BETA
-                </span>
-              </div>
-
               <h1
                 className="display-text crt-text-heavy"
                 style={{
@@ -509,7 +488,7 @@ export default function ViewBaitLanding() {
               >
                 <Link
                   href={studioOrAuthHref}
-                  className="hot-zone btn-crt"
+                  className="hot-zone btn-crt btn-crt-primary"
                   style={{
                     padding: "16px 28px",
                     background: "#ff0000",
@@ -1264,7 +1243,7 @@ export default function ViewBaitLanding() {
         }}
       >
         <div
-          className="hide-mobile crt-text"
+          className="hide-mobile"
           style={{
             position: "absolute",
             top: "50%",
@@ -1272,10 +1251,11 @@ export default function ViewBaitLanding() {
             transform: "translate(-50%, -50%)",
             fontSize: "18vw",
             fontWeight: 900,
-            color: "rgba(255,255,255,0.015)",
+            color: "rgba(180,180,180,0.05)",
             letterSpacing: "-0.05em",
             whiteSpace: "nowrap",
             pointerEvents: "none",
+            textShadow: "none",
           }}
           aria-hidden
         >
@@ -1438,7 +1418,9 @@ export default function ViewBaitLanding() {
               PRICING
             </span>
             <h2 className="display-text crt-text-heavy" style={{ fontSize: "clamp(32px, 5vw, 64px)", marginBottom: "12px" }}>
-              CHOOSE YOUR PLAN
+              CHOOSE YOUR
+              <br />
+              <span style={{ color: "#444" }}>PLAN</span>
             </h2>
             <p className="crt-text" style={{ fontSize: "16px", color: "#555" }}>
               Select a subscription tier that fits your needs.
@@ -1646,7 +1628,7 @@ export default function ViewBaitLanding() {
 
                   <Link
                     href={studioOrAuthHref}
-                    className="btn-crt"
+                    className={`btn-crt ${plan.highlighted ? "btn-crt-primary" : ""}`}
                     style={{
                       width: "100%",
                       padding: "14px",
@@ -1750,7 +1732,7 @@ export default function ViewBaitLanding() {
 
           <Link
             href={studioOrAuthHref}
-            className="hot-zone btn-crt"
+            className="hot-zone btn-crt btn-crt-primary"
             style={{
               padding: "20px 44px",
               background: "#ff0000",
@@ -1875,29 +1857,9 @@ export default function ViewBaitLanding() {
             >
               Terms
             </Link>
-            <a
-              href="mailto:contact@viewbait.app"
-              className="crt-text"
-              style={{
-                color: "#444",
-                textDecoration: "none",
-                fontSize: "12px",
-                transition: "color 0.2s",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.color = "#888";
-                !isMobile && setCursorVariant("hover");
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.color = "#444";
-                !isMobile && setCursorVariant("default");
-              }}
-            >
-              Contact
-            </a>
           </div>
 
-          <div className="mono crt-text" style={{ color: "#333", fontSize: "11px", letterSpacing: "0.05em" }}>
+          <div className="mono crt-text text-primary" style={{ fontSize: "11px", letterSpacing: "0.05em" }}>
             © {new Date().getFullYear()} VIEWBAIT
           </div>
         </div>

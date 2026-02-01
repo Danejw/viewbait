@@ -100,7 +100,7 @@ export function LandingNav({ setCursorVariant }: LandingNavProps) {
           top: 0,
           left: 0,
           right: 0,
-          zIndex: 100,
+          zIndex: 9998,
           padding: "16px var(--landing-padding-x)",
           display: "flex",
           justifyContent: "space-between",
