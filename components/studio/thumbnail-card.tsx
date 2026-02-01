@@ -20,7 +20,7 @@
 import React, { memo, useCallback, useMemo, useState } from "react";
 import { useDraggable } from "@dnd-kit/core";
 import { motion } from "framer-motion";
-import { Heart, Download, Share2, Copy, Pencil, Trash2, FolderPlus } from "lucide-react";
+import { Heart, Download, Copy, Pencil, Trash2, FolderPlus } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -270,7 +270,6 @@ export const ThumbnailCard = memo(function ThumbnailCard({
     projects,
     onFavoriteToggle,
     onDownload,
-    onShare,
     onCopy,
     onEdit,
     onDelete,
@@ -362,14 +361,6 @@ export const ThumbnailCard = memo(function ThumbnailCard({
     [id, onDownload]
   );
 
-  const handleShare = useCallback(
-    (e: React.MouseEvent) => {
-      e.stopPropagation();
-      onShare(id);
-    },
-    [id, onShare]
-  );
-
   const handleCopy = useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation();
@@ -431,11 +422,6 @@ export const ThumbnailCard = memo(function ThumbnailCard({
         icon={Download}
         label="Download"
         onClick={handleDownload}
-      />
-      <ActionButton
-        icon={Share2}
-        label="Share"
-        onClick={handleShare}
       />
       <ActionButton
         icon={Copy}
