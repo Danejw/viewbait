@@ -140,7 +140,8 @@ export interface ThumbnailCardProps {
 }
 
 /**
- * Progressive image component with lazy loading and scale animation
+ * Progressive image component with lazy loading and scale animation.
+ * Optional onLoad is called when the image has loaded and is ready to display.
  */
 const ProgressiveImage = memo(function ProgressiveImage({
   src,
@@ -149,6 +150,7 @@ const ProgressiveImage = memo(function ProgressiveImage({
   alt,
   priority = false,
   className,
+  onLoad,
 }: {
   src: string;
   src400w?: string | null;
@@ -156,6 +158,8 @@ const ProgressiveImage = memo(function ProgressiveImage({
   alt: string;
   priority?: boolean;
   className?: string;
+  /** Called when the image has loaded and is ready to display */
+  onLoad?: () => void;
 }) {
   const [ref, isIntersecting] = useIntersectionObserver({
     rootMargin: "200px",
@@ -175,10 +179,11 @@ const ProgressiveImage = memo(function ProgressiveImage({
 
   const handleLoad = useCallback(() => {
     setIsLoaded(true);
+    onLoad?.();
     if (currentSrc === src400w && (src800w || src)) {
       setCurrentSrc(src800w || src);
     }
-  }, [currentSrc, src400w, src800w, src]);
+  }, [currentSrc, src400w, src800w, src, onLoad]);
 
   React.useEffect(() => {
     if (imageSrc && !currentSrc) {
@@ -317,6 +322,12 @@ export const ThumbnailCard = memo(function ThumbnailCard({
   const [hoverOpen, setHoverOpen] = useState(false);
   const [projectDropdownOpen, setProjectDropdownOpen] = useState(false);
 
+  // CRT overlay stays until the image has loaded (continuous visual feedback after generation)
+  const [imageLoaded, setImageLoaded] = useState(false);
+  React.useEffect(() => {
+    setImageLoaded(false);
+  }, [id, displaySrc]);
+
   const handleHoverCardOpenChange = useCallback((open: boolean) => {
     if (open) {
       setHoverOpen(true);
@@ -325,7 +336,11 @@ export const ThumbnailCard = memo(function ThumbnailCard({
     }
   }, [projectDropdownOpen]);
 
-  // Show logo loading state for items currently being generated
+  const handleImageLoad = useCallback(() => {
+    setImageLoaded(true);
+  }, []);
+
+  // Show CRT loading state for items currently being generated
   if (generating) {
     return <ThumbnailCardGenerating text={name} />;
   }
@@ -521,8 +536,15 @@ export const ThumbnailCard = memo(function ThumbnailCard({
                 src800w={display800w}
                 alt={name}
                 priority={priority}
+                onLoad={handleImageLoad}
               />
             </div>
+            {/* CRT overlay until image has loaded (continuous visual feedback after generation) */}
+            {!imageLoaded && displaySrc && (
+              <div className="absolute inset-0 z-10">
+                <CRTLoadingEffect className="h-full w-full !aspect-auto rounded-lg" />
+              </div>
+            )}
 
             {/* Top overlay - Title (left) and Resolution (right); smooth in/out from top */}
             <div
