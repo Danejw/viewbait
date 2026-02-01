@@ -365,6 +365,55 @@ export async function analyzeStyle(
 
 
 /**
+ * Extract a common style from multiple YouTube thumbnail URLs
+ */
+export interface ExtractStyleFromYouTubeResult {
+  name: string
+  description: string
+  prompt: string
+  reference_images: string[]
+}
+
+export async function extractStyleFromYouTube(
+  imageUrls: string[]
+): Promise<{
+  result: ExtractStyleFromYouTubeResult | null
+  error: Error | null
+}> {
+  try {
+    const response = await fetch('/api/styles/extract-from-youtube', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ imageUrls }),
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json()
+      return {
+        result: null,
+        error: new Error(errorData.error || 'Failed to extract style'),
+      }
+    }
+
+    const data = await response.json()
+    return {
+      result: {
+        name: data.name ?? '',
+        description: data.description ?? '',
+        prompt: data.prompt ?? '',
+        reference_images: Array.isArray(data.reference_images) ? data.reference_images : [],
+      },
+      error: null,
+    }
+  } catch (error) {
+    return {
+      result: null,
+      error: error instanceof Error ? error : new Error('Network error'),
+    }
+  }
+}
+
+/**
  * Generate a style preview image
  */
 export interface GenerateStylePreviewOptions {

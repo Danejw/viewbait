@@ -40,6 +40,16 @@ export interface GeneratePreviewResult {
   imageUrl: string;
 }
 
+/**
+ * Result of extracting style from YouTube thumbnails
+ */
+export interface ExtractStyleFromYouTubeResult {
+  name: string;
+  description: string;
+  prompt: string;
+  reference_images: string[];
+}
+
 export interface UseStylesReturn {
   styles: DbStyle[];
   publicStyles: PublicStyle[];
@@ -47,6 +57,7 @@ export interface UseStylesReturn {
   isLoading: boolean;
   isAnalyzing: boolean;
   isGeneratingPreview: boolean;
+  isExtractingFromYouTube: boolean;
   error: Error | null;
   favoriteIds: Set<string>;
   
@@ -65,6 +76,7 @@ export interface UseStylesReturn {
   
   // AI Actions
   analyzeStyle: (files: File[]) => Promise<AnalyzeStyleResult | null>;
+  extractStyleFromYouTube: (imageUrls: string[]) => Promise<ExtractStyleFromYouTubeResult | null>;
   generatePreview: (prompt: string, referenceImageUrl?: string) => Promise<GeneratePreviewResult | null>;
 }
 
@@ -82,6 +94,7 @@ export function useStyles(options: UseStylesOptions = {}): UseStylesReturn {
   // AI operation states (not using React Query since they're one-off operations)
   const [isAnalyzing, setIsAnalyzing] = React.useState(false);
   const [isGeneratingPreview, setIsGeneratingPreview] = React.useState(false);
+  const [isExtractingFromYouTube, setIsExtractingFromYouTube] = React.useState(false);
 
   // Query keys for React Query cache
   const stylesQueryKey = ['styles', user?.id];
@@ -392,6 +405,33 @@ export function useStyles(options: UseStylesOptions = {}): UseStylesReturn {
   };
 
   /**
+   * Extract a common style from multiple YouTube thumbnail URLs
+   * Returns name, description, prompt, and reference_images for creating a style
+   */
+  const extractStyleFromYouTube = async (
+    imageUrls: string[]
+  ): Promise<ExtractStyleFromYouTubeResult | null> => {
+    if (imageUrls.length < 2) return null;
+
+    setIsExtractingFromYouTube(true);
+    try {
+      const { result, error } = await stylesService.extractStyleFromYouTube(imageUrls);
+
+      if (error || !result) {
+        console.error("Extract style from YouTube failed:", error);
+        return null;
+      }
+
+      return result;
+    } catch (err) {
+      console.error("Extract style from YouTube error:", err);
+      return null;
+    } finally {
+      setIsExtractingFromYouTube(false);
+    }
+  };
+
+  /**
    * Generate a preview thumbnail for a style using AI
    * Returns the URL of the generated preview image
    */
@@ -450,6 +490,7 @@ export function useStyles(options: UseStylesOptions = {}): UseStylesReturn {
     isLoading,
     isAnalyzing,
     isGeneratingPreview,
+    isExtractingFromYouTube,
     error,
     favoriteIds,
     fetchStyles,
@@ -464,6 +505,7 @@ export function useStyles(options: UseStylesOptions = {}): UseStylesReturn {
     updatePreview,
     refresh,
     analyzeStyle,
+    extractStyleFromYouTube,
     generatePreview,
   };
 }

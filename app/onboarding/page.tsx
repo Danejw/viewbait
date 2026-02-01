@@ -32,6 +32,7 @@
   import { markOnboardingCompleted } from "@/lib/services/profiles";
   import { ViewBaitLogo } from "@/components/ui/viewbait-logo";
   import { CRTLoadingEffect } from "@/components/ui/crt-loading-effect";
+  import { TooltipProvider } from "@/components/ui/tooltip";
   import type { Thumbnail } from "@/lib/types/database";
 
   const TOTAL_STEPS = 6;
@@ -71,23 +72,33 @@
     const didExpandStylesRef = useRef(false);
     const onboardingMarkedDoneRef = useRef(false);
 
+    // Refs for studio actions so effects/callbacks don't depend on them (avoids "Maximum update depth" when provider re-renders).
+    const setIncludeStylesRef = useRef(setIncludeStyles);
+    const setIncludeFacesRef = useRef(setIncludeFaces);
+    const setThumbnailTextRef = useRef(setThumbnailText);
+    const setSelectedStyleRef = useRef(setSelectedStyle);
+    setIncludeStylesRef.current = setIncludeStyles;
+    setIncludeFacesRef.current = setIncludeFaces;
+    setThumbnailTextRef.current = setThumbnailText;
+    setSelectedStyleRef.current = setSelectedStyle;
+
     // When entering step 3, show the style grid once (includeStyles = true)
     useEffect(() => {
       if (step === 3 && !didExpandStylesRef.current) {
         didExpandStylesRef.current = true;
-        setIncludeStyles(true);
+        setIncludeStylesRef.current(true);
       }
       if (step !== 3) didExpandStylesRef.current = false;
-    }, [step, setIncludeStyles]);
+    }, [step]);
 
     // When entering step 2, expand face section once so user sees the toggle and grid
     useEffect(() => {
       if (step === 2 && !didExpandFacesRef.current) {
         didExpandFacesRef.current = true;
-        setIncludeFaces(true);
+        setIncludeFacesRef.current(true);
       }
       if (step !== 2) didExpandFacesRef.current = false;
-    }, [step, setIncludeFaces]);
+    }, [step]);
 
     // Track when we're generating so we know when to advance
     useEffect(() => {
@@ -154,10 +165,10 @@
     const handleCreateAnother = useCallback(() => {
       setStep(0);
       setGeneratedThumbnail(null);
-      setThumbnailText("");
-      setSelectedStyle(null);
-      setIncludeFaces(false);
-    }, [setThumbnailText, setSelectedStyle, setIncludeFaces]);
+      setThumbnailTextRef.current("");
+      setSelectedStyleRef.current(null);
+      setIncludeFacesRef.current(false);
+    }, []);
 
     const selectedStyleName =
       selectedStyle &&
@@ -635,11 +646,13 @@
   export default function OnboardingPage() {
     return (
       <OnboardingProvider isOnboarding>
-        <StudioProvider>
-          <StudioDndContext>
-            <OnboardingFlow />
-          </StudioDndContext>
-        </StudioProvider>
+        <TooltipProvider delayDuration={0}>
+          <StudioProvider>
+            <StudioDndContext>
+              <OnboardingFlow />
+            </StudioDndContext>
+          </StudioProvider>
+        </TooltipProvider>
       </OnboardingProvider>
     );
   }

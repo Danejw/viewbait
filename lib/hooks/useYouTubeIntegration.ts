@@ -113,6 +113,19 @@ export interface YouTubeIntegrationState {
   error: string | null;
 }
 
+/**
+ * Deduplicate videos by videoId (keep first occurrence).
+ * Prevents duplicate keys and duplicate list items from double-fetch or API quirks.
+ */
+function dedupeVideosById(videos: YouTubeVideo[]): YouTubeVideo[] {
+  const seen = new Set<string>();
+  return videos.filter((v) => {
+    if (!v.videoId || seen.has(v.videoId)) return false;
+    seen.add(v.videoId);
+    return true;
+  });
+}
+
 export interface YouTubeIntegrationActions {
   /** Refresh status from server */
   refreshStatus: () => Promise<void>;
@@ -327,9 +340,10 @@ export function useYouTubeIntegration(): UseYouTubeIntegrationReturn {
       }
 
       if (data.videos) {
+        const deduped = dedupeVideosById(data.videos);
         setState(prev => ({
           ...prev,
-          videos: data.videos,
+          videos: deduped,
           videosHasMore: data.hasMore || false,
           videosNextPageToken: data.nextPageToken || null,
           isRefreshing: false,
@@ -338,7 +352,7 @@ export function useYouTubeIntegration(): UseYouTubeIntegrationReturn {
         logClientInfo("YouTube videos fetched", {
           operation: "fetch-youtube-videos",
           component: "useYouTubeIntegration",
-          count: data.videos.length,
+          count: deduped.length,
           hasMore: data.hasMore,
         });
       } else {
@@ -373,6 +387,9 @@ export function useYouTubeIntegration(): UseYouTubeIntegrationReturn {
     if (!currentToken || !state.videosHasMore) {
       return; // No more videos to load
     }
+    if (state.isRefreshing) {
+      return; // Prevent concurrent load-more (avoids appending same page twice)
+    }
 
     setState(prev => ({ ...prev, isRefreshing: true, error: null }));
 
@@ -385,13 +402,23 @@ export function useYouTubeIntegration(): UseYouTubeIntegrationReturn {
       }
 
       if (data.videos && data.videos.length > 0) {
-        setState(prev => ({
-          ...prev,
-          videos: [...prev.videos, ...data.videos],
-          videosHasMore: data.hasMore || false,
-          videosNextPageToken: data.nextPageToken || null,
-          isRefreshing: false,
-        }));
+        setState(prev => {
+          const merged = [...prev.videos];
+          const seenIds = new Set(merged.map((v) => v.videoId));
+          for (const v of data.videos) {
+            if (v.videoId && !seenIds.has(v.videoId)) {
+              merged.push(v);
+              seenIds.add(v.videoId);
+            }
+          }
+          return {
+            ...prev,
+            videos: merged,
+            videosHasMore: data.hasMore || false,
+            videosNextPageToken: data.nextPageToken || null,
+            isRefreshing: false,
+          };
+        });
 
         logClientInfo("More YouTube videos loaded", {
           operation: "load-more-youtube-videos",
@@ -419,7 +446,7 @@ export function useYouTubeIntegration(): UseYouTubeIntegrationReturn {
         error: error instanceof Error ? error.message : "Failed to load more videos",
       }));
     }
-  }, [isAuthenticated, state.videosNextPageToken, state.videosHasMore, state.videos.length]);
+  }, [isAuthenticated, state.videosNextPageToken, state.videosHasMore, state.videos.length, state.isRefreshing]);
 
   /**
    * Fetch videos with detailed analytics (latest 10)
@@ -525,13 +552,14 @@ export function useYouTubeIntegration(): UseYouTubeIntegrationReturn {
 
   /**
    * Reconnect by initiating OAuth flow
-   * This will redirect to Google OAuth with YouTube scopes
+   * This will redirect to Google OAuth with YouTube scopes.
+   * After OAuth, user is redirected back to /studio.
    */
   const reconnect = useCallback(async () => {
     setState(prev => ({ ...prev, error: null }));
 
     try {
-      const { error } = await signInWithGoogle();
+      const { error } = await signInWithGoogle("/studio");
       if (error) {
         throw error;
       }

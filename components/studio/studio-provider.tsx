@@ -486,40 +486,7 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
   // Sync generation state (including cooldown so button stays disabled during tier-based interval).
   // Defer update via startTransition to avoid stacking with hook/query updates and exceeding React's update depth.
   const [isPending, startTransition] = useTransition();
-  // #region agent log
-  const providerRenderRef = React.useRef(0);
-  providerRenderRef.current += 1;
-  if (providerRenderRef.current <= 100) {
-    fetch("http://127.0.0.1:7250/ingest/503c3a58-0894-4f46-a41c-96a198c9eec9", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        location: "studio-provider.tsx:render",
-        message: "StudioProvider render",
-        data: { renderCount: providerRenderRef.current },
-        timestamp: Date.now(),
-        sessionId: "debug-session",
-        hypothesisId: "H1",
-      }),
-    }).catch(() => {});
-  }
-  // #endregion
   useEffect(() => {
-    fetch("http://127.0.0.1:7250/ingest/503c3a58-0894-4f46-a41c-96a198c9eec9", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        location: "studio-provider.tsx:sync-effect",
-        message: "sync effect ran",
-        data: {
-          isGenerating: generationState.isGenerating,
-          isButtonDisabled: generationState.isButtonDisabled,
-        },
-        timestamp: Date.now(),
-        sessionId: "debug-session",
-        hypothesisId: "H2",
-      }),
-    }).catch(() => {});
     startTransition(() => {
       setState((s) => {
         if (
@@ -573,18 +540,6 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
     for (const item of generationState.generatingItems.values()) {
       if (thumbnailIds.has(item.id)) idsToRemove.push(item.id);
     }
-    fetch("http://127.0.0.1:7250/ingest/503c3a58-0894-4f46-a41c-96a198c9eec9", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        location: "studio-provider.tsx:cleanup-effect",
-        message: "cleanup effect ran",
-        data: { generatingSize, idsToRemoveLen: idsToRemove.length, willCallRemove: idsToRemove.length > 0 },
-        timestamp: Date.now(),
-        sessionId: "debug-session",
-        hypothesisId: "H3",
-      }),
-    }).catch(() => {});
     if (idsToRemove.length > 0) removeGeneratingItemsByIds(idsToRemove);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- Depend on stable keys only to avoid infinite re-renders (thumbnails/generatingItems read from closure when keys change).
   }, [thumbnailIdsKey, generatingSize, generatingIdsKey, removeGeneratingItemsByIds]);

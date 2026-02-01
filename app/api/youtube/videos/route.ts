@@ -171,28 +171,27 @@ async function getPlaylistVideos(
       return { videos: [], nextPageToken: null, hasMore: false }
     }
     
-    // Extract video data with best available thumbnail
-    const videos: YouTubeVideo[] = data.items.map((item: any) => {
+    // Extract video data with best available thumbnail; dedupe by videoId (keep first)
+    const seenIds = new Set<string>()
+    const videos: YouTubeVideo[] = []
+    for (const item of data.items) {
+      const videoId = item.contentDetails?.videoId || ''
+      if (!videoId || seenIds.has(videoId)) continue
+      seenIds.add(videoId)
       const snippet = item.snippet || {}
       const thumbnails = snippet.thumbnails || {}
-      
-      // Pick best available thumbnail: high > medium > default
-      const thumbnailUrl = thumbnails.high?.url || 
-                          thumbnails.medium?.url || 
-                          thumbnails.default?.url || 
-                          null
-      
-      return {
-        videoId: item.contentDetails?.videoId || '',
+      const thumbnailUrl = thumbnails.high?.url || thumbnails.medium?.url || thumbnails.default?.url || null
+      videos.push({
+        videoId,
         title: snippet.title || 'Untitled',
         publishedAt: snippet.publishedAt || '',
         thumbnailUrl: thumbnailUrl || '',
-      }
-    })
-    
+      })
+    }
+
     const nextPageToken = data.nextPageToken || null
     const hasMore = !!nextPageToken
-    
+
     return { videos, nextPageToken, hasMore }
   } catch (error) {
     logError(error, {

@@ -1055,6 +1055,13 @@ export function StudioGeneratorFaces() {
   } = useStudio();
   const { isOnboarding } = useOnboarding();
 
+  // Stable callback for Switch so Radix doesn't re-run internal effects when provider re-renders (avoids "Maximum update depth").
+  const setIncludeFacesRef = useRef(setIncludeFaces);
+  setIncludeFacesRef.current = setIncludeFaces;
+  const handleIncludeFacesChange = useCallback((checked: boolean) => {
+    setIncludeFacesRef.current(checked);
+  }, []);
+
   // Use real faces from database
   const { faces, isLoading, createFace } = useFaces();
 
@@ -1160,7 +1167,7 @@ export function StudioGeneratorFaces() {
             </span>
           )}
         </div>
-        <Switch checked={includeFaces} onCheckedChange={setIncludeFaces} />
+        <Switch checked={includeFaces} onCheckedChange={handleIncludeFacesChange} />
       </div>
 
       {includeFaces && (

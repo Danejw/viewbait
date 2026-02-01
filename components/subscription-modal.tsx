@@ -158,7 +158,7 @@ export default function SubscriptionModal({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="hide-scrollbar min-h-0 flex-1 overflow-y-auto overflow-x-hidden py-2">
+        <div className="hide-scrollbar min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-6">
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
           {tiers.map((tierName) => {
             const tierConfig = tiersData[tierName];
@@ -170,7 +170,7 @@ export default function SubscriptionModal({
             return (
               <Card
                 key={tierName}
-                className={`relative flex min-w-0 flex-col transition-all ${
+                className={`relative flex min-w-0 flex-col overflow-visible transition-all ${
                   isCurrentTier
                     ? "ring-2 ring-primary shadow-lg"
                     : "hover:shadow-md"
@@ -178,8 +178,8 @@ export default function SubscriptionModal({
               >
                 {isCurrentTier && (
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-10">
-                    <span className="bg-primary text-primary-foreground text-xs font-semibold px-3 py-1 rounded-full whitespace-nowrap">
-                      Current Plan
+                    <span className="bg-primary text-primary-foreground text-xs font-semibold px-3 py-1 rounded-full whitespace-nowrap shadow-sm">
+                       Current Plan
                     </span>
                   </div>
                 )}
@@ -203,7 +203,7 @@ export default function SubscriptionModal({
                   </div>
                 </CardHeader>
 
-                <CardContent className="flex flex-1 flex-col gap-4 pb-5">
+                <CardContent className="flex flex-1 flex-col gap-4">
                   <ul className="flex-1 space-y-2.5 text-sm text-muted-foreground">
                     {getFeatureList(tierConfig).map((feature, index) => (
                       <li key={index} className="flex items-start gap-2">

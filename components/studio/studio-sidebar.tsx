@@ -44,6 +44,8 @@ export interface NavItem {
   view: StudioView;
   icon: React.ComponentType<{ className?: string }>;
   locked?: boolean;
+  /** When true, tab is unlocked when tier === 'pro'; when locked, click opens subscription modal */
+  unlockWithPro?: boolean;
 }
 
 export const navItems: NavItem[] = [
@@ -54,19 +56,22 @@ export const navItems: NavItem[] = [
   { label: "Styles", view: "styles", icon: Palette },
   { label: "Palettes", view: "palettes", icon: Droplets },
   { label: "Faces", view: "faces", icon: User },
-  { label: "YouTube", view: "youtube", icon: Youtube, locked: true },
+  { label: "YouTube", view: "youtube", icon: Youtube, locked: true, unlockWithPro: true },
 ];
 
 /**
  * StudioSidebarNav
  * Navigation items in the sidebar - switches views within SPA
- * Supports collapsed mode with icon-only + tooltips
+ * Supports collapsed mode with icon-only + tooltips.
+ * YouTube tab is unlocked for Pro; when locked, click opens subscription modal.
  */
 export function StudioSidebarNav() {
   const {
     state: { currentView, leftSidebarCollapsed },
     actions: { setView },
   } = useStudio();
+  const { tier, productId } = useSubscription();
+  const [subscriptionModalOpen, setSubscriptionModalOpen] = useState(false);
 
   return (
     <TooltipProvider delayDuration={0}>
@@ -74,6 +79,9 @@ export function StudioSidebarNav() {
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = currentView === item.view;
+          const isLocked =
+            item.locked && !(item.unlockWithPro && tier === "pro");
+          const openModalOnClick = isLocked && item.unlockWithPro;
 
           const buttonContent = (
             <Button
@@ -81,22 +89,28 @@ export function StudioSidebarNav() {
               type="button"
               variant={isActive ? "ghost" : "side"}
               size={leftSidebarCollapsed ? "icon-sm" : "sm"}
-              onClick={() => !item.locked && setView(item.view)}
-              disabled={item.locked}
+              onClick={() => {
+                if (openModalOnClick) {
+                  setSubscriptionModalOpen(true);
+                } else if (!isLocked) {
+                  setView(item.view);
+                }
+              }}
+              disabled={isLocked && !openModalOnClick}
               className={cn(
                 "w-full",
                 leftSidebarCollapsed ? "shrink-0 justify-center" : "justify-start text-left gap-3",
                 isActive
                   ? "bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary hover:text-sidebar-primary-foreground"
                   : "text-sidebar-foreground",
-                item.locked && "opacity-50 cursor-not-allowed"
+                isLocked && !openModalOnClick && "opacity-50 cursor-not-allowed"
               )}
             >
               <Icon className="h-4 w-4 shrink-0" />
               {!leftSidebarCollapsed && (
                 <>
                   <span>{item.label}</span>
-                  {item.locked && <Lock className="ml-auto h-3 w-3" />}
+                  {isLocked && <Lock className="ml-auto h-3 w-3" />}
                 </>
               )}
             </Button>
@@ -108,7 +122,7 @@ export function StudioSidebarNav() {
                 <TooltipTrigger asChild>{buttonContent}</TooltipTrigger>
                 <TooltipContent side="right" className="flex items-center gap-2">
                   {item.label}
-                  {item.locked && <Lock className="h-3 w-3" />}
+                  {isLocked && <Lock className="h-3 w-3" />}
                 </TooltipContent>
               </Tooltip>
             );
@@ -117,6 +131,12 @@ export function StudioSidebarNav() {
           return buttonContent;
         })}
       </nav>
+      <SubscriptionModal
+        isOpen={subscriptionModalOpen}
+        onClose={() => setSubscriptionModalOpen(false)}
+        currentTier={tier}
+        currentProductId={productId}
+      />
     </TooltipProvider>
   );
 }

@@ -102,7 +102,9 @@ export function useWatermarkedImage(
     return () => {
       cancelled = true;
     };
-  }, [enabled, imageUrl, cacheKey, paletteColors, watermarkOptions]);
+    // Depend only on stable primitives and cacheKey (which encodes paletteColors + watermarkOptions).
+    // Including paletteColors/watermarkOptions by reference would re-run every render when callers pass inline objects.
+  }, [enabled, imageUrl, cacheKey]);
 
   return { url: url ?? imageUrl, isLoading, error };
 }
