@@ -5,7 +5,6 @@ import { useStudio } from "./studio-provider";
 import { ThumbnailGrid } from "./thumbnail-grid";
 import type { Thumbnail } from "@/lib/types/database";
 import { Button } from "@/components/ui/button";
-import { ProjectSelector } from "@/components/studio/project-selector";
 import { Card, CardContent } from "@/components/ui/card";
 import { AlertCircle, RefreshCw, ChevronDown } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -13,8 +12,8 @@ import { ViewBaitLogo } from "@/components/ui/viewbait-logo";
 
 /**
  * StudioResultsHeader
- * Header for results panel with project selector and refresh button.
- * Project selection lives here in the generator tab (uses reusable ProjectSelector).
+ * Header for results panel with refresh button.
+ * Project selection is in the right-hand sidebar above Manual/Chat tabs.
  */
 export const StudioResultsHeader = memo(function StudioResultsHeader() {
   const { data, state } = useStudio();

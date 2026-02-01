@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { useStudio } from "@/components/studio/studio-provider";
+import { ProjectSelector } from "@/components/studio/project-selector";
 import { StudioGenerator } from "@/components/studio/studio-generator";
 
 /**
@@ -124,14 +125,25 @@ export function StudioSettingsSidebarCollapsed() {
 
 /**
  * StudioSettingsSidebarContent
- * Expanded content - renders the generator form.
+ * Expanded content - project selector above Manual/Chat tabs, then generator form.
+ * Both Manual and Chat generation use the selected project (activeProjectId).
  * In chat mode, wrapper uses h-full flex flex-col so the chat panel fills height
  * and the input stays fixed at the bottom with messages scrolling above.
  */
 export function StudioSettingsSidebarContent() {
   return (
     <div className="flex h-full flex-col min-h-0 p-2">
-      <StudioGenerator />
+      <div className="shrink-0 mb-3">
+        <ProjectSelector
+          variant="form"
+          label="Project"
+          showHelperText={true}
+          className="mb-0"
+        />
+      </div>
+      <div className="flex-1 min-h-0 flex flex-col">
+        <StudioGenerator />
+      </div>
     </div>
   );
 }

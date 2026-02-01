@@ -626,34 +626,39 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
     enabled: hasWatermark() && !!state.thumbnailToView,
   });
 
+  /**
+   * Download thumbnail image to the user's device.
+   * Always fetches the image as a blob then triggers download via object URL so that
+   * cross-origin URLs (e.g. storage) result in an actual file download on desktop and mobile.
+   */
   const onDownloadThumbnail = useCallback(
     async (id: string) => {
       const thumbnail = thumbnails.find((t) => t.id === id);
       if (!thumbnail?.imageUrl) return;
-      const filename = `${thumbnail.name || "thumbnail"}.png`;
-      if (!hasWatermark()) {
-        const link = document.createElement("a");
-        link.href = thumbnail.imageUrl;
-        link.download = filename;
-        link.click();
-        return;
-      }
+      const rawName = (thumbnail.name || "thumbnail").replace(/[<>:"/\\|?*]/g, "").trim() || "thumbnail";
+      const filename = `${rawName}.png`;
+
       try {
         const res = await fetch(thumbnail.imageUrl, { mode: "cors" });
         if (!res.ok) throw new Error(`Failed to fetch image: ${res.status}`);
-        const blob = await res.blob();
-        const watermarked = await applyQrWatermark(blob);
-        const objectUrl = URL.createObjectURL(watermarked);
+        let blob = await res.blob();
+        if (hasWatermark()) {
+          blob = await applyQrWatermark(blob);
+        }
+        const objectUrl = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.href = objectUrl;
         link.download = filename;
+        link.rel = "noopener noreferrer";
         link.click();
-        URL.revokeObjectURL(objectUrl);
+        setTimeout(() => URL.revokeObjectURL(objectUrl), 200);
       } catch (err) {
-        console.error("Watermarked download failed:", err);
+        console.error("Download failed:", err);
         const link = document.createElement("a");
         link.href = thumbnail.imageUrl;
         link.download = filename;
+        link.rel = "noopener noreferrer";
+        link.target = "_blank";
         link.click();
       }
     },

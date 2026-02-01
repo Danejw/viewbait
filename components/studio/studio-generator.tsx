@@ -29,7 +29,6 @@ import { ViewBaitLogo } from "@/components/ui/viewbait-logo";
 import { useStudio } from "@/components/studio/studio-provider";
 import { useSubscription } from "@/lib/hooks/useSubscription";
 import { StudioChatPanel } from "@/components/studio/studio-chat";
-import { ProjectSelector } from "@/components/studio/project-selector";
 import { useFaces } from "@/lib/hooks/useFaces";
 import { FaceThumbnail, FaceThumbnailSkeleton } from "./face-thumbnail";
 import { useStyles } from "@/lib/hooks/useStyles";
@@ -1341,20 +1340,6 @@ export function StudioGeneratorFaces() {
     </div>
   );
 }
-
-/**
- * StudioGeneratorProject
- * Project selector in the generator right panel. Uses reusable ProjectSelector (form variant).
- */
-// export function StudioGeneratorProject() {
-//   return (
-//     <ProjectSelector
-//       variant="form"
-//       label="Project"
-//       showHelperText={true}
-//     />
-//   );
-// }
 
 type StudioGeneratorSubmitProps = {
   /** Optional class for the main button (e.g. onboarding btn-primary pulse-glow) */
