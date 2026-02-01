@@ -505,6 +505,9 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
+    // Switch to Preview tab on mobile so user sees results feed and loading state
+    setState((s) => ({ ...s, mobilePanel: "results" }));
+
     // Build face characters from selected faces
     // Each selected face becomes a character with its reference images (up to 3 per face)
     // The API expects: faceCharacters: Array<{ images: string[] }> where images are actual URLs

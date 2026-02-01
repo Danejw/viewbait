@@ -3,6 +3,7 @@
 import React, { useCallback, memo } from "react";
 import { useStudio } from "./studio-provider";
 import { ThumbnailGrid } from "./thumbnail-grid";
+import type { Thumbnail } from "@/lib/types/database";
 import { Button } from "@/components/ui/button";
 import { ProjectSelector } from "@/components/studio/project-selector";
 import { Card, CardContent } from "@/components/ui/card";
@@ -42,15 +43,6 @@ export const StudioResultsHeader = memo(function StudioResultsHeader() {
             <RefreshCw className="h-4 w-4 shrink-0" />
           )}
         </Button>
-      </div>
-      <div className="flex items-center gap-2">
-        <ProjectSelector variant="inline" label="Project" />
-        {isGenerating && (
-          <span className="inline-flex items-center text-sm text-primary">
-            <span className="mr-1 h-2 w-2 animate-pulse rounded-full bg-primary" />
-            Generating...
-          </span>
-        )}
       </div>
     </div>
   );
@@ -140,28 +132,55 @@ const StudioResultsEmptyProject = memo(function StudioResultsEmptyProject() {
  * ImageModal is rendered globally in StudioProvider
  * When a project is selected and has no thumbnails, shows an empty-state message instead of skeletons.
  */
+/** Single placeholder for CRT fallback when isGenerating but generatingItems not yet populated */
+const FALLBACK_GENERATING_PLACEHOLDER: Thumbnail = {
+  id: "generating-placeholder",
+  name: "Creating thumbnail...",
+  imageUrl: "",
+  thumbnail400wUrl: null,
+  thumbnail800wUrl: null,
+  prompt: "Creating thumbnail...",
+  isFavorite: false,
+  isPublic: false,
+  createdAt: new Date(),
+  generating: true,
+  resolution: "1K",
+};
+
+const FALLBACK_GENERATING_ITEMS = new Map<string, Thumbnail>([
+  ["generating-placeholder", FALLBACK_GENERATING_PLACEHOLDER],
+]);
+
 export const StudioResultsGrid = memo(function StudioResultsGrid() {
   const { data: studioData, state } = useStudio();
   const { thumbnails, generatingItems, thumbnailsLoading } = studioData;
-  const { activeProjectId } = state;
+  const { activeProjectId, isGenerating } = state;
 
   const projectSelectedAndEmpty =
     activeProjectId &&
     thumbnails.length === 0 &&
     generatingItems.size === 0 &&
-    !thumbnailsLoading;
+    !thumbnailsLoading &&
+    !isGenerating;
 
   if (projectSelectedAndEmpty) {
     return <StudioResultsEmptyProject />;
   }
 
+  const effectiveGeneratingItems =
+    isGenerating && generatingItems.size === 0
+      ? FALLBACK_GENERATING_ITEMS
+      : generatingItems;
+  const showEmptySlots =
+    thumbnails.length === 0 && effectiveGeneratingItems.size === 0;
+
   return (
     <ThumbnailGrid
       thumbnails={thumbnails}
-      generatingItems={generatingItems}
+      generatingItems={effectiveGeneratingItems}
       isLoading={thumbnailsLoading}
       minSlots={12}
-      showEmptySlots={thumbnails.length === 0 && generatingItems.size === 0}
+      showEmptySlots={showEmptySlots}
     />
   );
 });

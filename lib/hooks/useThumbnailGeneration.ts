@@ -176,21 +176,20 @@ export function useThumbnailGeneration(
       skeletonItems.push({ tempId, skeleton });
     }
 
-    // Update state with skeletons using transition for non-blocking UI
-    startTransition(() => {
-      setState(prev => {
-        const newItems = new Map(prev.generatingItems);
-        skeletonItems.forEach(({ tempId, skeleton }) => {
-          newItems.set(tempId, skeleton);
-        });
-        return {
-          ...prev,
-          isGenerating: true,
-          isButtonDisabled: true,
-          error: null,
-          generatingItems: newItems,
-        };
+    // Update state with skeletons synchronously so CRT placeholders appear immediately
+    // (e.g. on mobile when switching to Preview tab after tapping Generate)
+    setState(prev => {
+      const newItems = new Map(prev.generatingItems);
+      skeletonItems.forEach(({ tempId, skeleton }) => {
+        newItems.set(tempId, skeleton);
       });
+      return {
+        ...prev,
+        isGenerating: true,
+        isButtonDisabled: true,
+        error: null,
+        generatingItems: newItems,
+      };
     });
 
     // Re-enable button after tier-based cooldown

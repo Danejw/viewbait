@@ -1473,7 +1473,7 @@ export function StudioGenerator() {
   return (
     <div className="flex flex-1 flex-col min-h-0">
       <StudioGeneratorTabs />
-      <div className="flex-1 min-h-0 overflow-y-auto hide-scrollbar">
+      <div className="flex-1 min-h-0 overflow-y-auto hide-scrollbar mb-6">
         <StudioGeneratorThumbnailText />
         <StudioGeneratorCustomInstructions />
         <div className={cn(locked && "relative")}>
