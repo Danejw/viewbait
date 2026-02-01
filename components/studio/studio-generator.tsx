@@ -35,6 +35,7 @@ import { FaceThumbnail, FaceThumbnailSkeleton } from "./face-thumbnail";
 import { useStyles } from "@/lib/hooks/useStyles";
 import { usePalettes } from "@/lib/hooks/usePalettes";
 import { StyleEditor } from "@/components/studio/style-editor";
+import { FaceEditor } from "@/components/studio/face-editor";
 import { PaletteColorStrip } from "@/components/studio/palette-thumbnail-card";
 import { cn } from "@/lib/utils";
 import SubscriptionModal from "@/components/subscription-modal";
@@ -1065,6 +1066,10 @@ export function StudioGeneratorFaces() {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+  // Create new face modal (add-new-face button opens this instead of navigating to faces)
+  const [faceEditorOpen, setFaceEditorOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
   // Setup drop zone for face items
   const { active } = useDndContext();
   const activeData = active?.data.current as DragData | undefined;
@@ -1074,11 +1079,35 @@ export function StudioGeneratorFaces() {
     id: DROP_ZONE_IDS.FACES,
   });
 
-  // Navigate to faces management view to add new face (no-op in onboarding)
+  // Navigate to faces management view (used by empty-state "Add your first face" link)
   const handleAddFace = useCallback(() => {
     if (isOnboarding) return;
     setView("faces");
   }, [isOnboarding, setView]);
+
+  // Open create-new-face modal (add-new-face grid button)
+  const handleOpenCreateFace = useCallback(() => {
+    if (isOnboarding) return;
+    setFaceEditorOpen(true);
+  }, [isOnboarding]);
+
+  // Save from create-new-face modal; auto-select new face and close
+  const handleSaveFace = useCallback(
+    async (name: string, newImages: File[], _existingUrls: string[]) => {
+      setIsSaving(true);
+      try {
+        const created = await createFace(name, newImages);
+        if (created) {
+          toggleFace(created.id);
+          setFaceEditorOpen(false);
+          toast.success("Face added! You can use it in your thumbnail.");
+        }
+      } finally {
+        setIsSaving(false);
+      }
+    },
+    [createFace, toggleFace]
+  );
 
   // Onboarding: upload first face via file input
   const handleUploadFirstFace = useCallback(
@@ -1232,12 +1261,12 @@ export function StudioGeneratorFaces() {
                   />
                 ))
               )}
-              {/* Add new face cell – same aspect as grid items; in onboarding opens file picker */}
+              {/* Add new face cell – same aspect as grid items; in onboarding opens file picker; otherwise opens create-face modal */}
               {!isLoading && (
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={isOnboarding ? () => fileInputRef.current?.click() : handleAddFace}
+                  onClick={isOnboarding ? () => fileInputRef.current?.click() : handleOpenCreateFace}
                   disabled={isOnboarding && isUploadingFirst}
                   className="aspect-square h-auto w-full border-2 border-dashed border-border text-muted-foreground hover:border-primary hover:text-primary disabled:opacity-60"
                 >
@@ -1300,6 +1329,15 @@ export function StudioGeneratorFaces() {
           )}
         </>
       )}
+
+      {/* Create new face modal – opened by add-new-face button (Create tab / mobile) */}
+      <FaceEditor
+        open={faceEditorOpen}
+        onOpenChange={setFaceEditorOpen}
+        face={null}
+        onSave={handleSaveFace}
+        isLoading={isSaving}
+      />
     </div>
   );
 }

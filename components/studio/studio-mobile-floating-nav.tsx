@@ -128,21 +128,24 @@ export function StudioMobileFloatingNav() {
         )}
       </AnimatePresence>
       <motion.div
-        className="fixed left-0 z-50 p-4 pl-[max(1rem,env(safe-area-inset-left))] pb-[max(1rem,env(safe-area-inset-bottom))] cursor-grab active:cursor-grabbing"
+        className="fixed left-0 z-50 p-4 pl-[max(1rem,env(safe-area-inset-left))] pb-[max(1rem,env(safe-area-inset-bottom))] pointer-events-none"
         style={{ bottom: bottomPx }}
-        drag="y"
-        dragConstraints={{
-          top: -(maxBottomRef.current - bottomPx),
-          bottom: Math.max(0, bottomPx - MIN_BOTTOM_PX),
-        }}
-        dragElastic={0}
-        dragMomentum={false}
-        onDragStart={handleDragStart}
-        onDragEnd={handleDragEnd}
         aria-label="Mobile navigation"
-        whileDrag={{ cursor: "grabbing" }}
       >
-        <FloatingButton
+        <motion.div
+          className="pointer-events-auto cursor-grab active:cursor-grabbing"
+          drag="y"
+          dragConstraints={{
+            top: -(maxBottomRef.current - bottomPx),
+            bottom: Math.max(0, bottomPx - MIN_BOTTOM_PX),
+          }}
+          dragElastic={0}
+          dragMomentum={false}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+          whileDrag={{ cursor: "grabbing" }}
+        >
+          <FloatingButton
           className="flex flex-col items-center"
           onOpenChange={setMenuOpen}
           triggerContent={
@@ -259,6 +262,7 @@ export function StudioMobileFloatingNav() {
             );
           })}
         </FloatingButton>
+        </motion.div>
       </motion.div>
       <SubscriptionModal
         isOpen={subscriptionModalOpen}
