@@ -1551,3 +1551,114 @@ html.lenis body {
   background: linear-gradient(90deg, #ff0000, #ff4444, #ff0000);
   box-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
 }
+
+/* ----- CRT effect: error variant (failed generation, same structure as loading with red/destructive tint) ----- */
+.crt-loading-effect--error {
+  background: #1a0a0a;
+}
+
+.crt-loading-effect--error .crt-loading-static {
+  opacity: 0.18;
+}
+
+.crt-loading-effect--error .crt-loading-scanlines {
+  background: repeating-linear-gradient(
+    0deg,
+    transparent 0px,
+    transparent 2px,
+    rgba(127, 29, 29, 0.25) 2px,
+    rgba(127, 29, 29, 0.25) 4px
+  );
+}
+
+.crt-loading-effect--error .crt-loading-interference {
+  background: repeating-linear-gradient(
+    0deg,
+    transparent 0%,
+    transparent 3%,
+    rgba(220, 38, 38, 0.06) 3%,
+    rgba(185, 28, 28, 0.12) 4%,
+    rgba(220, 38, 38, 0.06) 5%,
+    transparent 5%,
+    transparent 10%
+  );
+}
+
+.crt-loading-effect--error .crt-loading-rgb-shift {
+  animation: crt-loading-rgb-shift-error 8s ease-in-out infinite;
+}
+
+@keyframes crt-loading-rgb-shift-error {
+  0%, 100% {
+    box-shadow:
+      inset 2px 0 0 rgba(220, 38, 38, 0.2),
+      inset -2px 0 0 rgba(185, 28, 28, 0.15);
+  }
+  50% {
+    box-shadow:
+      inset 4px 0 0 rgba(220, 38, 38, 0.3),
+      inset -4px 0 0 rgba(185, 28, 28, 0.2);
+  }
+}
+
+.crt-loading-effect--error .crt-loading-vignette {
+  background: radial-gradient(
+    ellipse at center,
+    transparent 35%,
+    rgba(127, 29, 29, 0.3) 70%,
+    rgba(127, 29, 29, 0.5) 100%
+  );
+}
+
+.dark .crt-loading-effect--error {
+  background: #0f0505;
+}
+
+.dark .crt-loading-effect--error .crt-loading-scanlines {
+  background: repeating-linear-gradient(
+    0deg,
+    transparent 0px,
+    transparent 2px,
+    rgba(127, 29, 29, 0.5) 2px,
+    rgba(127, 29, 29, 0.5) 4px
+  );
+}
+
+.dark .crt-loading-effect--error .crt-loading-interference {
+  background: repeating-linear-gradient(
+    0deg,
+    transparent 0%,
+    transparent 3%,
+    rgba(248, 113, 113, 0.06) 3%,
+    rgba(185, 28, 28, 0.14) 4%,
+    rgba(248, 113, 113, 0.06) 5%,
+    transparent 5%,
+    transparent 10%
+  );
+}
+
+.dark .crt-loading-effect--error .crt-loading-rgb-shift {
+  animation: crt-loading-rgb-shift-error-dark 8s ease-in-out infinite;
+}
+
+@keyframes crt-loading-rgb-shift-error-dark {
+  0%, 100% {
+    box-shadow:
+      inset 2px 0 0 rgba(248, 113, 113, 0.15),
+      inset -2px 0 0 rgba(185, 28, 28, 0.15);
+  }
+  50% {
+    box-shadow:
+      inset 4px 0 0 rgba(248, 113, 113, 0.25),
+      inset -4px 0 0 rgba(185, 28, 28, 0.2);
+  }
+}
+
+.dark .crt-loading-effect--error .crt-loading-vignette {
+  background: radial-gradient(
+    ellipse at center,
+    transparent 35%,
+    rgba(127, 29, 29, 0.4) 70%,
+    rgba(69, 10, 10, 0.7) 100%
+  );
+}

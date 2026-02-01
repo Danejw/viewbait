@@ -31,7 +31,7 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { ViewBaitLogo } from "@/components/ui/viewbait-logo";
-import { useStudio, type StudioView } from "@/components/studio/studio-provider";
+import { useStudio, useStudioState, type StudioView } from "@/components/studio/studio-provider";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useSubscription } from "@/lib/hooks/useSubscription";
 import SubscriptionModal from "@/components/subscription-modal";
@@ -124,14 +124,31 @@ export function StudioSidebarNav() {
 /**
  * StudioSidebarCredits
  * Credits display section - adapts to collapsed state
- * Click to open subscription modal for upgrades
+ * Click to open subscription modal for upgrades.
+ * Wrapped in React.memo so it only re-renders when useStudioState() or useSubscription() values change, not when the provider re-renders from data/thumbnails updates.
  */
-export function StudioSidebarCredits() {
-  const {
-    state: { leftSidebarCollapsed },
-  } = useStudio();
+export const StudioSidebarCredits = React.memo(function StudioSidebarCredits() {
+  const { leftSidebarCollapsed } = useStudioState();
   const { tier, tierConfig, creditsRemaining, creditsTotal, isLoading, productId } = useSubscription();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  // #region agent log
+  const creditsRenderRef = React.useRef(0);
+  creditsRenderRef.current += 1;
+  if (creditsRenderRef.current <= 100) {
+    fetch("http://127.0.0.1:7250/ingest/503c3a58-0894-4f46-a41c-96a198c9eec9", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        location: "studio-sidebar.tsx:StudioSidebarCredits",
+        message: "StudioSidebarCredits render",
+        data: { renderCount: creditsRenderRef.current },
+        timestamp: Date.now(),
+        sessionId: "debug-session",
+        hypothesisId: "H4",
+      }),
+    }).catch(() => {});
+  }
+  // #endregion
 
   if (leftSidebarCollapsed) {
     return (
@@ -226,7 +243,7 @@ export function StudioSidebarCredits() {
       />
     </>
   );
-}
+});
 
 /**
  * StudioSidebarUser

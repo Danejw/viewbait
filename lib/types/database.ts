@@ -956,6 +956,8 @@ export interface Thumbnail {
   isPublic: boolean      // derived from favorites or sharing
   createdAt: Date        // maps to created_at
   generating?: boolean   // UI state only
+  /** Failed-generation UI state (client-only; for items in generatingItems) */
+  error?: string
   likeCount?: number     // from favorites count
   authorId?: string      // maps to user_id
   authorName?: string    // from profiles join

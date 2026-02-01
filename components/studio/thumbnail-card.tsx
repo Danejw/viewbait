@@ -20,7 +20,7 @@
 import React, { memo, useCallback, useMemo, useState } from "react";
 import { useDraggable } from "@dnd-kit/core";
 import { motion } from "framer-motion";
-import { Heart, Download, Copy, Pencil, Trash2, FolderPlus } from "lucide-react";
+import { Heart, Download, Copy, Pencil, Trash2, FolderPlus, AlertCircle } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -114,6 +114,53 @@ function ThumbnailCardGenerating({ text }: { text?: string }) {
             <p className="truncate text-xs text-muted-foreground">{text}</p>
           </div>
         )}
+      </div>
+    </Card>
+  );
+}
+
+/**
+ * Card shown when generation failed (e.g. Gemini API error).
+ * Uses the same CRT effect as loading state but with error variant (red tint);
+ * overlays error icon, message, and Dismiss so it matches the thumbnail card / CRT look.
+ */
+function ThumbnailCardFailed({
+  text,
+  error,
+  onDismiss,
+}: {
+  text?: string;
+  error: string;
+  onDismiss: () => void;
+}) {
+  return (
+    <Card className="group relative overflow-hidden p-0">
+      <div className="relative aspect-video w-full">
+        <CRTLoadingEffect
+          variant="error"
+          className="absolute inset-0 h-full w-full !aspect-auto rounded-lg"
+        />
+        <div className="absolute inset-0 z-[1] flex items-center justify-center p-4">
+          <div className="flex flex-col items-center gap-2 text-center">
+            <AlertCircle className="h-8 w-8 shrink-0 text-destructive drop-shadow-[0_0_8px_rgba(220,38,38,0.5)]" />
+            {text && (
+              <p
+                className="truncate w-full text-xs text-muted-foreground drop-shadow-[0_0_4px_rgba(0,0,0,0.8)]"
+                title={text}
+              >
+                {text}
+              </p>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onDismiss}
+              className="border-destructive/60 text-destructive hover:bg-destructive/15 hover:text-destructive"
+            >
+              Dismiss
+            </Button>
+          </div>
+        </div>
       </div>
     </Card>
   );
@@ -275,6 +322,7 @@ export const ThumbnailCard = memo(function ThumbnailCard({
     onDelete,
     onAddToProject,
     onView,
+    onDismissFailed,
   } = useThumbnailActions();
 
   const {
@@ -285,6 +333,7 @@ export const ThumbnailCard = memo(function ThumbnailCard({
     thumbnail800wUrl,
     isFavorite,
     generating,
+    error: thumbnailError,
     resolution,
     authorId,
     projectId,
@@ -342,6 +391,17 @@ export const ThumbnailCard = memo(function ThumbnailCard({
   // Show CRT loading state for items currently being generated
   if (generating) {
     return <ThumbnailCardGenerating text={name} />;
+  }
+
+  // Show failed state when generation failed (e.g. Gemini API error)
+  if (thumbnailError && onDismissFailed) {
+    return (
+      <ThumbnailCardFailed
+        text={name}
+        error={thumbnailError}
+        onDismiss={() => onDismissFailed(id)}
+      />
+    );
   }
 
   // Memoize handlers to prevent re-renders

@@ -101,6 +101,13 @@ export async function callGeminiImageGeneration(
         route: 'ai-core',
         statusCode: response.status,
       })
+      // User-friendly messages for common status codes
+      if (response.status === 503) {
+        throw new Error('Image service is temporarily unavailable. Please try again in a few minutes.')
+      }
+      if (response.status === 500) {
+        throw new Error(sanitizedError || 'Image generation failed. Please try again.')
+      }
       throw new Error(`Gemini API error: ${response.status} - ${sanitizedError}`)
     }
 
@@ -133,7 +140,7 @@ export async function callGeminiImageGeneration(
       }
     }
 
-    throw new Error('No image data found in Gemini API response')
+    throw new Error('Image generation failed: the AI did not return an image. Please try again.')
   } catch (error) {
     // Handle timeout errors specifically
     if (error instanceof TimeoutError) {

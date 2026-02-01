@@ -13,7 +13,7 @@
  */
 
 import { useQuery, useQueryClient, useMutation, useInfiniteQuery } from "@tanstack/react-query";
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import { getThumbnails, deleteThumbnail, toggleThumbnailFavorite } from "@/lib/services/thumbnails";
 import { mapDbThumbnailToThumbnail } from "@/lib/types/database";
 import type { DbThumbnail, Thumbnail } from "@/lib/types/database";
@@ -136,11 +136,14 @@ export function useThumbnails({
     gcTime: 1000 * 60 * 5, // 5 minutes
   });
 
-  // Flatten pages into single array
-  const thumbnails: Thumbnail[] =
-    data?.pages.flatMap((page) =>
-      page.thumbnails.map(mapDbThumbnailToThumbnail)
-    ) ?? [];
+  // Flatten pages into single array; memoize so same reference when data unchanged (avoids provider/context cascade re-renders)
+  const thumbnails: Thumbnail[] = useMemo(
+    () =>
+      data?.pages.flatMap((page) =>
+        page.thumbnails.map(mapDbThumbnailToThumbnail)
+      ) ?? [],
+    [data]
+  );
 
   const totalCount = data?.pages[0]?.count ?? 0;
 

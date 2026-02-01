@@ -497,14 +497,30 @@ export async function generateThumbnail(
     })
 
     if (!response.ok) {
-      const errorData = await response.json()
-      const error = new Error(errorData.error || 'Failed to generate thumbnail')
-      
-      // Include refund failure warning in error if present
-      if (errorData.refundFailureWarning) {
-        (error as any).refundFailureWarning = errorData.refundFailureWarning
+      let errorMessage: string
+      let errorData: { error?: string; refundFailureWarning?: unknown } | null = null
+      try {
+        errorData = await response.json()
+        errorMessage = errorData?.error ?? ''
+      } catch {
+        errorData = null
+        errorMessage = ''
       }
-      
+      // Status-based fallback when body is not JSON or error field missing
+      if (!errorMessage) {
+        if (response.status === 503) {
+          errorMessage = 'Service temporarily unavailable. Please try again in a few minutes.'
+        } else if (response.status === 500) {
+          errorMessage = 'Generation failed. Please try again.'
+        } else {
+          errorMessage = 'Something went wrong. Please try again.'
+        }
+      }
+      const error = new Error(errorMessage)
+      if (errorData?.refundFailureWarning) {
+        (error as Error & { refundFailureWarning?: unknown }).refundFailureWarning =
+          errorData.refundFailureWarning
+      }
       return {
         result: null,
         error,

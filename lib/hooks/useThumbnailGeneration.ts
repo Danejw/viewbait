@@ -207,48 +207,14 @@ export function useThumbnailGeneration(
         const { result, error } = await generateThumbnailService(apiOptions);
         
         if (error) {
-          // Remove failed skeleton
-          startTransition(() => {
-            setState(prev => {
-              const newItems = new Map(prev.generatingItems);
-              newItems.delete(tempId);
-              return {
-                ...prev,
-                generatingItems: newItems,
-                isGenerating: newItems.size > 0,
-              };
-            });
-          });
+          // Don't setState here; batch with final update after Promise.allSettled to avoid update storm and re-render loop.
           return { success: false, tempId, error: error.message };
         }
 
         if (result?.imageUrl && result?.thumbnailId) {
-          // Update skeleton with real data
           const imageUrl = result.imageUrl.includes('?')
             ? `${result.imageUrl}&_t=${Date.now()}`
             : `${result.imageUrl}?_t=${Date.now()}`;
-
-          startTransition(() => {
-            setState(prev => {
-              const newItems = new Map(prev.generatingItems);
-              const existing = newItems.get(tempId);
-              if (existing) {
-                // Update with real ID and image
-                newItems.delete(tempId);
-                newItems.set(result.thumbnailId!, {
-                  ...existing,
-                  id: result.thumbnailId!,
-                  imageUrl,
-                  generating: false,
-                });
-              }
-              return {
-                ...prev,
-                generatingItems: newItems,
-              };
-            });
-          });
-
           return {
             success: true,
             tempId,
@@ -259,23 +225,9 @@ export function useThumbnailGeneration(
 
         return { success: false, tempId, error: "No result returned" };
       } catch (err) {
-        // Remove failed skeleton
-        startTransition(() => {
-          setState(prev => {
-            const newItems = new Map(prev.generatingItems);
-            newItems.delete(tempId);
-            return {
-              ...prev,
-              generatingItems: newItems,
-              isGenerating: newItems.size > 0,
-            };
-          });
-        });
-        return {
-          success: false,
-          tempId,
-          error: err instanceof Error ? err.message : "Failed to generate",
-        };
+        const errorMessage = err instanceof Error ? err.message : "Failed to generate";
+        // Don't setState here; batch with final update after Promise.allSettled to avoid update storm and re-render loop.
+        return { success: false, tempId, error: errorMessage };
       }
     });
 
@@ -293,22 +245,64 @@ export function useThumbnailGeneration(
       };
     });
 
-    // Check for errors
+    // All promises have settled: apply failed-item state and stop generating in a single setState to avoid update storm and re-render loop.
     const failedCount = processedResults.filter(r => !r.success).length;
+    let errorMessage: string | null = null;
     if (failedCount === variations) {
-      const firstError = processedResults.find(r => r.error)?.error;
-      setState(prev => ({
-        ...prev,
-        error: firstError || "All generations failed",
-        isGenerating: false,
-      }));
+      errorMessage = processedResults.find(r => r.error)?.error ?? "All generations failed";
     } else if (failedCount > 0) {
       const successCount = variations - failedCount;
-      setState(prev => ({
-        ...prev,
-        error: `${successCount} of ${variations} generated successfully`,
-      }));
+      errorMessage = `${successCount} of ${variations} generated successfully`;
     }
+    const failedByTempId = processedResults.filter(
+      (r): r is { success: false; tempId: string; error: string } =>
+        !r.success && "tempId" in r && r.tempId != null && "error" in r && typeof r.error === "string"
+    );
+    const successByTempId = processedResults.filter(
+      (r): r is { success: true; tempId: string; thumbnailId: string; imageUrl: string } =>
+        r.success && "tempId" in r && "thumbnailId" in r && "imageUrl" in r
+    );
+    // #region agent log
+    fetch("http://127.0.0.1:7250/ingest/503c3a58-0894-4f46-a41c-96a198c9eec9", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        location: "useThumbnailGeneration.ts:after-allSettled",
+        message: "setState after Promise.allSettled (isGenerating: false)",
+        data: { failedCount, errorMessage: errorMessage ?? null },
+        timestamp: Date.now(),
+        sessionId: "debug-session",
+        hypothesisId: "H5",
+      }),
+    }).catch(() => {});
+    // #endregion
+    setState(prev => {
+      const newItems = new Map(prev.generatingItems);
+      for (const { tempId, error: errMsg } of failedByTempId) {
+        const existing = newItems.get(tempId);
+        if (existing) {
+          newItems.set(tempId, { ...existing, generating: false, error: errMsg });
+        }
+      }
+      for (const { tempId, thumbnailId, imageUrl } of successByTempId) {
+        const existing = newItems.get(tempId);
+        if (existing) {
+          newItems.delete(tempId);
+          newItems.set(thumbnailId, {
+            ...existing,
+            id: thumbnailId,
+            imageUrl,
+            generating: false,
+          });
+        }
+      }
+      return {
+        ...prev,
+        generatingItems: newItems,
+        isGenerating: false,
+        ...(errorMessage !== null && { error: errorMessage }),
+      };
+    });
 
     return processedResults;
   }, []);
@@ -358,6 +352,20 @@ export function useThumbnailGeneration(
   const removeGeneratingItemsByIds = useCallback((ids: Set<string> | string[]) => {
     const idSet = ids instanceof Set ? ids : new Set(ids);
     if (idSet.size === 0) return;
+    // #region agent log
+    fetch("http://127.0.0.1:7250/ingest/503c3a58-0894-4f46-a41c-96a198c9eec9", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        location: "useThumbnailGeneration.ts:removeGeneratingItemsByIds",
+        message: "removeGeneratingItemsByIds called",
+        data: { idsLen: idSet.size },
+        timestamp: Date.now(),
+        sessionId: "debug-session",
+        hypothesisId: "H3",
+      }),
+    }).catch(() => {});
+    // #endregion
     startTransition(() => {
       setState(prev => {
         const newItems = new Map(prev.generatingItems);

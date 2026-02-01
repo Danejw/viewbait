@@ -16,7 +16,7 @@ import { getEmotionDescription, getPoseDescription } from '@/lib/utils/ai-helper
 import { logError } from '@/lib/server/utils/logger'
 import { generateThumbnailVariants } from '@/lib/server/utils/image-variants'
 import { requireAuth } from '@/lib/server/utils/auth'
-import { decrementCreditsAtomic, incrementCreditsAtomic } from '@/lib/server/utils/credits'
+import { decrementCreditsAtomic } from '@/lib/server/utils/credits'
 import { isUUID, validateStyleIdentifier } from '@/lib/server/utils/uuid-validation'
 import { TimeoutError } from '@/lib/utils/retry-with-backoff'
 import {
@@ -97,6 +97,22 @@ interface SingleVariationResult {
   thumbnailId?: string
   imageUrl?: string
   error?: string
+}
+
+/**
+ * Map known API/AI error messages to user-facing strings for consistent client display.
+ */
+function normalizeGenerationError(message: string): string {
+  if (message.includes('No image data found') || message.includes('did not return an image')) {
+    return 'Image generation failed: the AI did not return an image. Please try again.'
+  }
+  if (message.includes('timed out') || message === 'Generation timed out') {
+    return 'Generation timed out'
+  }
+  if (message.includes('temporarily unavailable') || message.includes('503')) {
+    return 'Image service is temporarily unavailable. Please try again in a few minutes.'
+  }
+  return message
 }
 
 /**
@@ -331,10 +347,11 @@ async function generateSingleVariation(
       thumbnailId,
     })
 
+    const rawMessage = error instanceof Error ? error.message : 'Failed to generate thumbnail'
     return {
       success: false,
       thumbnailId,
-      error: error instanceof Error ? error.message : 'Failed to generate thumbnail',
+      error: normalizeGenerationError(rawMessage),
     }
   }
 }
@@ -589,77 +606,9 @@ export async function POST(request: Request) {
 
     const supabaseService = createServiceClient()
 
-    // For batch (variations > 1): Deduct credits upfront
-    // For single (variations === 1): Deduct after generation (backward compatible)
+    // Credits: only deduct for successful generations (no upfront batch deduction, no refunds).
+    // Single variation: deduct after success. Batch: deduct only for successfulResults after generation.
     let creditResult: Awaited<ReturnType<typeof decrementCreditsAtomic>> | null = null
-    let batchIdempotencyKey: string | null = null
-
-    if (variations > 1) {
-      // Batch mode: Deduct credits upfront
-      batchIdempotencyKey = crypto.randomUUID()
-      
-      creditResult = await decrementCreditsAtomic(
-        supabaseService,
-        user.id,
-        totalCreditCost,
-        batchIdempotencyKey,
-        null, // No single thumbnail ID for batch
-        `Generated ${variations} ${requestedResolution} thumbnail variation(s): ${body.title.substring(0, 50)}`,
-        'generation'
-      )
-
-      // Handle atomic function results
-      if (!creditResult.success) {
-        // Clean up all thumbnail records on credit deduction failure
-        await supabase.from('thumbnails').delete().in('id', thumbnailIds)
-        
-        if (creditResult.reason === 'INSUFFICIENT') {
-          return insufficientCreditsResponse(creditsRemaining, totalCreditCost)
-        }
-        
-        // Database error or other failure
-        logError(new Error(`Credit deduction failed: ${creditResult.reason}`), {
-          route: 'POST /api/generate',
-          userId: user.id,
-          operation: 'atomic-credit-decrement-batch',
-          thumbnailIds,
-          idempotencyKey: batchIdempotencyKey,
-        })
-        return databaseErrorResponse('Failed to deduct credits')
-      }
-
-      // If duplicate (idempotent retry), we need to check if thumbnails already exist
-      if (creditResult.duplicate) {
-        // For duplicate batch requests, return existing thumbnails if they exist
-        const { data: existingThumbnails } = await supabase
-          .from('thumbnails')
-          .select('id, image_url')
-          .in('id', thumbnailIds)
-          .eq('user_id', user.id)
-          .not('image_url', 'is', null)
-
-        if (existingThumbnails && existingThumbnails.length > 0) {
-          // Return batch response with existing thumbnails
-          const results = thumbnailIds.map(id => {
-            const existing = existingThumbnails.find(t => t.id === id)
-            return {
-              success: !!existing,
-              thumbnailId: id,
-              imageUrl: existing?.image_url || undefined,
-            }
-          })
-
-          return NextResponse.json({
-            results,
-            creditsUsed: totalCreditCost,
-            creditsRemaining: creditResult.remaining ?? creditsRemaining - totalCreditCost,
-            totalRequested: variations,
-            totalSucceeded: existingThumbnails.length,
-            totalFailed: variations - existingThumbnails.length,
-          })
-        }
-      }
-    }
 
     // Generate all variations in parallel
     const generationPromises = thumbnailIds.map(thumbnailId =>
@@ -695,49 +644,45 @@ export async function POST(request: Request) {
     const successfulResults = results.filter(r => r.success)
     const failedResults = results.filter(r => !r.success)
 
-    // Track refund failures to notify user
-    let refundFailureWarning: { amount: number; reason: string; requestId: string } | null = null
+    // Clean up failed thumbnail records (no credit refund; we only deduct for successes)
+    const failedThumbnailIds = failedResults
+      .map(r => r.thumbnailId)
+      .filter((id): id is string => !!id)
+    if (failedThumbnailIds.length > 0) {
+      await supabase.from('thumbnails').delete().in('id', failedThumbnailIds)
+    }
 
-    // Refund credits for failed variations
-    if (failedResults.length > 0) {
-      const refundAmount = creditCost * failedResults.length
-      const refundIdempotencyKey = crypto.randomUUID()
-      
-      const refundResult = await incrementCreditsAtomic(
-        supabaseService,
-        user.id,
-        refundAmount,
-        refundIdempotencyKey,
-        `Refund for ${failedResults.length} failed thumbnail generation(s)`,
-        'refund'
-      )
-
-      if (!refundResult.success) {
-        // Log refund failure (critical - should not happen)
-        logError(new Error(`Credit refund failed: ${refundResult.reason}`), {
-          route: 'POST /api/generate',
-          userId: user.id,
-          operation: 'atomic-credit-refund-batch',
-          failedCount: failedResults.length,
-          refundAmount,
-          idempotencyKey: refundIdempotencyKey,
-        })
-        
-        // Track refund failure to notify user
-        refundFailureWarning = {
-          amount: refundAmount,
-          reason: refundResult.reason || 'UNKNOWN',
-          requestId: batchIdempotencyKey || refundIdempotencyKey,
-        }
-      }
-
-      // Clean up failed thumbnail records
-      const failedThumbnailIds = failedResults
+    // Batch: deduct credits only for successful variations (after generation)
+    if (variations > 1 && successfulResults.length > 0) {
+      const batchCreditCost = creditCost * successfulResults.length
+      const batchIdempotencyKey = successfulResults
         .map(r => r.thumbnailId)
         .filter((id): id is string => !!id)
-      
-      if (failedThumbnailIds.length > 0) {
-        await supabase.from('thumbnails').delete().in('id', failedThumbnailIds)
+        .sort()
+        .join(',')
+
+      creditResult = await decrementCreditsAtomic(
+        supabaseService,
+        user.id,
+        batchCreditCost,
+        batchIdempotencyKey,
+        null,
+        `Generated ${successfulResults.length} ${requestedResolution} thumbnail(s): ${body.title.substring(0, 50)}`,
+        'generation'
+      )
+
+      if (!creditResult.success) {
+        if (creditResult.reason === 'INSUFFICIENT') {
+          return insufficientCreditsResponse(creditsRemaining, batchCreditCost)
+        }
+        logError(new Error(`Credit deduction failed: ${creditResult.reason}`), {
+          route: 'POST /api/generate',
+          userId: user.id,
+          operation: 'atomic-credit-decrement-batch-after-success',
+          successfulCount: successfulResults.length,
+          idempotencyKey: batchIdempotencyKey,
+        })
+        return databaseErrorResponse('Failed to deduct credits')
       }
     }
 
@@ -838,11 +783,12 @@ export async function POST(request: Request) {
       })
     }
 
-    // For batch variations: Calculate final credits (accounting for refunds)
+    // For batch variations: credits only deducted for successes (no refunds)
     const finalCreditsUsed = creditCost * successfulResults.length
-    const finalCreditsRemaining = creditResult && creditResult.remaining !== undefined
-      ? creditResult.remaining + (creditCost * failedResults.length) // Add back refunded credits
-      : creditsRemaining - finalCreditsUsed
+    const finalCreditsRemaining =
+      creditResult && creditResult.remaining !== undefined
+        ? creditResult.remaining
+        : creditsRemaining
 
     const { count: thumbnailCount } = await supabase
       .from('thumbnails')
@@ -882,7 +828,6 @@ export async function POST(request: Request) {
       totalRequested: variations,
       totalSucceeded: successfulResults.length,
       totalFailed: failedResults.length,
-      ...(refundFailureWarning && { refundFailureWarning }),
     })
   } catch (error) {
     // requireAuth throws NextResponse, so check if it's already a response

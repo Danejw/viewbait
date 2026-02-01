@@ -21,17 +21,24 @@ export interface CRTLoadingEffectProps {
   className?: string;
   /** Optional: override aspect ratio (default 16/9 is set in CSS) */
   style?: React.CSSProperties;
+  /** Visual variant: default (neutral static) or error (red/destructive tint for failed state) */
+  variant?: "default" | "error";
 }
 
 export function CRTLoadingEffect({
   showProgress = false,
   className,
   style,
+  variant = "default",
 }: CRTLoadingEffectProps) {
   return (
     <>
       <div
-        className={cn("crt-loading-effect", className)}
+        className={cn(
+          "crt-loading-effect",
+          variant === "error" && "crt-loading-effect--error",
+          className
+        )}
         style={style}
         aria-hidden
       >

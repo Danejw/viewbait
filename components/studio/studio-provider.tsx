@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useRef, useCallback, useEffect } from "react";
+import React, { createContext, useContext, useState, useRef, useCallback, useEffect, useTransition } from "react";
 import { useThumbnailGeneration } from "@/lib/hooks/useThumbnailGeneration";
 import { getGenerateCooldownMs } from "@/lib/constants/subscription-tiers";
 import { useThumbnails, useDeleteThumbnail, useToggleFavorite } from "@/lib/hooks/useThumbnails";
@@ -160,6 +160,8 @@ export interface StudioActions {
   removeStyleReference: (index: number) => void;
   // Generation
   generateThumbnails: () => Promise<void>;
+  /** Remove a failed generating item from the grid (e.g. Dismiss on error card) */
+  removeGeneratingItem: (id: string) => void;
   // Thumbnail actions
   onFavoriteToggle: (id: string) => void;
   onDeleteThumbnail: (id: string) => void;
@@ -247,6 +249,9 @@ export interface StudioContextValue {
 
 const StudioContext = createContext<StudioContextValue | null>(null);
 
+/** Separate context for state only; consumers that only need state (e.g. StudioSidebarCredits) re-render only when state changes, not when data/thumbnails/generatingItems change. */
+const StudioStateContext = createContext<StudioState | null>(null);
+
 /**
  * Hook to access Studio context
  * Throws if used outside StudioProvider
@@ -257,6 +262,17 @@ export function useStudio() {
     throw new Error("useStudio must be used within StudioProvider");
   }
   return context;
+}
+
+/**
+ * Hook to access only studio state. Use in components that only need state (e.g. leftSidebarCollapsed) so they do not re-render when data (thumbnails, generatingItems) changes.
+ */
+export function useStudioState(): StudioState {
+  const state = useContext(StudioStateContext);
+  if (!state) {
+    throw new Error("useStudioState must be used within StudioProvider");
+  }
+  return state;
 }
 
 /**
@@ -276,6 +292,7 @@ export function useThumbnailActions() {
     onDelete: actions.onDeleteThumbnail,
     onAddToProject: actions.onAddToProject,
     onView: actions.onViewThumbnail,
+    onDismissFailed: actions.removeGeneratingItem,
   };
 }
 
@@ -466,15 +483,61 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
     });
   }, [state.activeProjectId, projects]);
 
-  // Sync generation state (including cooldown so button stays disabled during tier-based interval)
-  React.useEffect(() => {
-    setState((s) => ({
-      ...s,
-      isGenerating: generationState.isGenerating,
-      isButtonDisabled: generationState.isButtonDisabled,
-      generationError: generationState.error,
-    }));
-  }, [generationState.isGenerating, generationState.isButtonDisabled, generationState.error]);
+  // Sync generation state (including cooldown so button stays disabled during tier-based interval).
+  // Defer update via startTransition to avoid stacking with hook/query updates and exceeding React's update depth.
+  const [isPending, startTransition] = useTransition();
+  // #region agent log
+  const providerRenderRef = React.useRef(0);
+  providerRenderRef.current += 1;
+  if (providerRenderRef.current <= 100) {
+    fetch("http://127.0.0.1:7250/ingest/503c3a58-0894-4f46-a41c-96a198c9eec9", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        location: "studio-provider.tsx:render",
+        message: "StudioProvider render",
+        data: { renderCount: providerRenderRef.current },
+        timestamp: Date.now(),
+        sessionId: "debug-session",
+        hypothesisId: "H1",
+      }),
+    }).catch(() => {});
+  }
+  // #endregion
+  useEffect(() => {
+    fetch("http://127.0.0.1:7250/ingest/503c3a58-0894-4f46-a41c-96a198c9eec9", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        location: "studio-provider.tsx:sync-effect",
+        message: "sync effect ran",
+        data: {
+          isGenerating: generationState.isGenerating,
+          isButtonDisabled: generationState.isButtonDisabled,
+        },
+        timestamp: Date.now(),
+        sessionId: "debug-session",
+        hypothesisId: "H2",
+      }),
+    }).catch(() => {});
+    startTransition(() => {
+      setState((s) => {
+        if (
+          s.isGenerating === generationState.isGenerating &&
+          s.isButtonDisabled === generationState.isButtonDisabled &&
+          s.generationError === generationState.error
+        ) {
+          return s;
+        }
+        return {
+          ...s,
+          isGenerating: generationState.isGenerating,
+          isButtonDisabled: generationState.isButtonDisabled,
+          generationError: generationState.error,
+        };
+      });
+    });
+  }, [generationState.isGenerating, generationState.isButtonDisabled, generationState.error, startTransition]);
 
   const thumbnailTextRef = useRef<HTMLInputElement | null>(null);
   const customInstructionsRef = useRef<HTMLTextAreaElement | null>(null);
@@ -488,15 +551,43 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
 
   // Clear generating placeholders only when the corresponding thumbnail is in the fetched list.
   // Keeps placeholders visible until the real thumbnail appears, regardless of refetch timing.
-  React.useEffect(() => {
-    if (generationState.generatingItems.size === 0) return;
+  // Depend on stable keys (IDs/size) so the effect does not run on every parent re-render when
+  // thumbnails or generatingItems get new array/Map references, which was causing an infinite
+  // re-render loop (Maximum update depth exceeded).
+  const thumbnailIdsKey = React.useMemo(
+    () => thumbnails.map((t) => t.id).sort().join(","),
+    [thumbnails]
+  );
+  const generatingSize = generationState.generatingItems.size;
+  const generatingIdsKey = React.useMemo(
+    () =>
+      generatingSize === 0
+        ? ""
+        : Array.from(generationState.generatingItems.keys()).sort().join(","),
+    [generationState.generatingItems, generatingSize]
+  );
+  useEffect(() => {
+    if (generatingSize === 0) return;
     const thumbnailIds = new Set(thumbnails.map((t) => t.id));
     const idsToRemove: string[] = [];
     for (const item of generationState.generatingItems.values()) {
       if (thumbnailIds.has(item.id)) idsToRemove.push(item.id);
     }
+    fetch("http://127.0.0.1:7250/ingest/503c3a58-0894-4f46-a41c-96a198c9eec9", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        location: "studio-provider.tsx:cleanup-effect",
+        message: "cleanup effect ran",
+        data: { generatingSize, idsToRemoveLen: idsToRemove.length, willCallRemove: idsToRemove.length > 0 },
+        timestamp: Date.now(),
+        sessionId: "debug-session",
+        hypothesisId: "H3",
+      }),
+    }).catch(() => {});
     if (idsToRemove.length > 0) removeGeneratingItemsByIds(idsToRemove);
-  }, [thumbnails, generationState.generatingItems, removeGeneratingItemsByIds]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Depend on stable keys only to avoid infinite re-renders (thumbnails/generatingItems read from closure when keys change).
+  }, [thumbnailIdsKey, generatingSize, generatingIdsKey, removeGeneratingItemsByIds]);
 
   // Generate thumbnails action
   const generateThumbnails = useCallback(async () => {
@@ -1037,6 +1128,7 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
         styleReferences: s.styleReferences.filter((_, i) => i !== index),
       })),
     generateThumbnails,
+    removeGeneratingItem,
     onFavoriteToggle,
     onDeleteThumbnail,
     onDownloadThumbnail,
@@ -1135,25 +1227,52 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
     customInstructionsRef,
   };
 
-  const data: StudioData = {
-    currentUserId: user?.id,
-    thumbnails,
-    thumbnailsLoading,
-    thumbnailsError: isError ? (thumbnailsError as Error) : null,
-    generatingItems: generationState.generatingItems,
-    hasNextPage,
-    fetchNextPage,
-    isFetchingNextPage,
-    refreshThumbnails,
-    lastGeneratedThumbnail: state.lastGeneratedThumbnail,
-    projects,
-    projectsLoading,
-    activeProjectId: state.activeProjectId,
-    isSavingProjectSettings,
-  };
+  const data = React.useMemo<StudioData>(
+    () => ({
+      currentUserId: user?.id,
+      thumbnails,
+      thumbnailsLoading,
+      thumbnailsError: isError ? (thumbnailsError as Error) : null,
+      generatingItems: generationState.generatingItems,
+      hasNextPage,
+      fetchNextPage,
+      isFetchingNextPage,
+      refreshThumbnails,
+      lastGeneratedThumbnail: state.lastGeneratedThumbnail,
+      projects,
+      projectsLoading,
+      activeProjectId: state.activeProjectId,
+      isSavingProjectSettings,
+    }),
+    [
+      user?.id,
+      thumbnails,
+      thumbnailsLoading,
+      isError,
+      thumbnailsError,
+      generationState.generatingItems,
+      hasNextPage,
+      fetchNextPage,
+      isFetchingNextPage,
+      refreshThumbnails,
+      state.lastGeneratedThumbnail,
+      state.activeProjectId,
+      projects,
+      projectsLoading,
+      isSavingProjectSettings,
+    ]
+  );
+
+  const contextValue = React.useMemo<StudioContextValue>(
+    () => ({ state, actions, meta, data }),
+    [state, data]
+  );
+
+  const stateContextValue = React.useMemo<StudioState>(() => state, [state]);
 
   return (
-    <StudioContext.Provider value={{ state, actions, meta, data }}>
+    <StudioStateContext.Provider value={stateContextValue}>
+    <StudioContext.Provider value={contextValue}>
       {children}
       
       {/* Delete Confirmation Modal */}
@@ -1229,5 +1348,6 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
         />
       )}
     </StudioContext.Provider>
+    </StudioStateContext.Provider>
   );
 }
