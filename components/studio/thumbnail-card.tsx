@@ -385,15 +385,6 @@ export const ThumbnailCard = memo(function ThumbnailCard({
     [id, onDelete]
   );
 
-  const handleAddToProject = useCallback(
-    (e: React.MouseEvent, selectedProjectId: string | null) => {
-      e.stopPropagation();
-      if (selectedProjectId === (projectId ?? null)) return; // no-op: same project
-      onAddToProject(id, selectedProjectId, projectId ?? null);
-    },
-    [id, projectId, onAddToProject]
-  );
-
   const handleClick = useCallback(() => {
     onView(thumbnail);
   }, [thumbnail, onView]);
@@ -452,21 +443,19 @@ export const ThumbnailCard = memo(function ThumbnailCard({
           </Tooltip>
           <DropdownMenuContent align="center" side="top" onClick={(e) => e.stopPropagation()}>
             <DropdownMenuItem
-              onClick={(e) =>
-                handleAddToProject(e as unknown as React.MouseEvent, null)
-              }
+              onSelect={() => {
+                onAddToProject(id, null, projectId ?? null);
+              }}
             >
               No project
             </DropdownMenuItem>
             {projects?.map((project) => (
               <DropdownMenuItem
                 key={project.id}
-                onClick={(e) =>
-                  handleAddToProject(
-                    e as unknown as React.MouseEvent,
-                    project.id
-                  )
-                }
+                onSelect={() => {
+                  if (project.id === (projectId ?? null)) return;
+                  onAddToProject(id, project.id, projectId ?? null);
+                }}
               >
                 {project.name}
                 {project.id === projectId ? " (current)" : ""}

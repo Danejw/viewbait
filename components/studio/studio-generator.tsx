@@ -458,22 +458,6 @@ export function StudioGeneratorStyleReferences() {
               onDragLeave={() => setIsDraggingFile(false)}
               onPaste={handlePaste}
             >
-            {styleReferences.map((url, index) => (
-              <div
-                key={`${url}-${index}`}
-                className="group relative aspect-square overflow-hidden rounded-md border-2 border-border transition-all hover:border-primary/50"
-              >
-                <img src={url} alt="" className="absolute inset-0 h-full w-full object-cover" />
-                <CloseButton
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    removeStyleReference(index);
-                  }}
-                  className="absolute right-0.5 top-0.5 h-6 w-6 opacity-0 transition-opacity hover:opacity-100 group-hover:opacity-100"
-                  aria-label="Remove reference"
-                />
-              </div>
-            ))}
             {hasRoom && (
               <Button
                 type="button"
@@ -492,6 +476,22 @@ export function StudioGeneratorStyleReferences() {
                 )}
               </Button>
             )}
+            {styleReferences.map((url, index) => (
+              <div
+                key={`${url}-${index}`}
+                className="group relative aspect-square overflow-hidden rounded-md border-2 border-border transition-all hover:border-primary/50"
+              >
+                <img src={url} alt="" className="absolute inset-0 h-full w-full object-cover" />
+                <CloseButton
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    removeStyleReference(index);
+                  }}
+                  className="absolute right-0.5 top-0.5 h-6 w-6 opacity-0 transition-opacity hover:opacity-100 group-hover:opacity-100"
+                  aria-label="Remove reference"
+                />
+              </div>
+            ))}
             </div>
           </Button>
           {uploadError && <p className="mt-1 text-xs text-destructive">{uploadError}</p>}
@@ -658,6 +658,17 @@ export function StudioGeneratorStyleSelection() {
         <>
           <div className="mb-2 max-h-[22rem] overflow-y-auto hide-scrollbar">
             <div className="grid grid-cols-3 gap-1">
+              {/* Quick-create cell first – same aspect as grid items (hidden in onboarding) */}
+              {!isLoading && !isOnboarding && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleQuickCreate}
+                  className="aspect-square h-auto w-full border-2 border-dashed border-border text-muted-foreground hover:border-primary hover:text-primary"
+                >
+                  <Plus className="h-5 w-5" />
+                </Button>
+              )}
               {isLoading ? (
               // Loading skeletons – tight grid, preview-sized cells
               Array.from({ length: 6 }).map((_, i) => (
@@ -724,18 +735,6 @@ export function StudioGeneratorStyleSelection() {
                   </span>
                 </Button>
               ))
-            )}
-
-            {/* Quick-create cell – same aspect as grid items (hidden in onboarding) */}
-            {!isLoading && !isOnboarding && (
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleQuickCreate}
-                className="aspect-square h-auto w-full border-2 border-dashed border-border text-muted-foreground hover:border-primary hover:text-primary"
-              >
-                <Plus className="h-5 w-5" />
-              </Button>
             )}
             </div>
           </div>
@@ -1180,6 +1179,22 @@ export function StudioGeneratorFaces() {
           )}
           <div className="max-h-[22rem] overflow-y-auto hide-scrollbar">
             <div className="grid grid-cols-3 gap-1">
+              {/* Add new face cell first – same aspect as grid items; in onboarding opens file picker; otherwise opens create-face modal */}
+              {!isLoading && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={isOnboarding ? () => fileInputRef.current?.click() : handleOpenCreateFace}
+                  disabled={isOnboarding && isUploadingFirst}
+                  className="aspect-square h-auto w-full border-2 border-dashed border-border text-muted-foreground hover:border-primary hover:text-primary disabled:opacity-60"
+                >
+                  {isOnboarding && isUploadingFirst ? (
+                    <ViewBaitLogo className="h-5 w-5 animate-spin" />
+                  ) : (
+                    <Plus className="h-5 w-5" />
+                  )}
+                </Button>
+              )}
               {/* When onboarding and no faces, always show upload UI (even while uploading) */}
               {isLoading && !(isOnboarding && faces.length === 0) ? (
                 // Loading state – same tight grid as style selection
@@ -1259,22 +1274,6 @@ export function StudioGeneratorFaces() {
                     isSelected={selectedFaces.includes(face.id)}
                   />
                 ))
-              )}
-              {/* Add new face cell – same aspect as grid items; in onboarding opens file picker; otherwise opens create-face modal */}
-              {!isLoading && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={isOnboarding ? () => fileInputRef.current?.click() : handleOpenCreateFace}
-                  disabled={isOnboarding && isUploadingFirst}
-                  className="aspect-square h-auto w-full border-2 border-dashed border-border text-muted-foreground hover:border-primary hover:text-primary disabled:opacity-60"
-                >
-                  {isOnboarding && isUploadingFirst ? (
-                    <ViewBaitLogo className="h-5 w-5 animate-spin" />
-                  ) : (
-                    <Plus className="h-5 w-5" />
-                  )}
-                </Button>
               )}
             </div>
           </div>

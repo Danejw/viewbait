@@ -3,9 +3,7 @@
 import React, { createContext, useContext, useState, useRef, useCallback, useEffect } from "react";
 import { useThumbnailGeneration } from "@/lib/hooks/useThumbnailGeneration";
 import { getGenerateCooldownMs } from "@/lib/constants/subscription-tiers";
-import { useQueryClient } from "@tanstack/react-query";
-import { useThumbnails, useDeleteThumbnail, useToggleFavorite, thumbnailsQueryKeys } from "@/lib/hooks/useThumbnails";
-import type { ThumbnailsQueryParams } from "@/lib/hooks/useThumbnails";
+import { useThumbnails, useDeleteThumbnail, useToggleFavorite } from "@/lib/hooks/useThumbnails";
 import { useFaces } from "@/lib/hooks/useFaces";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useSubscription } from "@/lib/hooks/useSubscription";
@@ -22,6 +20,7 @@ import type {
   DbThumbnail,
 } from "@/lib/types/database";
 import * as thumbnailsService from "@/lib/services/thumbnails";
+import { toast } from "sonner";
 import { useWatermarkedImage } from "@/lib/hooks/useWatermarkedImage";
 import { applyQrWatermark } from "@/lib/utils/watermarkUtils";
 import { DeleteConfirmationModal } from "@/components/studio/delete-confirmation-modal";
@@ -408,6 +407,7 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
     refreshFirstPage,
     invalidateAll: invalidateAllThumbnails,
     refetchAllThumbnails,
+    refetch: refetchThumbnails,
   } = useThumbnails({
     userId: user?.id,
     enabled: isAuthenticated,
@@ -691,60 +691,28 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
     }));
   }, []);
 
-  const queryClient = useQueryClient();
-
+  /**
+   * Move thumbnail to a project (or remove from project when projectId is null).
+   * Calls PATCH /api/thumbnails/[id] with { project_id }, then invalidates and refetches all thumbnail lists.
+   */
   const onAddToProject = useCallback(
     async (
       thumbnailId: string,
       newProjectId: string | null,
-      previousProjectId?: string | null
+      _previousProjectId?: string | null
     ) => {
-      // Optimistic update: remove from source project list and update project_id in other lists
-      const queries = queryClient.getQueriesData({ queryKey: thumbnailsQueryKeys.all });
-      for (const [queryKey, oldData] of queries) {
-        if (queryKey[1] !== "list" || !oldData) continue;
-        const params = queryKey[2] as ThumbnailsQueryParams;
-        const infiniteData = oldData as {
-          pages: Array<{ thumbnails: DbThumbnail[] }>;
-          pageParams: unknown[];
-        };
-        const isSourceList =
-          params.projectId === previousProjectId ||
-          (previousProjectId == null && params.projectId === "__none__");
-        if (isSourceList) {
-          queryClient.setQueryData(queryKey, {
-            ...infiniteData,
-            pages: infiniteData.pages.map((page) => ({
-              ...page,
-              thumbnails: page.thumbnails.filter((t) => t.id !== thumbnailId),
-            })),
-          });
-        } else {
-          const hasThumbnail = infiniteData.pages.some((p) =>
-            p.thumbnails.some((t) => t.id === thumbnailId)
-          );
-          if (hasThumbnail) {
-            queryClient.setQueryData(queryKey, {
-              ...infiniteData,
-              pages: infiniteData.pages.map((page) => ({
-                ...page,
-                thumbnails: page.thumbnails.map((t) =>
-                  t.id === thumbnailId ? { ...t, project_id: newProjectId ?? undefined } : t
-                ),
-              })),
-            });
-          }
-        }
+      const { error } = await thumbnailsService.updateThumbnailProject(
+        thumbnailId,
+        newProjectId
+      );
+      if (error) {
+        toast.error("Could not move thumbnail. Try again.");
+        return;
       }
-
-      const { error } = await thumbnailsService.updateThumbnail(thumbnailId, {
-        project_id: newProjectId,
-      });
-      if (!error) {
-        await refetchAllThumbnails();
-      }
+      await invalidateAllThumbnails();
+      await refetchAllThumbnails();
     },
-    [queryClient, refetchAllThumbnails]
+    [invalidateAllThumbnails, refetchAllThumbnails]
   );
 
   const closeEditModal = useCallback(() => {

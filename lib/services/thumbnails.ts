@@ -175,11 +175,15 @@ export async function updateThumbnail(
   error: Error | null
 }> {
   try {
-    const response = await fetch(`/api/thumbnails/${id}`, {
+    const url = typeof window !== 'undefined'
+      ? `/api/thumbnails/${id}`
+      : `${process.env.NEXT_PUBLIC_APP_URL ?? ''}/api/thumbnails/${id}`
+    const response = await fetch(url, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
       },
+      credentials: 'include',
       body: JSON.stringify(updates),
     })
 
@@ -194,6 +198,51 @@ export async function updateThumbnail(
     const result = await response.json()
     return {
       thumbnail: result.thumbnail,
+      error: null,
+    }
+  } catch (error) {
+    return {
+      thumbnail: null,
+      error: error instanceof Error ? error : new Error('Network error'),
+    }
+  }
+}
+
+/**
+ * Update a thumbnail's project (move to project / remove from project).
+ * Calls POST /api/thumbnails/[id]/project with { project_id }.
+ * Use projectId: null to set the thumbnail to "No project" (DB project_id = NULL).
+ */
+export async function updateThumbnailProject(
+  id: string,
+  projectId: string | null
+): Promise<{ thumbnail: DbThumbnail | null; error: Error | null }> {
+  try {
+    const url =
+      typeof window !== 'undefined'
+        ? `/api/thumbnails/${id}/project`
+        : `${process.env.NEXT_PUBLIC_APP_URL ?? ''}/api/thumbnails/${id}/project`
+    // Always send project_id; null explicitly unassigns (sets DB column to NULL)
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ project_id: projectId }),
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      return {
+        thumbnail: null,
+        error: new Error(
+          (errorData as { error?: string }).error || 'Failed to update thumbnail project'
+        ),
+      }
+    }
+
+    const result = await response.json()
+    return {
+      thumbnail: (result as { thumbnail: DbThumbnail }).thumbnail ?? null,
       error: null,
     }
   } catch (error) {

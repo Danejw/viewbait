@@ -108,26 +108,61 @@ export async function PATCH(
       return notFoundResponse('Thumbnail not found or access denied')
     }
 
-    // Parse request body
-    const body: ThumbnailUpdate = await request.json()
-    
+    // Parse request body (must be valid JSON)
+    let body: ThumbnailUpdate
+    try {
+      body = await request.json()
+    } catch {
+      return validationErrorResponse('Invalid JSON body')
+    }
+    if (body == null || typeof body !== 'object') {
+      return validationErrorResponse('Body must be an object')
+    }
+
+    // Build explicit update payload from allowed ThumbnailUpdate keys present in body
+    // project_id: explicitly support null to unassign thumbnail from a project
+    const allowedKeys: (keyof ThumbnailUpdate)[] = [
+      'title',
+      'image_url',
+      'style',
+      'palette',
+      'emotion',
+      'aspect_ratio',
+      'has_watermark',
+      'liked',
+      'project_id',
+    ]
+    const payload: ThumbnailUpdate = {}
+    for (const key of allowedKeys) {
+      if (key in body && body[key] !== undefined) {
+        payload[key] = body[key]
+      }
+    }
+    // Ensure project_id is applied when client sent it (including null)
+    if ('project_id' in body) {
+      payload.project_id = body.project_id ?? null
+    }
+    if (Object.keys(payload).length === 0) {
+      return validationErrorResponse('No valid fields to update')
+    }
+
     // Validate title if provided
-    if (body.title !== undefined && (!body.title || !body.title.trim())) {
+    if (payload.title !== undefined && (!payload.title || !payload.title.trim())) {
       return validationErrorResponse('Title cannot be empty')
     }
 
-    // Validate project_id if provided (must exist and belong to user)
-    if (body.project_id !== undefined && body.project_id !== null) {
-      const { data: project } = await getProjectById(supabase, body.project_id, user.id)
+    // Validate project_id when set to a non-null value (project must exist and belong to user)
+    if (payload.project_id != null) {
+      const { data: project } = await getProjectById(supabase, payload.project_id, user.id)
       if (!project) {
         return validationErrorResponse('Project not found or access denied')
       }
     }
 
-    // Update thumbnail
+    // Update thumbnail (payload includes project_id as string or null)
     const { data: thumbnail, error: updateError } = await supabase
       .from('thumbnails')
-      .update(body)
+      .update(payload)
       .eq('id', id)
       .eq('user_id', user.id)
       .select()
