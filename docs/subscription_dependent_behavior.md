@@ -197,7 +197,7 @@ Identifies free-tier users by `user_subscriptions.product_id IS NULL` and delete
 - **Resolution selector:** `canUseResolution(resolution)` — only allowed resolutions are enabled; others disabled with lock.
 - **Aspect ratio selector:** `canUseAspectRatio(ratio)` — same; uses `ASPECT_RATIO_DISPLAY_ORDER`.
 - **Variations:** `getMaxVariations()` — options above max are disabled with lock.
-- **Generate button:** Disabled when `isGenerating || isButtonDisabled || !thumbnailText.trim()`. `isButtonDisabled` is the tier-based cooldown (see below).
+- **Generate button:** Disabled only during tier-based cooldown or when text is empty: `isButtonDisabled || !thumbnailText.trim()`. The "Creating..." label is shown only while the button is disabled by cooldown, not by async generation state (see below).
 - **Style / palette / face sections:** `canCreateCustomAssets()` — if false, sections are visible but disabled with lock and “Upgrade to unlock.”
 - **Subscription modal:** Opened from upgrade prompts; receives `currentTier` and `currentProductId` from `useSubscription()`.
 
@@ -206,7 +206,7 @@ Identifies free-tier users by `user_subscriptions.product_id IS NULL` and delete
 - **Constants:** [lib/constants/subscription-tiers.ts](viewbait/lib/constants/subscription-tiers.ts): `GENERATE_COOLDOWN_SECONDS_BY_TIER`, `getGenerateCooldownMs(tier)`.
 - **Hook:** [lib/hooks/useThumbnailGeneration.ts](viewbait/lib/hooks/useThumbnailGeneration.ts) accepts `cooldownMs`; after each generate it disables the button for that many ms.
 - **Provider:** [components/studio/studio-provider.tsx](viewbait/components/studio/studio-provider.tsx) gets `tier` from `useSubscription()`, computes `cooldownMs = getGenerateCooldownMs(tier)`, passes it to `useThumbnailGeneration({ cooldownMs })`, and syncs `generationState.isButtonDisabled` into `StudioState.isButtonDisabled`.
-- **Button:** [components/studio/studio-generator.tsx](viewbait/components/studio/studio-generator.tsx) `StudioGeneratorSubmit` uses `isDisabled = isGenerating || isButtonDisabled || !thumbnailText.trim()`.
+- **Button:** [components/studio/studio-generator.tsx](viewbait/components/studio/studio-generator.tsx) `StudioGeneratorSubmit` uses `isDisabled = isButtonDisabled || !thumbnailText.trim()` and shows "Creating..." only when `isButtonDisabled` (time-based cooldown).
 
 So the create thumbnail” button is debounced per tier: Free 12s, Starter 8s, Advanced 4s, Pro 2s.
 

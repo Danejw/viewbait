@@ -1343,14 +1343,14 @@ export function StudioGeneratorSubmit({
   hideSaveToProject = false,
 }: StudioGeneratorSubmitProps = {}) {
   const {
-    state: { isGenerating, isButtonDisabled, thumbnailText, variations, selectedResolution, activeProjectId },
+    state: { isButtonDisabled, thumbnailText, variations, selectedResolution, activeProjectId },
     data: { isSavingProjectSettings },
     actions: { generateThumbnails, saveProjectSettings },
   } = useStudio();
   const { getResolutionCost } = useSubscription();
 
-  // Disabled during generation, tier-based cooldown, or when text is empty
-  const isDisabled = isGenerating || isButtonDisabled || !thumbnailText.trim();
+  // Disabled during tier-based cooldown or when text is empty (time-only debounce per tier)
+  const isDisabled = isButtonDisabled || !thumbnailText.trim();
 
   const creditCost = getResolutionCost(selectedResolution as "1K" | "2K" | "4K");
   const totalCost = creditCost * variations;
@@ -1368,7 +1368,7 @@ export function StudioGeneratorSubmit({
         size="lg"
         className={cn("w-full", className)}
       >
-        {isGenerating ? (
+        {isButtonDisabled ? (
           <span className="flex items-center gap-2">
             <ViewBaitLogo className="h-4 w-4 animate-spin" />
             Creating...
