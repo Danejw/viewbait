@@ -1,6 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
+import { FeedbackModal } from "@/components/feedback-modal";
 
 export interface LandingFooterProps {
   /** Called when a footer link is hovered (e.g. to set custom cursor). Optional. */
@@ -19,6 +21,7 @@ export function LandingFooter({
   onLinkMouseLeave,
   isMobile = false,
 }: LandingFooterProps) {
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
   const linkStyle = {
     color: "#444",
     textDecoration: "none" as const,
@@ -32,6 +35,16 @@ export function LandingFooter({
   };
 
   const handleMouseLeave = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    e.currentTarget.style.color = "#444";
+    if (!isMobile) onLinkMouseLeave?.();
+  };
+
+  const handleContactMouseEnter = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.currentTarget.style.color = "#888";
+    if (!isMobile) onLinkMouseEnter?.();
+  };
+
+  const handleContactMouseLeave = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.currentTarget.style.color = "#444";
     if (!isMobile) onLinkMouseLeave?.();
   };
@@ -117,15 +130,17 @@ export function LandingFooter({
           >
             Terms
           </Link>
-          <a
-            href="mailto:contact@viewbait.app"
-            className="crt-text"
+          <button
+            type="button"
+            className="crt-text cursor-pointer border-0 bg-transparent p-0 font-inherit"
             style={linkStyle}
-            onMouseEnter={handleMouseEnter}
-            onMouseLeave={handleMouseLeave}
+            onClick={() => setFeedbackOpen(true)}
+            onMouseEnter={handleContactMouseEnter}
+            onMouseLeave={handleContactMouseLeave}
+            aria-label="Open feedback form"
           >
             Contact
-          </a>
+          </button>
         </div>
 
         <div
@@ -135,6 +150,7 @@ export function LandingFooter({
           © {new Date().getFullYear()} VIEWBAIT
         </div>
       </div>
+      <FeedbackModal open={feedbackOpen} onClose={() => setFeedbackOpen(false)} />
     </footer>
   );
 }

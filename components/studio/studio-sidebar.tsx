@@ -131,24 +131,6 @@ export const StudioSidebarCredits = React.memo(function StudioSidebarCredits() {
   const { leftSidebarCollapsed } = useStudioState();
   const { tier, tierConfig, creditsRemaining, creditsTotal, isLoading, productId } = useSubscription();
   const [isModalOpen, setIsModalOpen] = useState(false);
-  // #region agent log
-  const creditsRenderRef = React.useRef(0);
-  creditsRenderRef.current += 1;
-  if (creditsRenderRef.current <= 100) {
-    fetch("http://127.0.0.1:7250/ingest/503c3a58-0894-4f46-a41c-96a198c9eec9", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        location: "studio-sidebar.tsx:StudioSidebarCredits",
-        message: "StudioSidebarCredits render",
-        data: { renderCount: creditsRenderRef.current },
-        timestamp: Date.now(),
-        sessionId: "debug-session",
-        hypothesisId: "H4",
-      }),
-    }).catch(() => {});
-  }
-  // #endregion
 
   if (leftSidebarCollapsed) {
     return (

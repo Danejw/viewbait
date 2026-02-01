@@ -14,6 +14,7 @@ import {
 import { StudioDndContext } from "@/components/studio/studio-dnd-context";
 import { ProcessCheckoutOnReturn } from "@/components/studio/process-checkout-return";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 /**
  * StudioPageContent
@@ -25,20 +26,22 @@ function StudioPageContent() {
   const isMobile = useIsMobile();
 
   return (
-    <StudioFrame>
-      <StudioLayoutResponsive
-        left={
-          isMobile ? null : (
-            <StudioSidebarFrame>
-              <StudioSidebar />
-            </StudioSidebarFrame>
-          )
-        }
-        main={<StudioMainContent />}
-        right={<StudioSettingsSidebar />}
-      />
-      {isMobile && <StudioMobileFloatingNav />}
-    </StudioFrame>
+    <TooltipProvider delayDuration={0}>
+      <StudioFrame>
+        <StudioLayoutResponsive
+          left={
+            isMobile ? null : (
+              <StudioSidebarFrame>
+                <StudioSidebar />
+              </StudioSidebarFrame>
+            )
+          }
+          main={<StudioMainContent />}
+          right={<StudioSettingsSidebar />}
+        />
+        {isMobile && <StudioMobileFloatingNav />}
+      </StudioFrame>
+    </TooltipProvider>
   );
 }
 

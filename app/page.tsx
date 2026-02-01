@@ -7,6 +7,7 @@ import { Crown } from "lucide-react";
 import { LenisRoot } from "@/components/landing/lenis-root";
 import { PublicBetaBanner } from "@/components/landing/public-beta-banner";
 import { ScrollReveal } from "@/components/landing/scroll-reveal";
+import { FeedbackModal } from "@/components/feedback-modal";
 import { useAuth } from "@/lib/hooks/useAuth";
 
 const HERO_WORDS = ["ATTENTION", "CLICKS", "VIEWS", "RESULTS"];
@@ -47,6 +48,7 @@ export default function ViewBaitLanding() {
   const [generatingText, setGeneratingText] = useState("");
   const [isMobile, setIsMobile] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
 
   /** Studio entry: signed-in users go to studio, others to auth. */
   const studioOrAuthHref = isAuthenticated ? "/studio" : "/auth";
@@ -1857,12 +1859,35 @@ export default function ViewBaitLanding() {
             >
               Terms
             </Link>
+            <button
+              type="button"
+              className="crt-text cursor-pointer border-0 bg-transparent p-0 font-inherit"
+              style={{
+                color: "#444",
+                textDecoration: "none",
+                fontSize: "12px",
+                transition: "color 0.2s",
+              }}
+              onClick={() => setFeedbackOpen(true)}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.color = "#888";
+                !isMobile && setCursorVariant("hover");
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.color = "#444";
+                !isMobile && setCursorVariant("default");
+              }}
+              aria-label="Open feedback form"
+            >
+              Contact
+            </button>
           </div>
 
           <div className="mono crt-text text-primary" style={{ fontSize: "11px", letterSpacing: "0.05em" }}>
             © {new Date().getFullYear()} VIEWBAIT
           </div>
         </div>
+        <FeedbackModal open={feedbackOpen} onClose={() => setFeedbackOpen(false)} />
       </footer>
           </>
         )}

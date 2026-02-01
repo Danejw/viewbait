@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { FeedbackModal } from "@/components/feedback-modal";
 
 /**
  * Google Icon SVG Component
@@ -64,6 +65,7 @@ function AuthForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
 
   // Get the redirect destination from query params (default to /studio)
   const redirectTo = searchParams.get("redirect") || "/studio";
@@ -724,24 +726,29 @@ function AuthForm() {
             >
               Terms
             </Link>
-            <a
-              href="mailto:contact@viewbait.app"
-              className="crt-text"
+            <button
+              type="button"
+              className="crt-text cursor-pointer border-0 bg-transparent p-0 font-inherit"
               style={{
                 color: "#444",
                 textDecoration: "none",
                 fontSize: "12px",
                 transition: "color 0.2s",
               }}
+              onClick={() => setFeedbackOpen(true)}
+              onMouseEnter={(e) => { e.currentTarget.style.color = "#888"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = "#444"; }}
+              aria-label="Open feedback form"
             >
               Contact
-            </a>
+            </button>
           </div>
 
           <div className="mono crt-text" style={{ color: "#333", fontSize: "11px", letterSpacing: "0.05em" }}>
             © {new Date().getFullYear()} VIEWBAIT
           </div>
         </div>
+        <FeedbackModal open={feedbackOpen} onClose={() => setFeedbackOpen(false)} />
       </footer>
     </div>
   );

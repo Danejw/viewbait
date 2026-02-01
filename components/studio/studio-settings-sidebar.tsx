@@ -132,19 +132,21 @@ export function StudioSettingsSidebarCollapsed() {
  */
 export function StudioSettingsSidebarContent() {
   return (
-    <div className="flex h-full flex-col min-h-0 p-2">
-      <div className="shrink-0 mb-3">
-        <ProjectSelector
-          variant="form"
-          label="Project"
-          showHelperText={true}
-          className="mb-0"
-        />
+    <TooltipProvider delayDuration={0}>
+      <div className="flex h-full flex-col min-h-0 p-2">
+        <div className="shrink-0 mb-3">
+          <ProjectSelector
+            variant="form"
+            label="Project"
+            showHelperText={true}
+            className="mb-0"
+          />
+        </div>
+        <div className="flex-1 min-h-0 flex flex-col">
+          <StudioGenerator />
+        </div>
       </div>
-      <div className="flex-1 min-h-0 flex flex-col">
-        <StudioGenerator />
-      </div>
-    </div>
+    </TooltipProvider>
   );
 }
 
