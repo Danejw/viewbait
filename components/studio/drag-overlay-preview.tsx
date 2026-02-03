@@ -152,6 +152,37 @@ function ThumbnailPreview({ item, imageUrl }: { item: Thumbnail; imageUrl?: stri
 }
 
 /**
+ * Snapshot preview - shows snapshot image (character or place) from blob URL
+ */
+function SnapshotPreview({
+  imageBlobUrl,
+  characterName,
+}: {
+  imageBlobUrl?: string;
+  characterName?: string;
+}) {
+  const label = characterName ?? "Snapshot";
+  return (
+    <div className="relative aspect-square w-20 overflow-hidden rounded-lg bg-muted shadow-xl">
+      {imageBlobUrl ? (
+        <img
+          src={imageBlobUrl}
+          alt={label}
+          className="h-full w-full object-cover"
+        />
+      ) : (
+        <div className="flex h-full w-full items-center justify-center">
+          <Image className="h-8 w-8 text-muted-foreground" />
+        </div>
+      )}
+      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-2 py-1">
+        <p className="truncate text-xs font-medium text-white">{label}</p>
+      </div>
+    </div>
+  );
+}
+
+/**
  * Main DragOverlayPreview component
  * Renders the appropriate preview based on item type
  */
