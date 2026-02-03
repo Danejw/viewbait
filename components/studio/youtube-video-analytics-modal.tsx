@@ -130,6 +130,31 @@ export function YouTubeVideoAnalyticsModal({
               <RubricRow label="Key moments" value={analytics.key_moments} />
               <RubricRow label="Hooks" value={analytics.hooks} />
               <RubricRow label="Thumbnail appeal notes" value={analytics.thumbnail_appeal_notes} />
+
+              {analytics.characters && analytics.characters.length > 0 && (
+                <div className="flex flex-col gap-3">
+                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    Characters
+                  </span>
+                  <div className="flex flex-col gap-4">
+                    {analytics.characters.map((char, idx) => (
+                      <div key={idx} className="flex flex-col gap-2 rounded-lg border border-border/60 bg-muted/30 p-3">
+                        <p className="text-sm font-medium text-foreground">{char.name}</p>
+                        <ul className="list-none space-y-2">
+                          {char.scenes.map((scene, sceneIdx) => (
+                            <li key={sceneIdx} className="flex flex-col gap-0.5 text-sm">
+                              <span className="text-xs font-medium text-muted-foreground">
+                                {scene.part}
+                              </span>
+                              <p className="text-foreground whitespace-pre-wrap">{scene.description}</p>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </ModalBody>

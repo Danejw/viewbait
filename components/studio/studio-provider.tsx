@@ -131,6 +131,8 @@ export interface StudioState {
   videoAnalyticsLoadingVideoIds: string[];
   /** Metadata for each loading id so completion can set modal video */
   videoAnalyticsLoadingVideos: Record<string, { videoId: string; title: string; thumbnailUrl: string }>;
+  /** Cache of thumbnail style descriptions by imageUrl or thumbnailId; session-only, avoids re-analyzing */
+  thumbnailStyleAnalysisCache: Record<string, string>;
   // Active project (null = All thumbnails)
   activeProjectId: string | null;
   /** Set when generation completes successfully; consumed by onboarding to advance to step 5 */
@@ -439,6 +441,7 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
     videoAnalyticsCache: {},
     videoAnalyticsLoadingVideoIds: [],
     videoAnalyticsLoadingVideos: {},
+    thumbnailStyleAnalysisCache: {},
     // Active project (null = All thumbnails); hydrated from localStorage
     activeProjectId: null,
     lastGeneratedThumbnail: null,
@@ -795,6 +798,35 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
 
   const onAnalyzeThumbnailForInstructions = useCallback(
     async (params: { imageUrl?: string; thumbnailId?: string }) => {
+      const key =
+        (typeof params.thumbnailId === "string" && params.thumbnailId.trim()) ||
+        (typeof params.imageUrl === "string" && params.imageUrl.trim()) ||
+        "";
+      if (!key) {
+        toast.error("Image URL or thumbnail ID is required.");
+        return;
+      }
+
+      setState((s) => {
+        const cached = s.thumbnailStyleAnalysisCache[key];
+        if (cached) {
+          return {
+            ...s,
+            customInstructions:
+              (s.customInstructions?.trimEnd() ?? "") +
+              (s.customInstructions ? "\n\n" : "") +
+              cached,
+          };
+        }
+        return s;
+      });
+
+      const hadCached = state.thumbnailStyleAnalysisCache[key];
+      if (hadCached) {
+        toast.success("Added to custom instructions.");
+        return;
+      }
+
       const { description, error: analyzeError } =
         await thumbnailsService.analyzeThumbnailStyleForInstructions(params);
       if (analyzeError) {
@@ -804,14 +836,19 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
       if (description) {
         setState((s) => ({
           ...s,
-          customInstructions: (s.customInstructions?.trimEnd() ?? "") +
+          thumbnailStyleAnalysisCache: {
+            ...s.thumbnailStyleAnalysisCache,
+            [key]: description,
+          },
+          customInstructions:
+            (s.customInstructions?.trimEnd() ?? "") +
             (s.customInstructions ? "\n\n" : "") +
             description,
         }));
         toast.success("Added to custom instructions.");
       }
     },
-    []
+    [state.thumbnailStyleAnalysisCache]
   );
 
   const closeEditModal = useCallback(() => {

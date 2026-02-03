@@ -3,6 +3,16 @@
  * Calls the Next.js API route that uses Gemini to analyze a video by URL.
  */
 
+export interface YouTubeVideoAnalyticsCharacterScene {
+  part: string
+  description: string
+}
+
+export interface YouTubeVideoAnalyticsCharacter {
+  name: string
+  scenes: YouTubeVideoAnalyticsCharacterScene[]
+}
+
 export interface YouTubeVideoAnalytics {
   summary: string
   topic: string
@@ -12,6 +22,8 @@ export interface YouTubeVideoAnalytics {
   duration_estimate: string
   thumbnail_appeal_notes: string
   content_type: string
+  /** Main characters/people and the scenes where they appear (optional for backward compatibility with cached entries). */
+  characters?: YouTubeVideoAnalyticsCharacter[]
 }
 
 export async function analyzeYouTubeVideo(

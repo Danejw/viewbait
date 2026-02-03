@@ -11,7 +11,7 @@
 import React, { memo, useCallback, useMemo, useState } from "react";
 import { useDraggable } from "@dnd-kit/core";
 import { motion } from "framer-motion";
-import { Copy, ExternalLink, Eye, ThumbsUp, BarChart3, ScanLine, Loader2 } from "lucide-react";
+import { Copy, ExternalLink, Eye, ThumbsUp, BarChart3, ScanLine } from "lucide-react";
 import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -30,6 +30,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useIntersectionObserver } from "@/lib/hooks/useIntersectionObserver";
 import { ActionBarIcon } from "@/components/studio/action-bar-icon";
+import { ViewBaitLogo } from "@/components/ui/viewbait-logo";
 import { useStudio } from "@/components/studio/studio-provider";
 import type { DragData } from "@/components/studio/studio-dnd-context";
 import type { Thumbnail } from "@/lib/types/database";
@@ -233,13 +234,14 @@ export const YouTubeVideoCard = memo(function YouTubeVideoCard({
       <ActionButton icon={Copy} label="Use title" onClick={handleUseTitle} />
       <ActionButton icon={ExternalLink} label="Open on YouTube" onClick={handleOpenVideo} />
       <ActionButton
-        icon={ScanLine}
+        icon={isAnalyzing ? ViewBaitLogo : ScanLine}
         label="Analyze style and add to instructions"
         onClick={handleAnalyzeStyle}
         disabled={isAnalyzing}
+        iconClassName={isAnalyzing ? "animate-spin" : undefined}
       />
       <ActionButton
-        icon={isVideoAnalyticsLoading ? Loader2 : BarChart3}
+        icon={isVideoAnalyticsLoading ? ViewBaitLogo : BarChart3}
         label={isVideoAnalyticsLoading ? "Analyzing…" : "Video analytics"}
         onClick={handleVideoAnalytics}
         iconClassName={cn(

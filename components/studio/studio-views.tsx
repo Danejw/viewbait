@@ -47,6 +47,7 @@ import { useYouTubeIntegration } from "@/lib/hooks/useYouTubeIntegration";
 import { YouTubeVideoCard, YouTubeVideoCardSkeleton } from "@/components/studio/youtube-video-card";
 import { ChannelImportTab } from "@/components/studio/channel-import-tab";
 import { YouTubeStyleExtractBar } from "@/components/studio/youtube-style-extract-bar";
+import { RecentThumbnailsStrip } from "@/components/studio/recent-thumbnails-strip";
 import { useYouTubeStyleExtract } from "@/lib/hooks/useYouTubeStyleExtract";
 import {
   Dialog,
@@ -2028,6 +2029,8 @@ export function StudioViewYouTube() {
         count={isConnected ? filteredVideos.length : undefined}
         countLabel="videos"
       />
+
+      <RecentThumbnailsStrip />
 
       <Tabs defaultValue="my-channel" className="mt-4">
         <TabsList className="mb-4">

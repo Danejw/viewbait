@@ -47,6 +47,7 @@ import { useWatermarkedImage } from "@/lib/hooks/useWatermarkedImage";
 import { useSubscription } from "@/lib/hooks/useSubscription";
 import { useThumbnailActions } from "@/components/studio/studio-provider";
 import { ActionBarIcon } from "@/components/studio/action-bar-icon";
+import { ViewBaitLogo } from "@/components/ui/viewbait-logo";
 import type { Thumbnail } from "@/lib/types/database";
 import type { DragData } from "./studio-dnd-context";
 
@@ -123,8 +124,9 @@ function ThumbnailCardGenerating({ text }: { text?: string }) {
  * Card shown when generation failed (e.g. Gemini API error).
  * Uses the same CRT effect as loading state but with error variant (red tint);
  * overlays error icon, message, and Dismiss so it matches the thumbnail card / CRT look.
+ * Exported for use in RecentThumbnailsStrip.
  */
-function ThumbnailCardFailed({
+export function ThumbnailCardFailed({
   text,
   error,
   onDismiss,
@@ -270,6 +272,7 @@ function ActionButton({
   variant = "default",
   active = false,
   disabled = false,
+  iconClassName,
 }: {
   icon: React.ElementType;
   label: string;
@@ -277,6 +280,7 @@ function ActionButton({
   variant?: "default" | "destructive";
   active?: boolean;
   disabled?: boolean;
+  iconClassName?: string;
 }) {
   return (
     <Tooltip>
@@ -293,7 +297,7 @@ function ActionButton({
               active && "text-red-500"
             )}
           >
-            <Icon className={cn("h-4 w-4", active && "fill-red-500")} />
+            <Icon className={cn("h-4 w-4", active && "fill-red-500", iconClassName)} />
           </Button>
         </ActionBarIcon>
       </TooltipTrigger>
@@ -496,10 +500,11 @@ export const ThumbnailCard = memo(function ThumbnailCard({
         onClick={handleCopy}
       />
       <ActionButton
-        icon={ScanLine}
+        icon={isAnalyzing ? ViewBaitLogo : ScanLine}
         label="Analyze style and add to instructions"
         onClick={handleAnalyzeStyle}
         disabled={isAnalyzing}
+        iconClassName={isAnalyzing ? "animate-spin" : undefined}
       />
       {isOwner && (
         <DropdownMenu open={projectDropdownOpen} onOpenChange={setProjectDropdownOpen}>

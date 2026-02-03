@@ -18,6 +18,7 @@
 import React, { memo, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { useEmptySlots } from "@/lib/hooks/useEmptySlots";
+import { getCombinedThumbnailsList } from "@/lib/utils/studio-thumbnails";
 import { ThumbnailCard, ThumbnailCardEmpty, ThumbnailCardSkeleton } from "./thumbnail-card";
 import type { Thumbnail } from "@/lib/types/database";
 
@@ -95,19 +96,10 @@ export const ThumbnailGrid = memo(function ThumbnailGrid({
   gridClassName,
   isLoading = false,
 }: ThumbnailGridProps) {
-  // Combine generating items and db thumbnails
-  // Newest first: generating items reversed (Map insertion order is oldest-first), then thumbnails (API returns created_at desc)
-  const combinedItems = useMemo(() => {
-    const generatingArray = Array.from(generatingItems.values());
-    const generatingNewestFirst = [...generatingArray].reverse();
-
-    // Filter out thumbnails that are in generatingItems (by id match)
-    // This prevents duplicates when a generating item gets its real ID
-    const generatingIds = new Set(generatingArray.map(item => item.id));
-    const filteredThumbnails = thumbnails.filter(t => !generatingIds.has(t.id));
-
-    return [...generatingNewestFirst, ...filteredThumbnails];
-  }, [thumbnails, generatingItems]);
+  const combinedItems = useMemo(
+    () => getCombinedThumbnailsList(thumbnails, generatingItems),
+    [thumbnails, generatingItems]
+  );
 
   const emptySlotCount = useEmptySlots(combinedItems.length, minSlots, showEmptySlots);
 
