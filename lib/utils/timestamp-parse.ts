@@ -57,16 +57,22 @@ export interface CharacterWithScenes {
   scenes: Array<{ part: string; description?: string }>;
 }
 
+/** Same shape as CharacterWithScenes; used for places in video analytics. */
+export interface PlaceWithScenes {
+  name: string;
+  scenes: Array<{ part: string; description?: string }>;
+}
+
 /**
- * Returns one representative timestamp in seconds for a character.
+ * Returns one representative timestamp in seconds from a list of scenes.
  * Uses the first parseable scene: if it's a range, returns the midpoint; otherwise the single time.
- * Returns null if no scene has a parseable timestamp.
+ * Returns 0 if no scene has a parseable timestamp (so caller gets a fallback).
  */
-export function getRepresentativeSecondsForCharacter(
-  character: CharacterWithScenes
-): number | null {
-  if (!character?.scenes?.length) return null;
-  for (const scene of character.scenes) {
+function getRepresentativeSecondsFromScenes(
+  scenes: Array<{ part: string; description?: string }>
+): number {
+  if (!scenes?.length) return 0;
+  for (const scene of scenes) {
     const range = parseRangeToSeconds(scene.part);
     if (range) {
       const [start, end] = range;
@@ -76,4 +82,26 @@ export function getRepresentativeSecondsForCharacter(
     if (single != null) return single;
   }
   return 0;
+}
+
+/**
+ * Returns one representative timestamp in seconds for a character.
+ * Uses the first parseable scene: if it's a range, returns the midpoint; otherwise the single time.
+ * Returns null if no scenes; returns 0 if no scene has a parseable timestamp.
+ */
+export function getRepresentativeSecondsForCharacter(
+  character: CharacterWithScenes
+): number | null {
+  if (!character?.scenes?.length) return null;
+  return getRepresentativeSecondsFromScenes(character.scenes);
+}
+
+/**
+ * Returns one representative timestamp in seconds for a place.
+ * Uses the same logic as characters: first parseable scene, range midpoint or single time.
+ * Returns null if no scenes; returns 0 if no scene has a parseable timestamp.
+ */
+export function getRepresentativeSecondsForPlace(place: PlaceWithScenes): number | null {
+  if (!place?.scenes?.length) return null;
+  return getRepresentativeSecondsFromScenes(place.scenes);
 }

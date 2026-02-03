@@ -208,9 +208,13 @@ export async function ensureValidToken(userId: string): Promise<string | null> {
       userId,
       errorCode: refreshResult.errorCode,
     })
-    
-    // If invalid grant, mark integration as disconnected
-    if (refreshResult.errorCode === 'INVALID_GRANT') {
+
+    // Mark integration as disconnected when refresh fails with grant/client errors
+    // so the UI shows "Connect YouTube" and the user can re-authorize.
+    const shouldDisconnect =
+      refreshResult.errorCode === 'INVALID_GRANT' ||
+      refreshResult.errorCode === 'unauthorized_client'
+    if (shouldDisconnect) {
       const supabaseService = createServiceClient()
       await supabaseService
         .from('youtube_integrations')
@@ -221,7 +225,7 @@ export async function ensureValidToken(userId: string): Promise<string | null> {
         })
         .eq('user_id', userId)
     }
-    
+
     return null
   }
   

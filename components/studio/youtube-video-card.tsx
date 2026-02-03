@@ -8,7 +8,7 @@
  * Action bar on hover (HoverCard): Copy title, Open on YouTube, Video analysis (planned).
  */
 
-import React, { memo, useCallback, useMemo, useState } from "react";
+import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDraggable } from "@dnd-kit/core";
 import { motion } from "framer-motion";
 import { Copy, ExternalLink, Eye, ThumbsUp, BarChart3, ScanLine } from "lucide-react";
@@ -133,6 +133,9 @@ export const YouTubeVideoCard = memo(function YouTubeVideoCard({
   const isVideoAnalyticsLoading = state.videoAnalyticsLoadingVideoIds.includes(videoId);
   const hasAnalyticsCached = state.videoAnalyticsCache[videoId] != null;
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [showStyleSuccessBorder, setShowStyleSuccessBorder] = useState(false);
+  const [showAnalyticsSuccessBorder, setShowAnalyticsSuccessBorder] = useState(false);
+  const wasLoadingAnalytics = useRef(false);
   const [ref, isIntersecting] = useIntersectionObserver({
     rootMargin: "200px",
   });
@@ -141,6 +144,32 @@ export const YouTubeVideoCard = memo(function YouTubeVideoCard({
   const showImage = priority || isIntersecting;
   const watchUrl = `${YOUTUBE_WATCH_URL}${videoId}`;
   const selectionMode = onToggleSelect != null;
+  const isAnalyzingOrLoading =
+    isAnalyzing || isVideoAnalyticsLoading;
+
+  // Track when analytics loading completes and we have cache → show success border briefly
+  useEffect(() => {
+    if (isVideoAnalyticsLoading) {
+      wasLoadingAnalytics.current = true;
+    } else if (wasLoadingAnalytics.current && hasAnalyticsCached) {
+      wasLoadingAnalytics.current = false;
+      setShowAnalyticsSuccessBorder(true);
+    } else if (!isVideoAnalyticsLoading) {
+      wasLoadingAnalytics.current = false;
+    }
+  }, [isVideoAnalyticsLoading, hasAnalyticsCached]);
+
+  useEffect(() => {
+    if (!showStyleSuccessBorder) return;
+    const t = setTimeout(() => setShowStyleSuccessBorder(false), 2500);
+    return () => clearTimeout(t);
+  }, [showStyleSuccessBorder]);
+
+  useEffect(() => {
+    if (!showAnalyticsSuccessBorder) return;
+    const t = setTimeout(() => setShowAnalyticsSuccessBorder(false), 2500);
+    return () => clearTimeout(t);
+  }, [showAnalyticsSuccessBorder]);
 
   const dragData: DragData = useMemo(
     () => ({
@@ -204,7 +233,11 @@ export const YouTubeVideoCard = memo(function YouTubeVideoCard({
       const onAnalyze = actions.onAnalyzeThumbnailForInstructions;
       if (!onAnalyze || isAnalyzing) return;
       setIsAnalyzing(true);
-      onAnalyze({ imageUrl: thumbnailUrl }).finally(() => setIsAnalyzing(false));
+      onAnalyze({ imageUrl: thumbnailUrl })
+        .then((result) => {
+          if (result?.success) setShowStyleSuccessBorder(true);
+        })
+        .finally(() => setIsAnalyzing(false));
     },
     [actions.onAnalyzeThumbnailForInstructions, thumbnailUrl, isAnalyzing]
   );
@@ -263,100 +296,133 @@ export const YouTubeVideoCard = memo(function YouTubeVideoCard({
               "hover:ring-2 hover:ring-primary/50 hover:shadow-lg",
               selectionMode && selected && "ring-2 ring-primary",
               isDragging && "opacity-50 ring-2 ring-primary cursor-grabbing",
-              !isDragging && "cursor-grab"
+              !isDragging && "cursor-grab",
+              (showStyleSuccessBorder || showAnalyticsSuccessBorder) &&
+                "thumbnail-card-border-success"
             )}
             onClick={handleClick}
             {...listeners}
             {...attributes}
           >
-            <div className="relative h-full w-full overflow-hidden bg-muted">
-              {showImage && (
-                <>
-                  {!isLoaded && (
-                    <Skeleton className="absolute inset-0 h-full w-full" />
-                  )}
-                  {/* Image with scale animation on hover (same as ThumbnailCard) */}
-                  <div className="h-full w-full transition-transform duration-300 group-hover:scale-105">
+            {isAnalyzingOrLoading ? (
+              /* CRT analyzing animation (style analysis or video analytics loading) */
+              <div className={cn("studio-analyzing-wrapper", "is-analyzing")}>
+                <div className="studio-analyzing-card">
+                  {showImage && (
                     <img
                       src={thumbnailUrl}
                       alt={title}
-                      onLoad={() => setIsLoaded(true)}
-                      loading={priority ? "eager" : "lazy"}
-                      decoding="async"
-                      className={cn(
-                        "h-full w-full object-cover transition-all duration-300",
-                        isLoaded ? "opacity-100" : "opacity-0"
-                      )}
+                      className="studio-analyzing-thumbnail"
+                    />
+                  )}
+                  {!showImage && (
+                    <div className="absolute inset-0 bg-muted" aria-hidden />
+                  )}
+                  <div className="studio-analyzing-scanlines" aria-hidden />
+                  <div className="studio-analyzing-scan-line" aria-hidden />
+                  <div className="studio-analyzing-rgb" aria-hidden />
+                  <div className="studio-analyzing-vignette" aria-hidden />
+                  <div className="studio-analyzing-corner tl" aria-hidden />
+                  <div className="studio-analyzing-corner tr" aria-hidden />
+                  <div className="studio-analyzing-corner bl" aria-hidden />
+                  <div className="studio-analyzing-corner br" aria-hidden />
+                  <div className="studio-analyzing-status">
+                    <div className="studio-analyzing-status-dot" aria-hidden />
+                    <span className="studio-analyzing-status-text">
+                      ANALYZING
+                    </span>
+                  </div>
+                  <div className="studio-analyzing-title">
+                    <div className="studio-analyzing-title-text">{title}</div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="relative h-full w-full overflow-hidden bg-muted">
+                {showImage && (
+                  <>
+                    {!isLoaded && (
+                      <Skeleton className="absolute inset-0 h-full w-full" />
+                    )}
+                    <div className="h-full w-full transition-transform duration-300 group-hover:scale-105">
+                      <img
+                        src={thumbnailUrl}
+                        alt={title}
+                        onLoad={() => setIsLoaded(true)}
+                        loading={priority ? "eager" : "lazy"}
+                        decoding="async"
+                        className={cn(
+                          "h-full w-full object-cover transition-all duration-300",
+                          isLoaded ? "opacity-100" : "opacity-0"
+                        )}
+                      />
+                    </div>
+                  </>
+                )}
+                {selectionMode && (
+                  <div
+                    className="absolute left-2 top-2 z-10"
+                    onClick={handleCheckboxChange}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        onToggleSelect?.(videoId);
+                      }
+                    }}
+                    aria-label={selected ? "Deselect video" : "Select video"}
+                  >
+                    <Checkbox
+                      checked={selected}
+                      className="h-5 w-5 border-2 border-white bg-black/50 shadow-md pointer-events-none"
                     />
                   </div>
-                </>
-              )}
-              {/* Selection mode: checkbox overlay top-left */}
-              {selectionMode && (
-                <div
-                  className="absolute left-2 top-2 z-10"
-                  onClick={handleCheckboxChange}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      onToggleSelect?.(videoId);
-                    }
-                  }}
-                  aria-label={selected ? "Deselect video" : "Select video"}
-                >
-                  <Checkbox
-                    checked={selected}
-                    className="h-5 w-5 border-2 border-white bg-black/50 shadow-md pointer-events-none"
-                  />
-                </div>
-              )}
-              {/* Top overlay – title (left) and external link (right); same as ThumbnailCard name + badge */}
-              <div
-                className={cn(
-                  "absolute inset-x-0 top-0 flex items-start justify-between p-2",
-                  "bg-gradient-to-b from-black/60 to-transparent",
-                  "opacity-0 -translate-y-2 transition-all duration-200 ease-out",
-                  "group-hover:opacity-100 group-hover:translate-y-0",
-                  selectionMode && "pl-10"
                 )}
-              >
-                <p
-                  className="max-w-[70%] truncate text-sm font-medium text-white drop-shadow-sm"
-                  title={title}
-                >
-                  {title}
-                </p>
-                {!selectionMode && (
-                  <ExternalLink className="h-4 w-4 shrink-0 text-white drop-shadow-sm" />
-                )}
-              </div>
-              {/* Optional stats at bottom */}
-              {hasStats && (
                 <div
                   className={cn(
-                    "absolute inset-x-0 bottom-0 flex items-center gap-3 px-2 py-1.5",
-                    "bg-gradient-to-t from-black/60 to-transparent",
-                    "opacity-0 transition-opacity duration-200 ease-out",
-                    "group-hover:opacity-100"
+                    "absolute inset-x-0 top-0 flex items-start justify-between p-2",
+                    "bg-gradient-to-b from-black/60 to-transparent",
+                    "opacity-0 -translate-y-2 transition-all duration-200 ease-out",
+                    "group-hover:opacity-100 group-hover:translate-y-0",
+                    selectionMode && "pl-10"
                   )}
                 >
-                  {viewCount != null && (
-                    <span className="flex items-center gap-1 text-xs text-white drop-shadow-sm">
-                      <Eye className="h-3.5 w-3.5" />
-                      {formatCount(viewCount)}
-                    </span>
-                  )}
-                  {likeCount != null && (
-                    <span className="flex items-center gap-1 text-xs text-white drop-shadow-sm">
-                      <ThumbsUp className="h-3.5 w-3.5" />
-                      {formatCount(likeCount)}
-                    </span>
+                  <p
+                    className="max-w-[70%] truncate text-sm font-medium text-white drop-shadow-sm"
+                    title={title}
+                  >
+                    {title}
+                  </p>
+                  {!selectionMode && (
+                    <ExternalLink className="h-4 w-4 shrink-0 text-white drop-shadow-sm" />
                   )}
                 </div>
-              )}
-            </div>
+                {hasStats && (
+                  <div
+                    className={cn(
+                      "absolute inset-x-0 bottom-0 flex items-center gap-3 px-2 py-1.5",
+                      "bg-gradient-to-t from-black/60 to-transparent",
+                      "opacity-0 transition-opacity duration-200 ease-out",
+                      "group-hover:opacity-100"
+                    )}
+                  >
+                    {viewCount != null && (
+                      <span className="flex items-center gap-1 text-xs text-white drop-shadow-sm">
+                        <Eye className="h-3.5 w-3.5" />
+                        {formatCount(viewCount)}
+                      </span>
+                    )}
+                    {likeCount != null && (
+                      <span className="flex items-center gap-1 text-xs text-white drop-shadow-sm">
+                        <ThumbsUp className="h-3.5 w-3.5" />
+                        {formatCount(likeCount)}
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </Card>
         </HoverCardTrigger>
         <HoverCardContent

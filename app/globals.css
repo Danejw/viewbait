@@ -224,6 +224,365 @@ a:focus-visible {
   animation: drop-zone-success 0.4s ease-out forwards;
 }
 
+/* Thumbnail card: loading and success border states */
+@keyframes thumbnail-card-border-loading {
+  0%, 100% {
+    box-shadow: 0 0 0 2px oklch(var(--primary) / 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 2px oklch(var(--primary) / 0.9);
+  }
+}
+
+.thumbnail-card-border-loading {
+  animation: thumbnail-card-border-loading 1.5s ease-in-out infinite;
+}
+
+@keyframes thumbnail-card-border-success-in {
+  from {
+    box-shadow: 0 0 0 0 oklch(0.55 0.2 145 / 0);
+  }
+  to {
+    box-shadow: 0 0 0 2px oklch(0.55 0.2 145 / 1);
+  }
+}
+
+.thumbnail-card-border-success {
+  animation: thumbnail-card-border-success-in 0.4s ease-out forwards;
+  box-shadow: 0 0 0 2px oklch(0.55 0.2 145 / 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .thumbnail-card-border-loading {
+    animation: none;
+    box-shadow: 0 0 0 2px oklch(var(--primary) / 0.7);
+  }
+  .thumbnail-card-border-success {
+    animation: none;
+  }
+}
+
+/* ============================================
+   Studio – YouTube tab: CRT analyzing animation
+   (rotating conic border, scan line, corners, badge)
+   ============================================ */
+
+@property --studio-analyzing-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+.studio-analyzing-wrapper {
+  position: relative;
+  border-radius: 14px;
+  padding: 3px;
+  background: hsl(var(--background));
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+.studio-analyzing-wrapper.is-analyzing::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 14px;
+  padding: 2px;
+  background: conic-gradient(
+    from var(--studio-analyzing-angle, 0deg),
+    transparent 0%,
+    transparent 10%,
+    #ff0000 15%,
+    #ff4444 20%,
+    #ff0000 25%,
+    transparent 30%,
+    transparent 100%
+  );
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  animation: studio-analyzing-rotate 3s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes studio-analyzing-rotate {
+  0% { --studio-analyzing-angle: 0deg; }
+  100% { --studio-analyzing-angle: 360deg; }
+}
+
+@supports not (background: conic-gradient(from var(--studio-analyzing-angle), red, blue)) {
+  .studio-analyzing-wrapper.is-analyzing::before {
+    background: linear-gradient(
+      90deg,
+      transparent,
+      #ff0000,
+      #ff4444,
+      #ff0000,
+      transparent
+    );
+    background-size: 200% 100%;
+    animation: studio-analyzing-shimmer 2s linear infinite;
+  }
+
+  @keyframes studio-analyzing-shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+}
+
+.studio-analyzing-wrapper.is-analyzing::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: 18px;
+  background: conic-gradient(
+    from var(--studio-analyzing-angle, 0deg),
+    transparent 0%,
+    transparent 10%,
+    rgba(255, 0, 0, 0.4) 15%,
+    rgba(255, 68, 68, 0.6) 20%,
+    rgba(255, 0, 0, 0.4) 25%,
+    transparent 30%,
+    transparent 100%
+  );
+  filter: blur(12px);
+  animation: studio-analyzing-rotate 3s linear infinite;
+  z-index: -1;
+  pointer-events: none;
+}
+
+.studio-analyzing-card {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  background: hsl(var(--background));
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.studio-analyzing-thumbnail {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.studio-analyzing-scanlines {
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent 0px,
+    transparent 2px,
+    rgba(0, 0, 0, 0.15) 2px,
+    rgba(0, 0, 0, 0.15) 4px
+  );
+  pointer-events: none;
+  z-index: 2;
+}
+
+.studio-analyzing-scan-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 4px;
+  /* Primary-colored horizontal line – scans vertically up and down */
+  background: linear-gradient(
+    180deg,
+    transparent,
+    oklch(var(--primary) / 0.7),
+    oklch(var(--primary) / 1),
+    oklch(var(--primary) / 0.7),
+    transparent
+  );
+  box-shadow:
+    0 0 16px oklch(var(--primary) / 0.8),
+    0 0 32px oklch(var(--primary) / 0.4);
+  animation: studio-analyzing-scan-line 2.5s ease-in-out infinite;
+  z-index: 3;
+  pointer-events: none;
+}
+
+@keyframes studio-analyzing-scan-line {
+  /* Vertical scan: top → bottom → top (horizontal line moving up and down) */
+  0% { top: 0; }
+  50% { top: calc(100% - 4px); }
+  100% { top: 0; }
+}
+
+.studio-analyzing-corner {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border-color: rgba(255, 0, 0, 0.7);
+  border-style: solid;
+  border-width: 0;
+  z-index: 4;
+  pointer-events: none;
+}
+
+.studio-analyzing-wrapper.is-analyzing .studio-analyzing-corner {
+  border-color: #ff0000;
+  filter: drop-shadow(0 0 4px rgba(255, 0, 0, 0.8));
+}
+
+.studio-analyzing-corner.tl {
+  top: 8px;
+  left: 8px;
+  border-top-width: 2px;
+  border-left-width: 2px;
+}
+
+.studio-analyzing-corner.tr {
+  top: 8px;
+  right: 8px;
+  border-top-width: 2px;
+  border-right-width: 2px;
+}
+
+.studio-analyzing-corner.bl {
+  bottom: 8px;
+  left: 8px;
+  border-bottom-width: 2px;
+  border-left-width: 2px;
+}
+
+.studio-analyzing-corner.br {
+  bottom: 8px;
+  right: 8px;
+  border-bottom-width: 2px;
+  border-right-width: 2px;
+}
+
+.studio-analyzing-rgb {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.studio-analyzing-wrapper.is-analyzing .studio-analyzing-rgb {
+  opacity: 1;
+  animation: studio-analyzing-rgb-pulse 4s ease-in-out infinite;
+}
+
+@keyframes studio-analyzing-rgb-pulse {
+  0%, 100% {
+    box-shadow:
+      inset 2px 0 0 rgba(255, 0, 0, 0.15),
+      inset -2px 0 0 rgba(0, 255, 255, 0.15);
+  }
+  50% {
+    box-shadow:
+      inset 4px 0 0 rgba(255, 0, 0, 0.25),
+      inset -4px 0 0 rgba(0, 255, 255, 0.25);
+  }
+}
+
+.studio-analyzing-vignette {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    ellipse at center,
+    transparent 50%,
+    rgba(0, 0, 0, 0.4) 100%
+  );
+  pointer-events: none;
+  z-index: 2;
+}
+
+.studio-analyzing-status {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(8px);
+  border-radius: 6px;
+  border: 1px solid rgba(255, 0, 0, 0.3);
+  z-index: 5;
+}
+
+.studio-analyzing-status-dot {
+  width: 8px;
+  height: 8px;
+  background: #ff0000;
+  border-radius: 50%;
+  animation: studio-analyzing-status-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes studio-analyzing-status-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(255, 0, 0, 0.6);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(255, 0, 0, 0);
+  }
+}
+
+.studio-analyzing-status-text {
+  font-family: ui-monospace, "Space Mono", monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: #ff4444;
+  text-shadow: 0 0 10px rgba(255, 68, 68, 0.5);
+}
+
+.studio-analyzing-title {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 16px;
+  background: linear-gradient(
+    0deg,
+    rgba(0, 0, 0, 0.9) 0%,
+    rgba(0, 0, 0, 0.6) 60%,
+    transparent 100%
+  );
+  z-index: 5;
+}
+
+.studio-analyzing-title-text {
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  text-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.8),
+    0.5px 0 0 rgba(255, 0, 0, 0.3),
+    -0.5px 0 0 rgba(0, 255, 255, 0.3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .studio-analyzing-wrapper.is-analyzing::before,
+  .studio-analyzing-wrapper.is-analyzing::after {
+    animation: none;
+  }
+  .studio-analyzing-scan-line {
+    animation: none;
+    opacity: 0.5;
+  }
+  .studio-analyzing-status-dot {
+    animation: none;
+  }
+  .studio-analyzing-wrapper.is-analyzing .studio-analyzing-rgb {
+    animation: none;
+  }
+}
+
 /* Dragging item visual states */
 .dragging-item {
   cursor: grabbing !important;

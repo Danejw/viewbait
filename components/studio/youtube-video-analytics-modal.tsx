@@ -6,7 +6,7 @@
  * Displays Gemini video-understanding analytics for a YouTube video in a modal.
  * Each section is collapsible: Summary and Topic/tone/pacing open by default;
  * Key moments, Hooks, Thumbnail notes, Characters, and Places collapsed by default.
- * When characters exist, offers "Extract character snapshots" (FFmpeg.wasm) with a local video file.
+ * When characters exist, offers "Extract character snapshots" from the video URL (streamed via API) or via file upload fallback.
  */
 
 import React, { useRef, useCallback, useState } from "react";
@@ -26,7 +26,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import type { YouTubeVideoAnalytics } from "@/lib/services/youtube-video-analyze";
-import { getRepresentativeSecondsForCharacter } from "@/lib/utils/timestamp-parse";
+import { getRepresentativeSecondsForCharacter, getRepresentativeSecondsForPlace } from "@/lib/utils/timestamp-parse";
 import { extractFramesAt } from "@/lib/services/ffmpeg-frame-extract";
 import { toast } from "sonner";
 
@@ -34,6 +34,12 @@ const YOUTUBE_WATCH_URL = "https://www.youtube.com/watch?v=";
 
 export interface CharacterSnapshotItem {
   characterName: string;
+  imageBlobUrl: string;
+  blob: Blob;
+}
+
+export interface PlaceSnapshotItem {
+  placeName: string;
   imageBlobUrl: string;
   blob: Blob;
 }
@@ -53,6 +59,8 @@ export interface YouTubeVideoAnalyticsModalProps {
   error?: string | null;
   /** When provided and analytics has characters, "Extract character snapshots" is shown */
   onSetCharacterSnapshots?: (videoId: string, snapshots: CharacterSnapshotItem[]) => void;
+  /** When provided and analytics has places, "Extract place snapshots" is shown */
+  onSetPlaceSnapshots?: (videoId: string, snapshots: PlaceSnapshotItem[]) => void;
 }
 
 function RubricRow({
@@ -115,12 +123,67 @@ export function YouTubeVideoAnalyticsModal({
   loading = false,
   error = null,
   onSetCharacterSnapshots,
+  onSetPlaceSnapshots,
 }: YouTubeVideoAnalyticsModalProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const placeFileInputRef = useRef<HTMLInputElement | null>(null);
   const [extracting, setExtracting] = useState(false);
+  const [extractPhase, setExtractPhase] = useState<'idle' | 'fetching' | 'extracting'>('idle');
   const [extractError, setExtractError] = useState<string | null>(null);
+  const [extractingPlaces, setExtractingPlaces] = useState(false);
+  const [extractPlacesPhase, setExtractPlacesPhase] = useState<'idle' | 'fetching' | 'extracting'>('idle');
+  const [extractPlacesError, setExtractPlacesError] = useState<string | null>(null);
 
-  const handleExtractSnapshots = useCallback(() => {
+  const runExtractionWithFile = useCallback(
+    async (file: File) => {
+      if (!video || !analytics?.characters?.length || !onSetCharacterSnapshots) return;
+      const timestamps: number[] = [];
+      for (const char of analytics.characters) {
+        const sec = getRepresentativeSecondsForCharacter(char);
+        timestamps.push(sec ?? 0);
+      }
+      const { blobs, error: extractErr } = await extractFramesAt(file, timestamps);
+      if (extractErr || blobs.length === 0) {
+        setExtractError(extractErr ?? "No frames could be extracted.");
+        return;
+      }
+      const snapshots: CharacterSnapshotItem[] = analytics.characters.slice(0, blobs.length).map((char, i) => ({
+        characterName: char.name,
+        imageBlobUrl: URL.createObjectURL(blobs[i]),
+        blob: blobs[i],
+      }));
+      onSetCharacterSnapshots(video.videoId, snapshots);
+      toast.success("Character snapshots extracted. Drag them to Faces or References on the right.");
+      onOpenChange(false);
+    },
+    [video, analytics, onSetCharacterSnapshots, onOpenChange]
+  );
+
+  const handleExtractFromVideo = useCallback(async () => {
+    if (!video || !analytics?.characters?.length || !onSetCharacterSnapshots || extracting) return;
+    setExtractError(null);
+    setExtracting(true);
+    setExtractPhase('fetching');
+    try {
+      const res = await fetch(`/api/youtube/videos/${video.videoId}/stream`);
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setExtractError(data?.error ?? "Video unavailable or private. Try uploading a file instead.");
+        return;
+      }
+      const blob = await res.blob();
+      const file = new File([blob], "video.mp4", { type: blob.type || "video/mp4" });
+      setExtractPhase('extracting');
+      await runExtractionWithFile(file);
+    } catch (err) {
+      setExtractError(err instanceof Error ? err.message : "Failed to fetch video. Try uploading a file instead.");
+    } finally {
+      setExtracting(false);
+      setExtractPhase('idle');
+    }
+  }, [video, analytics, onSetCharacterSnapshots, extracting, runExtractionWithFile]);
+
+  const handleUploadFallback = useCallback(() => {
     setExtractError(null);
     fileInputRef.current?.click();
   }, []);
@@ -132,32 +195,91 @@ export function YouTubeVideoAnalyticsModal({
       if (!file || !video || !analytics?.characters?.length || !onSetCharacterSnapshots) return;
       setExtracting(true);
       setExtractError(null);
+      setExtractPhase('extracting');
       try {
-        const timestamps: number[] = [];
-        for (const char of analytics.characters) {
-          const sec = getRepresentativeSecondsForCharacter(char);
-          timestamps.push(sec ?? 0);
-        }
-        const { blobs, error: extractErr } = await extractFramesAt(file, timestamps);
-        if (extractErr || blobs.length === 0) {
-          setExtractError(extractErr ?? "No frames could be extracted.");
-          return;
-        }
-        const snapshots: CharacterSnapshotItem[] = analytics.characters.slice(0, blobs.length).map((char, i) => ({
-          characterName: char.name,
-          imageBlobUrl: URL.createObjectURL(blobs[i]),
-          blob: blobs[i],
-        }));
-        onSetCharacterSnapshots(video.videoId, snapshots);
-        toast.success("Character snapshots extracted. Drag them to Faces or References on the right.");
-        onOpenChange(false);
+        await runExtractionWithFile(file);
       } catch (err) {
         setExtractError(err instanceof Error ? err.message : "Extraction failed.");
       } finally {
         setExtracting(false);
+        setExtractPhase('idle');
       }
     },
-    [video, analytics, onSetCharacterSnapshots, onOpenChange]
+    [video, analytics, onSetCharacterSnapshots, runExtractionWithFile]
+  );
+
+  const runExtractionForPlacesWithFile = useCallback(
+    async (file: File) => {
+      if (!video || !analytics?.places?.length || !onSetPlaceSnapshots) return;
+      const timestamps: number[] = [];
+      for (const place of analytics.places) {
+        const sec = getRepresentativeSecondsForPlace(place);
+        timestamps.push(sec ?? 0);
+      }
+      const { blobs, error: extractErr } = await extractFramesAt(file, timestamps);
+      if (extractErr || blobs.length === 0) {
+        setExtractPlacesError(extractErr ?? "No frames could be extracted.");
+        return;
+      }
+      const snapshots: PlaceSnapshotItem[] = analytics.places.slice(0, blobs.length).map((place, i) => ({
+        placeName: place.name,
+        imageBlobUrl: URL.createObjectURL(blobs[i]),
+        blob: blobs[i],
+      }));
+      onSetPlaceSnapshots(video.videoId, snapshots);
+      toast.success("Place snapshots extracted. Drag them to Faces or References on the right.");
+      onOpenChange(false);
+    },
+    [video, analytics, onSetPlaceSnapshots, onOpenChange]
+  );
+
+  const handleExtractPlacesFromVideo = useCallback(async () => {
+    if (!video || !analytics?.places?.length || !onSetPlaceSnapshots || extractingPlaces) return;
+    setExtractPlacesError(null);
+    setExtractingPlaces(true);
+    setExtractPlacesPhase("fetching");
+    try {
+      const res = await fetch(`/api/youtube/videos/${video.videoId}/stream`);
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setExtractPlacesError(data?.error ?? "Video unavailable or private. Try uploading a file instead.");
+        return;
+      }
+      const blob = await res.blob();
+      const file = new File([blob], "video.mp4", { type: blob.type || "video/mp4" });
+      setExtractPlacesPhase("extracting");
+      await runExtractionForPlacesWithFile(file);
+    } catch (err) {
+      setExtractPlacesError(err instanceof Error ? err.message : "Failed to fetch video. Try uploading a file instead.");
+    } finally {
+      setExtractingPlaces(false);
+      setExtractPlacesPhase("idle");
+    }
+  }, [video, analytics, onSetPlaceSnapshots, extractingPlaces, runExtractionForPlacesWithFile]);
+
+  const handlePlaceUploadFallback = useCallback(() => {
+    setExtractPlacesError(null);
+    placeFileInputRef.current?.click();
+  }, []);
+
+  const handlePlaceFileChange = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      e.target.value = "";
+      if (!file || !video || !analytics?.places?.length || !onSetPlaceSnapshots) return;
+      setExtractingPlaces(true);
+      setExtractPlacesError(null);
+      setExtractPlacesPhase("extracting");
+      try {
+        await runExtractionForPlacesWithFile(file);
+      } catch (err) {
+        setExtractPlacesError(err instanceof Error ? err.message : "Extraction failed.");
+      } finally {
+        setExtractingPlaces(false);
+        setExtractPlacesPhase("idle");
+      }
+    },
+    [video, analytics, onSetPlaceSnapshots, runExtractionForPlacesWithFile]
   );
 
   if (!video) return null;
@@ -272,7 +394,7 @@ export function YouTubeVideoAnalyticsModal({
                         />
                         <button
                           type="button"
-                          onClick={handleExtractSnapshots}
+                          onClick={handleExtractFromVideo}
                           disabled={extracting}
                           className={cn(
                             "flex items-center justify-center gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm font-medium",
@@ -280,9 +402,9 @@ export function YouTubeVideoAnalyticsModal({
                           )}
                         >
                           {extracting ? (
-                            <>
-                              <span className="animate-pulse">Extracting frames…</span>
-                            </>
+                            <span className="animate-pulse">
+                              {extractPhase === 'fetching' ? "Fetching video…" : "Extracting frames…"}
+                            </span>
                           ) : (
                             <>
                               <Film className="h-4 w-4" />
@@ -291,8 +413,16 @@ export function YouTubeVideoAnalyticsModal({
                           )}
                         </button>
                         <p className="text-xs text-muted-foreground">
-                          Select a local video file (e.g. downloaded from YouTube) to extract one frame per character. Snapshots appear on the YouTube tab and can be dragged to Faces or References.
+                          We&apos;ll fetch this video from YouTube and extract one frame per character. If that fails, you can upload a file instead.
                         </p>
+                        <button
+                          type="button"
+                          onClick={handleUploadFallback}
+                          disabled={extracting}
+                          className="text-xs text-primary hover:underline disabled:opacity-60"
+                        >
+                          Or upload a file
+                        </button>
                         {extractError && (
                           <p className="text-sm text-destructive">{extractError}</p>
                         )}
@@ -325,6 +455,53 @@ export function YouTubeVideoAnalyticsModal({
                   headerHintClassName="text-primary"
                 >
                   <div className="flex min-w-0 flex-col gap-4 pt-2">
+                    {onSetPlaceSnapshots && (
+                      <>
+                        <input
+                          ref={placeFileInputRef}
+                          type="file"
+                          accept="video/*"
+                          className="sr-only"
+                          aria-label="Select video file for place frame extraction"
+                          onChange={handlePlaceFileChange}
+                          disabled={extractingPlaces}
+                        />
+                        <button
+                          type="button"
+                          onClick={handleExtractPlacesFromVideo}
+                          disabled={extractingPlaces}
+                          className={cn(
+                            "flex items-center justify-center gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm font-medium",
+                            "hover:bg-muted/50 transition-colors disabled:opacity-60 disabled:pointer-events-none"
+                          )}
+                        >
+                          {extractingPlaces ? (
+                            <span className="animate-pulse">
+                              {extractPlacesPhase === "fetching" ? "Fetching video…" : "Extracting frames…"}
+                            </span>
+                          ) : (
+                            <>
+                              <Film className="h-4 w-4" />
+                              Extract place snapshots
+                            </>
+                          )}
+                        </button>
+                        <p className="text-xs text-muted-foreground">
+                          We&apos;ll fetch this video from YouTube and extract one frame per place. If that fails, you can upload a file instead.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={handlePlaceUploadFallback}
+                          disabled={extractingPlaces}
+                          className="text-xs text-primary hover:underline disabled:opacity-60"
+                        >
+                          Or upload a file
+                        </button>
+                        {extractPlacesError && (
+                          <p className="text-sm text-destructive">{extractPlacesError}</p>
+                        )}
+                      </>
+                    )}
                     {analytics.places.map((place, idx) => (
                       <div key={idx} className="flex min-w-0 flex-col gap-2 rounded-lg border border-border/60 bg-muted/30 p-3">
                         <p className="text-sm font-medium text-foreground break-words">{place.name}</p>

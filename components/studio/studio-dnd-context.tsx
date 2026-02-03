@@ -150,6 +150,7 @@ export function StudioDndContext({ children }: StudioDndContextProps) {
       actions.setIncludeFaces(true);
       const file = new File([data.blob], "snapshot.png", { type: data.blob.type || "image/png" });
       actions.setPendingFaceFromSnapshot(file, data.characterName ?? "From video");
+      actions.closeSnapshotViewModal();
       return;
     }
 
@@ -167,6 +168,7 @@ export function StudioDndContext({ children }: StudioDndContextProps) {
     if (overId === DROP_ZONE_IDS.STYLE_REFERENCES && data.type === "snapshot" && data.blob) {
       actions.setIncludeStyleReferences(true);
       actions.addStyleReferenceFromBlob(data.blob);
+      actions.closeSnapshotViewModal();
       return;
     }
   }, [actions]);

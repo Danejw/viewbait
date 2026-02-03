@@ -27,10 +27,21 @@ import { DeleteConfirmationModal } from "@/components/studio/delete-confirmation
 import { ThumbnailEditModal, type ThumbnailEditData } from "@/components/studio/thumbnail-edit-modal";
 import { YouTubeVideoAnalyticsModal } from "@/components/studio/youtube-video-analytics-modal";
 import { ImageModal, PaletteViewModal } from "@/components/ui/modal";
+import { SnapshotViewModal } from "@/components/studio/snapshot-view-modal";
 import {
   analyzeYouTubeVideo,
   type YouTubeVideoAnalytics,
 } from "@/lib/services/youtube-video-analyze";
+
+/** Payload for opening the snapshot view modal (full-size image, draggable to Faces/References) */
+export interface SnapshotToView {
+  videoId: string;
+  index: number;
+  characterName?: string;
+  placeName?: string;
+  imageBlobUrl: string;
+  blob: Blob;
+}
 
 /**
  * Studio View Types
@@ -135,6 +146,11 @@ export interface StudioState {
   thumbnailStyleAnalysisCache: Record<string, string>;
   /** Character snapshots from video frame extraction (FFmpeg.wasm); session-only, keyed by videoId */
   characterSnapshotsByVideoId: Record<string, Array<{ characterName: string; imageBlobUrl: string; blob: Blob }>>;
+  /** Place snapshots from video frame extraction (FFmpeg.wasm); session-only, keyed by videoId */
+  placeSnapshotsByVideoId: Record<string, Array<{ placeName: string; imageBlobUrl: string; blob: Blob }>>;
+  /** Snapshot view modal (full-size image, draggable to Faces/References) */
+  snapshotViewModalOpen: boolean;
+  snapshotToView: SnapshotToView | null;
   /** When set, open create-face modal with this file pre-filled (e.g. from dropping a snapshot on Faces) */
   pendingFaceFromSnapshot: File | null;
   /** Suggested name when opening create-face from a snapshot (e.g. character name) */
@@ -197,8 +213,8 @@ export interface StudioActions {
   onCopyThumbnail: (id: string) => void;
   onEditThumbnail: (thumbnail: Thumbnail) => void;
   onAddToProject: (id: string, projectId: string | null, previousProjectId?: string | null) => void;
-  /** Analyze thumbnail style and append description to custom instructions */
-  onAnalyzeThumbnailForInstructions: (params: { imageUrl?: string; thumbnailId?: string }) => Promise<void>;
+  /** Analyze thumbnail style and append description to custom instructions. Returns success/cached for card border feedback. */
+  onAnalyzeThumbnailForInstructions: (params: { imageUrl?: string; thumbnailId?: string }) => Promise<{ success: boolean; cached?: boolean }>;
   // Modal actions
   closeDeleteModal: () => void;
   confirmDelete: () => Promise<void>;
@@ -215,6 +231,9 @@ export interface StudioActions {
   // Face view actions
   onViewFace: (face: DbFace) => void;
   closeFaceImageModal: () => void;
+  // Snapshot view modal (full-size, draggable to Faces/References)
+  onViewSnapshot: (data: SnapshotToView) => void;
+  closeSnapshotViewModal: () => void;
   // YouTube video analytics (Gemini video understanding)
   onRequestVideoAnalytics: (video: { videoId: string; title: string; thumbnailUrl: string }) => void;
   closeVideoAnalyticsModal: () => void;
@@ -222,6 +241,10 @@ export interface StudioActions {
   setCharacterSnapshots: (videoId: string, snapshots: Array<{ characterName: string; imageBlobUrl: string; blob: Blob }>) => void;
   /** Clear character snapshots for a video */
   clearCharacterSnapshots: (videoId: string) => void;
+  /** Set place snapshots for a video (from FFmpeg frame extraction) */
+  setPlaceSnapshots: (videoId: string, snapshots: Array<{ placeName: string; imageBlobUrl: string; blob: Blob }>) => void;
+  /** Clear place snapshots for a video */
+  clearPlaceSnapshots: (videoId: string) => void;
   /** Set pending face image to open create-face modal with (e.g. from snapshot drop); clear after modal uses it */
   setPendingFaceFromSnapshot: (file: File | null, defaultName?: string | null) => void;
   // Clear error
@@ -446,6 +469,8 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
     // Face view modal state
     faceImageModalOpen: false,
     faceToView: null,
+    snapshotViewModalOpen: false,
+    snapshotToView: null,
     // YouTube video analytics modal
     videoAnalyticsModalOpen: false,
     videoAnalyticsVideo: null,
@@ -457,6 +482,7 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
     videoAnalyticsLoadingVideos: {},
     thumbnailStyleAnalysisCache: {},
     characterSnapshotsByVideoId: {},
+    placeSnapshotsByVideoId: {},
     pendingFaceFromSnapshot: null,
     pendingFaceDefaultName: null,
     // Active project (null = All thumbnails); hydrated from localStorage
@@ -814,14 +840,14 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
   );
 
   const onAnalyzeThumbnailForInstructions = useCallback(
-    async (params: { imageUrl?: string; thumbnailId?: string }) => {
+    async (params: { imageUrl?: string; thumbnailId?: string }): Promise<{ success: boolean; cached?: boolean }> => {
       const key =
         (typeof params.thumbnailId === "string" && params.thumbnailId.trim()) ||
         (typeof params.imageUrl === "string" && params.imageUrl.trim()) ||
         "";
       if (!key) {
         toast.error("Image URL or thumbnail ID is required.");
-        return;
+        return { success: false };
       }
 
       setState((s) => {
@@ -841,14 +867,14 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
       const hadCached = state.thumbnailStyleAnalysisCache[key];
       if (hadCached) {
         toast.success("Added to custom instructions.");
-        return;
+        return { success: true, cached: true };
       }
 
       const { description, error: analyzeError } =
         await thumbnailsService.analyzeThumbnailStyleForInstructions(params);
       if (analyzeError) {
         toast.error(analyzeError.message || "Failed to analyze thumbnail style.");
-        return;
+        return { success: false };
       }
       if (description) {
         setState((s) => ({
@@ -863,7 +889,9 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
             description,
         }));
         toast.success("Added to custom instructions.");
+        return { success: true };
       }
+      return { success: false };
     },
     [state.thumbnailStyleAnalysisCache]
   );
@@ -1004,6 +1032,24 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
     }));
     setTimeout(() => {
       setState((s) => ({ ...s, faceToView: null }));
+    }, 300);
+  }, []);
+
+  const onViewSnapshot = useCallback((data: SnapshotToView) => {
+    setState((s) => ({
+      ...s,
+      snapshotViewModalOpen: true,
+      snapshotToView: data,
+    }));
+  }, []);
+
+  const closeSnapshotViewModal = useCallback(() => {
+    setState((s) => ({
+      ...s,
+      snapshotViewModalOpen: false,
+    }));
+    setTimeout(() => {
+      setState((s) => ({ ...s, snapshotToView: null }));
     }, 300);
   }, []);
 
@@ -1321,6 +1367,8 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
     closePaletteViewModal,
     onViewFace,
     closeFaceImageModal,
+    onViewSnapshot,
+    closeSnapshotViewModal,
     onRequestVideoAnalytics,
     closeVideoAnalyticsModal,
     setCharacterSnapshots: (videoId, snapshots) =>
@@ -1330,6 +1378,14 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
         const next = { ...s.characterSnapshotsByVideoId };
         delete next[videoId];
         return { ...s, characterSnapshotsByVideoId: next };
+      }),
+    setPlaceSnapshots: (videoId, snapshots) =>
+      setState((s) => ({ ...s, placeSnapshotsByVideoId: { ...s.placeSnapshotsByVideoId, [videoId]: snapshots } })),
+    clearPlaceSnapshots: (videoId) =>
+      setState((s) => {
+        const next = { ...s.placeSnapshotsByVideoId };
+        delete next[videoId];
+        return { ...s, placeSnapshotsByVideoId: next };
       }),
     setPendingFaceFromSnapshot: (file, defaultName) =>
       setState((s) => ({ ...s, pendingFaceFromSnapshot: file ?? null, pendingFaceDefaultName: defaultName ?? null })),
@@ -1533,6 +1589,17 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
         />
       )}
 
+      {/* Snapshot View Modal (full-size, draggable to Faces/References) */}
+      {state.snapshotToView && (
+        <SnapshotViewModal
+          open={state.snapshotViewModalOpen}
+          onOpenChange={(open) => {
+            if (!open) closeSnapshotViewModal();
+          }}
+          snapshot={state.snapshotToView}
+        />
+      )}
+
       {/* YouTube Video Analytics Modal (Gemini video understanding) */}
       <YouTubeVideoAnalyticsModal
         open={state.videoAnalyticsModalOpen}
@@ -1544,6 +1611,7 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
         loading={state.videoAnalyticsLoading}
         error={state.videoAnalyticsError}
         onSetCharacterSnapshots={actions.setCharacterSnapshots}
+        onSetPlaceSnapshots={actions.setPlaceSnapshots}
       />
     </StudioContext.Provider>
     </StudioStateContext.Provider>

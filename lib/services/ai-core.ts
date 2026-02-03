@@ -471,15 +471,13 @@ export async function callGeminiWithYouTubeVideoAndFunctionCalling(
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`
 
-  const parts: Array<
+  // Video first, then text (per Gemini video docs: "place the text prompt after the video part")
+  const requestParts: Array<
     | { text?: string }
     | { fileData?: { fileUri: string } }
-  > = []
-  if (systemPrompt) {
-    parts.push({ text: systemPrompt })
-  }
-  parts.push({ fileData: { fileUri: youtubeUrl } })
-  parts.push({ text: userPrompt })
+  > = [{ fileData: { fileUri: youtubeUrl } }]
+  const combinedPrompt = [systemPrompt, userPrompt].filter(Boolean).join('\n\n')
+  requestParts.push({ text: combinedPrompt })
 
   const toolDefinitions: unknown[] = Array.isArray(toolDefinition) ? toolDefinition : [toolDefinition]
   const allowedFunctionNames: string[] = Array.isArray(toolName) ? toolName : [toolName]
@@ -488,7 +486,7 @@ export async function callGeminiWithYouTubeVideoAndFunctionCalling(
     contents: [
       {
         role: 'user',
-        parts,
+        parts: requestParts,
       },
     ],
     tools: [
@@ -529,12 +527,26 @@ export async function callGeminiWithYouTubeVideoAndFunctionCalling(
   }
 
   const data = await response.json()
-  const functionCall = data.candidates?.[0]?.content?.parts?.find(
+  const candidate = data.candidates?.[0]
+  const responseParts = candidate?.content?.parts ?? []
+  const functionCall = responseParts.find(
     (part: { functionCall?: { name: string; args: unknown } }) => part.functionCall
   )
 
   if (!functionCall?.functionCall) {
-    throw new Error('No function call found in Gemini API response')
+    const finishReason = candidate?.finishReason ?? 'UNKNOWN'
+    const textPart = responseParts.find((p: { text?: string }) => p.text != null)
+    const textSnippet = textPart?.text
+      ? String(textPart.text).slice(0, 300).replace(/\n/g, ' ')
+      : ''
+    const reason =
+      finishReason !== 'STOP' && finishReason !== 'END_TURN'
+        ? ` finishReason=${finishReason}`
+        : ''
+    const snippet = textSnippet ? `; first 300 chars: ${textSnippet}` : ''
+    throw new Error(
+      `No function call found in Gemini API response${reason}${snippet}`.trim()
+    )
   }
 
   const name = functionCall.functionCall.name as string
@@ -549,6 +561,89 @@ export async function callGeminiWithYouTubeVideoAndFunctionCalling(
     functionName: name,
     functionCallResult: args,
     groundingMetadata,
+  }
+}
+
+/**
+ * Call Google Gemini API with a YouTube video URL and structured JSON output.
+ * Uses responseSchema so the model returns JSON directly (no function call).
+ * More reliable than function calling for video analysis when the model may return text instead.
+ * See: https://ai.google.dev/gemini-api/docs/video-understanding#youtube
+ * See: https://ai.google.dev/gemini-api/docs/structured-output
+ */
+export async function callGeminiWithYouTubeVideoAndStructuredOutput(
+  systemPrompt: string | null,
+  userPrompt: string,
+  youtubeUrl: string,
+  responseJsonSchema: Record<string, unknown>,
+  model: string = 'gemini-2.5-flash'
+): Promise<Record<string, unknown>> {
+  const apiKey = process.env.GEMINI_API_KEY
+  if (!apiKey) {
+    throw new Error('GEMINI_API_KEY environment variable is not set')
+  }
+
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`
+
+  const requestParts: Array<
+    | { text?: string }
+    | { fileData?: { fileUri: string } }
+  > = [{ fileData: { fileUri: youtubeUrl } }]
+  const combinedPrompt = [systemPrompt, userPrompt].filter(Boolean).join('\n\n')
+  requestParts.push({ text: combinedPrompt })
+
+  const requestBody = {
+    contents: [
+      {
+        role: 'user',
+        parts: requestParts,
+      },
+    ],
+    generationConfig: {
+      responseMimeType: 'application/json',
+      responseJsonSchema: responseJsonSchema,
+      temperature: 0.3,
+      topK: 40,
+      topP: 0.95,
+      maxOutputTokens: 8192,
+    },
+  }
+
+  const response = await retryWithBackoff(
+    () =>
+      fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': apiKey,
+        },
+        body: JSON.stringify(requestBody),
+      })
+  )
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    const sanitizedError = sanitizeApiErrorResponse(errorText)
+    throw new Error(`Gemini API error: ${response.status} - ${sanitizedError}`)
+  }
+
+  const data = await response.json()
+  const candidate = data.candidates?.[0]
+  const responseParts = candidate?.content?.parts ?? []
+  const textPart = responseParts.find((p: { text?: string }) => p.text != null)
+  const text = textPart?.text
+
+  if (text == null || typeof text !== 'string') {
+    const finishReason = candidate?.finishReason ?? 'UNKNOWN'
+    throw new Error(
+      `No text in Gemini API response (finishReason=${finishReason}). Structured output may not be supported for this request.`
+    )
+  }
+
+  try {
+    return JSON.parse(text) as Record<string, unknown>
+  } catch {
+    throw new Error(`Gemini returned invalid JSON. First 200 chars: ${String(text).slice(0, 200)}`)
   }
 }
 

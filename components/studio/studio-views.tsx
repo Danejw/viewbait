@@ -49,6 +49,7 @@ import { ChannelImportTab } from "@/components/studio/channel-import-tab";
 import { YouTubeStyleExtractBar } from "@/components/studio/youtube-style-extract-bar";
 import { RecentThumbnailsStrip } from "@/components/studio/recent-thumbnails-strip";
 import { CharacterSnapshotsStrip } from "@/components/studio/character-snapshots-strip";
+import { PlaceSnapshotsStrip } from "@/components/studio/place-snapshots-strip";
 import { useYouTubeStyleExtract } from "@/lib/hooks/useYouTubeStyleExtract";
 import {
   Dialog,
@@ -2061,6 +2062,7 @@ export function StudioViewYouTube() {
 
       <RecentThumbnailsStrip />
       <CharacterSnapshotsStrip />
+      <PlaceSnapshotsStrip />
 
       <Tabs defaultValue="my-channel" className="mt-4">
         <TabsList className="mb-4">

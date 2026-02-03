@@ -1,11 +1,11 @@
 "use client";
 
 /**
- * CharacterSnapshotsStrip
+ * PlaceSnapshotsStrip
  *
- * Horizontal strip of character snapshot cards from video frame extraction (FFmpeg.wasm).
+ * Horizontal strip of place snapshot cards from video frame extraction (FFmpeg.wasm).
  * Each card is draggable to the Faces or Style References drop zones in the right sidebar.
- * Only rendered when there is at least one video with snapshots (characterSnapshotsByVideoId).
+ * Only rendered when there is at least one video with place snapshots (placeSnapshotsByVideoId).
  */
 
 import React, { memo, useCallback } from "react";
@@ -16,22 +16,22 @@ import type { DragData } from "@/components/studio/studio-dnd-context";
 
 const CARD_WIDTH = 100;
 
-interface SnapshotCardProps {
+interface PlaceSnapshotCardProps {
   videoId: string;
   index: number;
-  characterName: string;
+  placeName: string;
   imageBlobUrl: string;
   blob: Blob;
 }
 
-function SnapshotCard({ videoId, index, characterName, imageBlobUrl, blob }: SnapshotCardProps) {
+function PlaceSnapshotCard({ videoId, index, placeName, imageBlobUrl, blob }: PlaceSnapshotCardProps) {
   const { actions } = useStudio();
-  const dragId = `snapshot-${videoId}-${index}`;
+  const dragId = `place-snapshot-${videoId}-${index}`;
   const dragData: DragData = {
     type: "snapshot",
     id: dragId,
-    item: { type: "snapshot", name: characterName } as unknown as DragData["item"],
-    characterName,
+    item: { type: "snapshot", name: placeName } as unknown as DragData["item"],
+    characterName: placeName,
     imageBlobUrl,
     blob,
   };
@@ -41,8 +41,8 @@ function SnapshotCard({ videoId, index, characterName, imageBlobUrl, blob }: Sna
   });
 
   const handleClick = useCallback(() => {
-    actions.onViewSnapshot({ videoId, index, characterName, imageBlobUrl, blob });
-  }, [actions, videoId, index, characterName, imageBlobUrl, blob]);
+    actions.onViewSnapshot({ videoId, index, placeName, imageBlobUrl, blob });
+  }, [actions, videoId, index, placeName, imageBlobUrl, blob]);
 
   return (
     <div
@@ -59,33 +59,33 @@ function SnapshotCard({ videoId, index, characterName, imageBlobUrl, blob }: Sna
       style={{ width: CARD_WIDTH }}
       role="button"
       tabIndex={0}
-      aria-label={`View ${characterName} snapshot. Drag to Faces or References.`}
+      aria-label={`View ${placeName} snapshot. Drag to Faces or References.`}
     >
       <div className="aspect-square w-full overflow-hidden bg-muted">
         <img
           src={imageBlobUrl}
-          alt={characterName}
+          alt={placeName}
           className="h-full w-full object-cover"
         />
       </div>
-      <p className="truncate px-1.5 py-1 text-xs font-medium text-foreground" title={characterName}>
-        {characterName}
+      <p className="truncate px-1.5 py-1 text-xs font-medium text-foreground" title={placeName}>
+        {placeName}
       </p>
     </div>
   );
 }
 
-export const CharacterSnapshotsStrip = memo(function CharacterSnapshotsStrip() {
+export const PlaceSnapshotsStrip = memo(function PlaceSnapshotsStrip() {
   const { state } = useStudio();
-  const byVideo = state.characterSnapshotsByVideoId || {};
+  const byVideo = state.placeSnapshotsByVideoId || {};
   const entries = Object.entries(byVideo).filter(([, list]) => list?.length > 0);
   if (entries.length === 0) return null;
 
   return (
-    <section className="mb-4" aria-label="Character snapshots from video">
+    <section className="mb-4" aria-label="Place snapshots from video">
       <div className="flex flex-col gap-2">
         <h2 className="text-sm font-medium text-muted-foreground">
-          Character snapshots
+          Place snapshots
         </h2>
         <p className="text-xs text-muted-foreground">
           Drag to Faces or References on the right to use in thumbnails.
@@ -96,15 +96,15 @@ export const CharacterSnapshotsStrip = memo(function CharacterSnapshotsStrip() {
             "hide-scrollbar"
           )}
           role="list"
-          aria-label="Character snapshot cards"
+          aria-label="Place snapshot cards"
         >
           {entries.flatMap(([videoId, list]) =>
             list.map((snap, index) => (
               <div key={`${videoId}-${index}`} role="listitem" className="shrink-0">
-                <SnapshotCard
+                <PlaceSnapshotCard
                   videoId={videoId}
                   index={index}
-                  characterName={snap.characterName}
+                  placeName={snap.placeName}
                   imageBlobUrl={snap.imageBlobUrl}
                   blob={snap.blob}
                 />

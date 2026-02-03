@@ -7,7 +7,7 @@
  */
 
 import { NextResponse } from 'next/server'
-import { callGeminiWithYouTubeVideoAndFunctionCalling } from '@/lib/services/ai-core'
+import { callGeminiWithYouTubeVideoAndStructuredOutput } from '@/lib/services/ai-core'
 import { requireAuth } from '@/lib/server/utils/auth'
 import { createClient } from '@/lib/supabase/server'
 import {
@@ -16,6 +16,7 @@ import {
   aiServiceErrorResponse,
   serverErrorResponse,
 } from '@/lib/server/utils/error-handler'
+import { logError } from '@/lib/server/utils/logger'
 
 const YOUTUBE_WATCH_BASE = 'https://www.youtube.com/watch?v='
 
@@ -76,7 +77,7 @@ export async function POST(request: Request) {
 
     const systemPrompt = `You are an expert video analyst for content creators. Analyze the provided YouTube video and fill out the rubric below. Focus on what matters for thumbnail and title optimization, audience engagement, and content strategy. Also identify main characters or people in the video and where they appear, and identify distinct places or locations the video goes through (e.g. a kitchen, a studio, outdoors, a specific city). Be concise but informative. Use clear, short phrases or bullet points where appropriate.`
 
-    const userPrompt = `Analyze this YouTube video and extract the following attributes. You MUST call the video_analytics_rubric function with your analysis.
+    const userPrompt = `Analyze this YouTube video and extract the following attributes. Respond with a JSON object that matches the schema provided (no other text).
 
 Rubric:
 1. summary: 2-4 sentence overview of what the video is about.
@@ -90,143 +91,140 @@ Rubric:
 9. characters: List the main characters or people in the video. For each, give a short name or description and a list of scenes: each scene has a part (timestamp or segment, e.g. 0:30–1:15 or Intro) and a one-sentence description of what that person did in that part of the video.
 10. places: List the distinct places or locations the video goes through (e.g. kitchen, studio, park, office). For each place, give a short name and a list of scenes: each scene has a part (timestamp or segment) and a one-sentence description of what that place is or what happens there in the video.`
 
-    const toolDefinition = {
-      name: 'video_analytics_rubric',
-      description: 'Structured video analytics for content creators',
-      parameters: {
-        type: 'object',
-        properties: {
-          summary: {
-            type: 'string',
-            description: '2-4 sentence overview of the video content',
+    const videoAnalyticsResponseSchema: Record<string, unknown> = {
+      type: 'object',
+      properties: {
+        summary: {
+          type: 'string',
+          description: '2-4 sentence overview of the video content',
+        },
+        topic: {
+          type: 'string',
+          description: 'Main topic or category',
+        },
+        tone: {
+          type: 'string',
+          description: 'Overall tone of the video',
+        },
+        key_moments: {
+          type: 'string',
+          description: 'Notable moments or segments, with timestamps if useful',
+        },
+        hooks: {
+          type: 'string',
+          description: 'What grabs attention early or in the content',
+        },
+        duration_estimate: {
+          type: 'string',
+          description: 'Length or pacing note',
+        },
+        thumbnail_appeal_notes: {
+          type: 'string',
+          description: 'Notes on thumbnail alignment and visual suggestions',
           },
-          topic: {
-            type: 'string',
-            description: 'Main topic or category',
-          },
-          tone: {
-            type: 'string',
-            description: 'Overall tone of the video',
-          },
-          key_moments: {
-            type: 'string',
-            description: 'Notable moments or segments, with timestamps if useful',
-          },
-          hooks: {
-            type: 'string',
-            description: 'What grabs attention early or in the content',
-          },
-          duration_estimate: {
-            type: 'string',
-            description: 'Length or pacing note',
-          },
-          thumbnail_appeal_notes: {
-            type: 'string',
-            description: 'Notes on thumbnail alignment and visual suggestions',
-          },
-          content_type: {
-            type: 'string',
-            description: 'Content type (e.g. Tutorial, Vlog, Review)',
-          },
-          characters: {
-            type: 'array',
-            description: 'Main characters or people in the video with scenes where they appear',
-            items: {
-              type: 'object',
-              properties: {
-                name: {
-                  type: 'string',
-                  description: 'Character or person name, or short description if unnamed',
-                },
-                scenes: {
-                  type: 'array',
-                  description: 'Parts of the video where this person appears',
-                  items: {
-                    type: 'object',
-                    properties: {
-                      part: {
-                        type: 'string',
-                        description: 'Timestamp or segment (e.g. 0:30–1:15, Intro)',
-                      },
-                      description: {
-                        type: 'string',
-                        description: 'One sentence: what they did in this scene',
-                      },
-                    },
-                    required: ['part', 'description'],
+        content_type: {
+          type: 'string',
+          description: 'Content type (e.g. Tutorial, Vlog, Review)',
+        },
+        characters: {
+          type: 'array',
+          description: 'Main characters or people in the video with scenes where they appear',
+          items: {
+            type: 'object',
+            properties: {
+              name: { type: 'string', description: 'Character or person name, or short description if unnamed' },
+              scenes: {
+                type: 'array',
+                description: 'Parts of the video where this person appears',
+                items: {
+                  type: 'object',
+                  properties: {
+                    part: { type: 'string', description: 'Timestamp or segment (e.g. 0:30–1:15, Intro)' },
+                    description: { type: 'string', description: 'One sentence: what they did in this scene' },
                   },
+                  required: ['part', 'description'],
                 },
               },
-              required: ['name', 'scenes'],
             },
-          },
-          places: {
-            type: 'array',
-            description: 'Distinct places or locations the video goes through, with scenes where each appears',
-            items: {
-              type: 'object',
-              properties: {
-                name: {
-                  type: 'string',
-                  description: 'Place or location name (e.g. kitchen, studio, park)',
-                },
-                scenes: {
-                  type: 'array',
-                  description: 'Parts of the video where this place appears',
-                  items: {
-                    type: 'object',
-                    properties: {
-                      part: {
-                        type: 'string',
-                        description: 'Timestamp or segment (e.g. 0:30–1:15, Intro)',
-                      },
-                      description: {
-                        type: 'string',
-                        description: 'One sentence describing the place or what happens there in this scene',
-                      },
-                    },
-                    required: ['part', 'description'],
-                  },
-                },
-              },
-              required: ['name', 'scenes'],
-            },
+            required: ['name', 'scenes'],
           },
         },
-        required: [
-          'summary',
-          'topic',
-          'tone',
-          'key_moments',
-          'hooks',
-          'duration_estimate',
-          'thumbnail_appeal_notes',
-          'content_type',
-          'characters',
-          'places',
-        ],
+        places: {
+          type: 'array',
+          description: 'Distinct places or locations the video goes through, with scenes where each appears',
+          items: {
+            type: 'object',
+            properties: {
+              name: { type: 'string', description: 'Place or location name (e.g. kitchen, studio, park)' },
+              scenes: {
+                type: 'array',
+                description: 'Parts of the video where this place appears',
+                items: {
+                  type: 'object',
+                  properties: {
+                    part: { type: 'string', description: 'Timestamp or segment (e.g. 0:30–1:15, Intro)' },
+                    description: {
+                      type: 'string',
+                      description: 'One sentence describing the place or what happens there in this scene',
+                    },
+                  },
+                  required: ['part', 'description'],
+                },
+              },
+            },
+            required: ['name', 'scenes'],
+          },
+        },
       },
+      required: [
+        'summary',
+        'topic',
+        'tone',
+        'key_moments',
+        'hooks',
+        'duration_estimate',
+        'thumbnail_appeal_notes',
+        'content_type',
+        'characters',
+        'places',
+      ],
     }
 
-    let result
+    let analytics: Record<string, unknown>
     try {
-      result = await callGeminiWithYouTubeVideoAndFunctionCalling(
+      analytics = await callGeminiWithYouTubeVideoAndStructuredOutput(
         systemPrompt,
         userPrompt,
         youtubeUrl,
-        toolDefinition,
-        'video_analytics_rubric',
+        videoAnalyticsResponseSchema,
         'gemini-2.5-flash'
       )
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      if (
+        message.includes('No text in Gemini') ||
+        message.includes('invalid JSON') ||
+        message.includes('structured output')
+      ) {
+        logError(error, {
+          route: 'POST /api/youtube/videos/analyze',
+          operation: 'analysis-no-structured-response',
+        })
+        return NextResponse.json(
+          {
+            error:
+              'Video analysis could not be completed. The model did not return valid structured data. Try again or a different video.',
+            code: 'ANALYSIS_NO_STRUCTURED_RESPONSE',
+          },
+          { status: 503 }
+        )
+      }
       return aiServiceErrorResponse(
         error,
         'Failed to analyze video',
         { route: 'POST /api/youtube/videos/analyze' }
       )
     }
-
-    const analytics = (result as { functionCallResult?: Record<string, unknown> }).functionCallResult ?? {}
 
     function normalizeCharacters(raw: unknown): VideoAnalyticsCharacter[] {
       if (!Array.isArray(raw)) return []

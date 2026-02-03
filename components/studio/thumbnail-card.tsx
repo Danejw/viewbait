@@ -378,12 +378,20 @@ export const ThumbnailCard = memo(function ThumbnailCard({
   const [hoverOpen, setHoverOpen] = useState(false);
   const [projectDropdownOpen, setProjectDropdownOpen] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [showAnalysisSuccessBorder, setShowAnalysisSuccessBorder] = useState(false);
 
   // CRT overlay stays until the image has loaded (continuous visual feedback after generation)
   const [imageLoaded, setImageLoaded] = useState(false);
   React.useEffect(() => {
     setImageLoaded(false);
   }, [id, displaySrc]);
+
+  // Clear success border after a short delay so it doesn't stay forever
+  React.useEffect(() => {
+    if (!showAnalysisSuccessBorder) return;
+    const t = setTimeout(() => setShowAnalysisSuccessBorder(false), 2500);
+    return () => clearTimeout(t);
+  }, [showAnalysisSuccessBorder]);
 
   const handleHoverCardOpenChange = useCallback((open: boolean) => {
     if (open) {
@@ -583,7 +591,9 @@ export const ThumbnailCard = memo(function ThumbnailCard({
             "group relative aspect-video w-full cursor-pointer overflow-hidden p-0 transition-all",
             "hover:ring-2 hover:ring-primary/50 hover:shadow-lg",
             isDragging && "opacity-50 ring-2 ring-primary cursor-grabbing",
-            draggable && !isDragging && "cursor-grab"
+            draggable && !isDragging && "cursor-grab",
+            isAnalyzing && "thumbnail-card-border-loading",
+            showAnalysisSuccessBorder && "thumbnail-card-border-success"
           )}
           onClick={handleClick}
           {...listeners}

@@ -207,6 +207,76 @@ async function getPlaylistVideos(
 }
 
 /**
+ * Parse ISO 8601 duration (e.g. PT1H2M10S) to seconds
+ */
+function parseDurationToSeconds(isoDuration: string | null | undefined): number | undefined {
+  if (!isoDuration || typeof isoDuration !== 'string') return undefined
+  const match = isoDuration.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/i)
+  if (!match) return undefined
+  const hours = parseInt(match[1] || '0', 10)
+  const minutes = parseInt(match[2] || '0', 10)
+  const seconds = parseInt(match[3] || '0', 10)
+  return hours * 3600 + minutes * 60 + seconds
+}
+
+/**
+ * Attach viewCount, likeCount, and durationSeconds to videos via videos.list (batch)
+ */
+async function attachVideoStatisticsAndDuration(
+  accessToken: string,
+  videos: YouTubeVideo[]
+): Promise<YouTubeVideo[]> {
+  if (videos.length === 0) return videos
+
+  const ids = videos.map((v) => v.videoId)
+  const batchSize = 50
+  const enriched: YouTubeVideo[] = []
+
+  for (let i = 0; i < ids.length; i += batchSize) {
+    const batch = ids.slice(i, i + batchSize)
+    const url = new URL(`${YOUTUBE_DATA_API_BASE}/videos`)
+    url.searchParams.set('part', 'statistics,contentDetails')
+    url.searchParams.set('id', batch.join(','))
+
+    const response = await fetch(url.toString(), {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })
+
+    if (!response.ok) {
+      logError(new Error('YouTube videos list API error'), {
+        service: 'youtube',
+        operation: 'attachVideoStatisticsAndDuration',
+        status: response.status,
+      })
+      return videos
+    }
+
+    const data = await response.json()
+    const itemsById = new Map<string | undefined, { statistics?: { viewCount?: string; likeCount?: string }; contentDetails?: { duration?: string } }>()
+    for (const item of data.items || []) {
+      itemsById.set(item.id, {
+        statistics: item.statistics,
+        contentDetails: item.contentDetails,
+      })
+    }
+
+    for (const v of videos.slice(i, i + batchSize)) {
+      const item = itemsById.get(v.videoId)
+      const stats = item?.statistics
+      const details = item?.contentDetails
+      enriched.push({
+        ...v,
+        viewCount: stats?.viewCount != null ? parseInt(stats.viewCount, 10) : undefined,
+        likeCount: stats?.likeCount != null ? parseInt(stats.likeCount, 10) : undefined,
+        durationSeconds: parseDurationToSeconds(details?.duration),
+      })
+    }
+  }
+
+  return enriched
+}
+
+/**
  * Fetch videos from YouTube with optional pagination
  */
 async function fetchVideos(
@@ -312,12 +382,25 @@ export async function GET(request: Request) {
     if (error instanceof NextResponse) {
       return error
     }
-    
+
+    // Token refresh failed (invalid_grant, unauthorized_client, etc.) — ask client to reconnect
+    const message = error instanceof Error ? error.message : ''
+    if (message === 'Unable to get valid access token') {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'YouTube token expired or revoked. Please reconnect your account.',
+          code: 'REAUTH_REQUIRED',
+        },
+        { status: 401 }
+      )
+    }
+
     logError(error, {
       route: 'GET /api/youtube/videos',
       operation: 'fetch-videos',
     })
-    
+
     return serverErrorResponse(error, 'Failed to fetch videos')
   }
 }
