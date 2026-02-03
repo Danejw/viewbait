@@ -50,6 +50,7 @@ import { YouTubeStyleExtractBar } from "@/components/studio/youtube-style-extrac
 import { RecentThumbnailsStrip } from "@/components/studio/recent-thumbnails-strip";
 import { CharacterSnapshotsStrip } from "@/components/studio/character-snapshots-strip";
 import { PlaceSnapshotsStrip } from "@/components/studio/place-snapshots-strip";
+import { StudioViewUpdates } from "@/components/studio/studio-view-updates";
 import { useYouTubeStyleExtract } from "@/lib/hooks/useYouTubeStyleExtract";
 import {
   Dialog,
@@ -2273,6 +2274,8 @@ export function StudioMainContent() {
       return <StudioViewFaces />;
     case "youtube":
       return <StudioViewYouTube />;
+    case "updates":
+      return <StudioViewUpdates />;
     default:
       return <StudioResults />;
   }
@@ -2305,6 +2308,8 @@ export function StudioView() {
       return <StudioViewFaces />;
     case "youtube":
       return <StudioViewYouTube />;
+    case "updates":
+      return <StudioViewUpdates />;
     default:
       return <StudioGenerator />;
   }

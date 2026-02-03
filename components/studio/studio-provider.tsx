@@ -55,7 +55,8 @@ export type StudioView =
   | "styles"
   | "palettes"
   | "faces"
-  | "youtube";
+  | "youtube"
+  | "updates";
 
 /**
  * Studio State Interface
@@ -161,6 +162,8 @@ export interface StudioState {
   activeProjectId: string | null;
   /** Set when generation completes successfully; consumed by onboarding to advance to step 5 */
   lastGeneratedThumbnail: Thumbnail | null;
+  /** Selected notification id for Updates view (article detail); null = list view */
+  selectedUpdateId: string | null;
 }
 
 /**
@@ -170,6 +173,9 @@ export interface StudioState {
 export interface StudioActions {
   // View navigation
   setView: (view: StudioView) => void;
+  setSelectedUpdateId: (id: string | null) => void;
+  /** Switch to Updates view and set the selected notification (e.g. from notification bell) */
+  openUpdate: (notificationId: string) => void;
   // Generation mode
   setMode: (mode: "manual" | "chat") => void;
   // Sidebar collapse
@@ -505,6 +511,7 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
       pendingFaceDefaultName: null,
       activeProjectId,
       lastGeneratedThumbnail: null,
+      selectedUpdateId: null,
     };
   });
 
@@ -1228,7 +1235,19 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
   }, [state.activeProjectId, state.thumbnailText, state.customInstructions, state.includeStyles, state.selectedStyle, state.includePalettes, state.selectedPalette, state.selectedAspectRatio, state.selectedResolution, state.variations, state.includeStyleReferences, state.styleReferences, state.includeFaces, state.selectedFaces, state.faceExpression, state.facePose, updateProjectFn, refetchProjects]);
 
   const actions: StudioActions = {
-    setView: (view) => setState((s) => ({ ...s, currentView: view })),
+    setView: (view) =>
+      setState((s) => ({
+        ...s,
+        currentView: view,
+        ...(view !== "updates" ? { selectedUpdateId: null } : {}),
+      })),
+    setSelectedUpdateId: (id) => setState((s) => ({ ...s, selectedUpdateId: id })),
+    openUpdate: (notificationId) =>
+      setState((s) => ({
+        ...s,
+        currentView: "updates",
+        selectedUpdateId: notificationId,
+      })),
     setMode: (mode) => setState((s) => ({ ...s, mode })),
     toggleLeftSidebar: () =>
       setState((s) => ({ ...s, leftSidebarCollapsed: !s.leftSidebarCollapsed })),

@@ -1,8 +1,8 @@
 /**
  * Notification by ID API Route
- * 
- * Handles PATCH operations for a specific notification.
- * Uses RPC functions for safe updates (mark read/archive).
+ *
+ * GET: Fetch a single notification (auth: user's own only).
+ * PATCH: Update a notification (mark as read or archive). Uses RPC functions.
  */
 
 import { createClient } from '@/lib/supabase/server'
@@ -11,9 +11,60 @@ import {
   validationErrorResponse,
   databaseErrorResponse,
   serverErrorResponse,
+  notFoundResponse,
 } from '@/lib/server/utils/error-handler'
+import { handleApiError } from '@/lib/server/utils/api-helpers'
 import { logError } from '@/lib/server/utils/logger'
 import { NextResponse } from 'next/server'
+
+/**
+ * GET /api/notifications/[id]
+ * Fetch a single notification for the authenticated user.
+ */
+export async function GET(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const supabase = await createClient()
+    const user = await requireAuth(supabase)
+    const { id } = await params
+
+    const { data: notification, error } = await supabase
+      .from('notifications')
+      .select('*')
+      .eq('id', id)
+      .eq('user_id', user.id)
+      .single()
+
+    if (error) {
+      logError(error, {
+        route: 'GET /api/notifications/[id]',
+        userId: user.id,
+        operation: 'get-notification',
+        notificationId: id,
+      })
+      return databaseErrorResponse('Failed to fetch notification')
+    }
+
+    if (!notification) {
+      return notFoundResponse('Notification not found')
+    }
+
+    return NextResponse.json({ notification })
+  } catch (error) {
+    if (error instanceof NextResponse) {
+      return error
+    }
+    return handleApiError(
+      error,
+      'GET /api/notifications/[id]',
+      'get-notification',
+      undefined,
+      'Failed to fetch notification'
+    )
+  }
+}
 
 /**
  * PATCH /api/notifications/[id]

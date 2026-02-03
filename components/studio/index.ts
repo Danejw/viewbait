@@ -185,3 +185,4 @@ export {
   StudioViewFaces,
   StudioViewYouTube,
 } from "@/components/studio/studio-views";
+export { StudioViewUpdates } from "@/components/studio/studio-view-updates";

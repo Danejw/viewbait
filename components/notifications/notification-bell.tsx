@@ -24,11 +24,14 @@ interface NotificationBellProps {
   size?: "icon-sm" | "icon" | "sm" | "default";
   /** Additional className for the button */
   className?: string;
+  /** When provided (e.g. from studio sidebar), clicking a notification opens it in the Updates center view */
+  onOpenInCenter?: (notificationId: string) => void;
 }
 
 export function NotificationBell({
   size = "icon-sm",
   className,
+  onOpenInCenter,
 }: NotificationBellProps) {
   const [isOpen, setIsOpen] = useState(false);
   const { unreadCount, isLoading } = useNotifications({ autoFetch: true });
@@ -67,7 +70,10 @@ export function NotificationBell({
         sideOffset={8}
         className="w-80 p-0"
       >
-        <NotificationPopover onClose={() => setIsOpen(false)} />
+        <NotificationPopover
+          onClose={() => setIsOpen(false)}
+          onOpenInCenter={onOpenInCenter}
+        />
       </PopoverContent>
     </Popover>
   );

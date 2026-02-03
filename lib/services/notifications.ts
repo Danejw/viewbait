@@ -70,6 +70,42 @@ export async function getNotifications(
 }
 
 /**
+ * Get a single notification by id (for Updates view / deep link).
+ */
+export async function getNotificationById(
+  notificationId: string
+): Promise<{
+  notification: Notification | null
+  error: Error | null
+}> {
+  try {
+    const response = await fetch(`/api/notifications/${notificationId}`)
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        return { notification: null, error: null }
+      }
+      const errorData = await response.json()
+      return {
+        notification: null,
+        error: new Error(errorData.error || 'Failed to fetch notification'),
+      }
+    }
+
+    const data = await response.json()
+    return {
+      notification: data.notification || null,
+      error: null,
+    }
+  } catch (error) {
+    return {
+      notification: null,
+      error: error instanceof Error ? error : new Error('Network error'),
+    }
+  }
+}
+
+/**
  * Mark a notification as read
  */
 export async function markNotificationAsRead(

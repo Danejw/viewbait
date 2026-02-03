@@ -18,6 +18,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Settings,
+  Newspaper,
 } from "lucide-react";
 import { ThemeToggleSimple } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
@@ -56,6 +57,7 @@ export const navItems: NavItem[] = [
   { label: "Styles", view: "styles", icon: Palette },
   { label: "Palettes", view: "palettes", icon: Droplets },
   { label: "Faces", view: "faces", icon: User },
+  { label: "Notifications", view: "updates", icon: Newspaper },
   { label: "YouTube", view: "youtube", icon: Youtube, locked: true, unlockWithPro: true },
 ];
 
@@ -254,6 +256,7 @@ export const StudioSidebarCredits = React.memo(function StudioSidebarCredits() {
 export function StudioSidebarUser() {
   const {
     state: { leftSidebarCollapsed },
+    actions: { openUpdate },
   } = useStudio();
   const { user, profile, signOut, isLoading: authLoading } = useAuth();
   const router = useRouter();
@@ -293,7 +296,10 @@ export function StudioSidebarUser() {
             <Tooltip>
               <TooltipTrigger asChild>
                 <span className="inline-flex">
-                  <NotificationBell size="icon-sm" />
+                  <NotificationBell
+                    size="icon-sm"
+                    onOpenInCenter={(id) => openUpdate(id)}
+                  />
                 </span>
               </TooltipTrigger>
               <TooltipContent side="right">Notifications</TooltipContent>
@@ -336,7 +342,10 @@ export function StudioSidebarUser() {
           <Tooltip>
             <TooltipTrigger asChild>
               <span className="inline-flex">
-                <NotificationBell size="icon-sm" />
+                <NotificationBell
+                  size="icon-sm"
+                  onOpenInCenter={(id) => openUpdate(id)}
+                />
               </span>
             </TooltipTrigger>
             <TooltipContent side="right">Notifications</TooltipContent>

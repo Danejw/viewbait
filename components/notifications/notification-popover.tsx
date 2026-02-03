@@ -20,9 +20,11 @@ import { NotificationItem } from "./notification-item";
 interface NotificationPopoverProps {
   /** Callback when the popover should close */
   onClose: () => void;
+  /** When provided, clicking a notification opens it in the center (Updates view) instead of navigating to action_url */
+  onOpenInCenter?: (notificationId: string) => void;
 }
 
-export function NotificationPopover({ onClose }: NotificationPopoverProps) {
+export function NotificationPopover({ onClose, onOpenInCenter }: NotificationPopoverProps) {
   const {
     notifications,
     unreadCount,
@@ -54,15 +56,19 @@ export function NotificationPopover({ onClose }: NotificationPopoverProps) {
     await markAllAsRead();
   };
 
-  // Handle notification click
+  // Handle notification click. Precedence: when onOpenInCenter is provided, always open in center (do not navigate to action_url). Otherwise navigate if action_url is set.
   const handleNotificationClick = async (
     notificationId: string,
     actionUrl?: string | null
   ) => {
     await markAsRead(notificationId);
+    if (onOpenInCenter) {
+      onOpenInCenter(notificationId);
+      onClose();
+      return;
+    }
     if (actionUrl) {
       onClose();
-      // Use window.location for external URLs, router for internal
       if (actionUrl.startsWith("http")) {
         window.open(actionUrl, "_blank");
       } else {
