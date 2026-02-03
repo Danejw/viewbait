@@ -638,3 +638,56 @@ export async function enhanceTitle(
     }
   }
 }
+
+/**
+ * Analyze a thumbnail image and return a short style description (max 500 chars)
+ * for appending to custom instructions. Accepts imageUrl (e.g. YouTube or signed URL)
+ * and/or thumbnailId (owned thumbnail; server loads from storage to avoid URL expiry).
+ */
+export async function analyzeThumbnailStyleForInstructions(params: {
+  imageUrl?: string
+  thumbnailId?: string
+}): Promise<{ description: string | null; error: Error | null }> {
+  const hasImageUrl = typeof params.imageUrl === 'string' && params.imageUrl.trim().length > 0
+  const hasThumbnailId = typeof params.thumbnailId === 'string' && params.thumbnailId.trim().length > 0
+
+  if (!hasImageUrl && !hasThumbnailId) {
+    return {
+      description: null,
+      error: new Error('At least one of imageUrl or thumbnailId is required'),
+    }
+  }
+
+  try {
+    const body: { imageUrl?: string; thumbnailId?: string } = {}
+    if (hasImageUrl) body.imageUrl = params.imageUrl
+    if (hasThumbnailId) body.thumbnailId = params.thumbnailId
+
+    const response = await fetch('/api/thumbnails/analyze-style-for-instructions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      return {
+        description: null,
+        error: new Error(
+          errorData.error || 'Failed to analyze thumbnail style'
+        ),
+      }
+    }
+
+    const data = await response.json()
+    return {
+      description: data.description ?? null,
+      error: null,
+    }
+  } catch (error) {
+    return {
+      description: null,
+      error: error instanceof Error ? error : new Error('Network error'),
+    }
+  }
+}

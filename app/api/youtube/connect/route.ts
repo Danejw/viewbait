@@ -12,8 +12,8 @@ import { requireAuth } from '@/lib/server/utils/auth'
 import {
   validationErrorResponse,
   databaseErrorResponse,
-  serverErrorResponse,
 } from '@/lib/server/utils/error-handler'
+import { handleApiError } from '@/lib/server/utils/api-helpers'
 import { logError, logInfo } from '@/lib/server/utils/logger'
 import { NextResponse } from 'next/server'
 
@@ -96,11 +96,7 @@ export async function POST(request: Request) {
     }, { status: 201 })
     
   } catch (error) {
-    // requireAuth throws NextResponse, so check if it's already a response
-    if (error instanceof NextResponse) {
-      return error
-    }
-    return serverErrorResponse(error, 'Failed to connect YouTube integration')
+    return handleApiError(error, 'POST /api/youtube/connect', 'connect-youtube', undefined, 'Failed to connect YouTube integration')
   }
 }
 
@@ -146,9 +142,6 @@ export async function DELETE(request: Request) {
     })
     
   } catch (error) {
-    if (error instanceof NextResponse) {
-      return error
-    }
-    return serverErrorResponse(error, 'Failed to disconnect YouTube integration')
+    return handleApiError(error, 'UNKNOWN', 'disconnect-youtube-integration', undefined, 'Failed to disconnect YouTube integration')
   }
 }

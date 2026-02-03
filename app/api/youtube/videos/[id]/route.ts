@@ -11,6 +11,7 @@ import {
   serverErrorResponse,
   notFoundResponse,
 } from '@/lib/server/utils/error-handler'
+import { handleApiError } from '@/lib/server/utils/api-helpers'
 import { logError, logInfo } from '@/lib/server/utils/logger'
 import { NextResponse } from 'next/server'
 import {
@@ -100,9 +101,6 @@ export async function GET(
       video: response,
     })
   } catch (error) {
-    if (error instanceof NextResponse) {
-      return error
-    }
-    return serverErrorResponse(error, 'Failed to fetch video')
+    return handleApiError(error, 'UNKNOWN', 'fetch-video', undefined, 'Failed to fetch video')
   }
 }

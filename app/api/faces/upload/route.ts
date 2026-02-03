@@ -8,11 +8,12 @@
 import { createClient } from '@/lib/supabase/server'
 import { requireAuth } from '@/lib/server/utils/auth'
 import {
-  serverErrorResponse,
   validationErrorResponse,
   tierLimitResponse,
 } from '@/lib/server/utils/error-handler'
+import { handleApiError } from '@/lib/server/utils/api-helpers'
 import { getTierForUser } from '@/lib/server/utils/tier'
+import { SIGNED_URL_EXPIRY_ONE_YEAR_SECONDS } from '@/lib/server/utils/url-refresh'
 import { logError } from '@/lib/server/utils/logger'
 import { NextResponse } from 'next/server'
 
@@ -90,7 +91,7 @@ export async function POST(request: Request) {
     // Get signed URL for the uploaded file
     const { data: urlData, error: urlError } = await supabase.storage
       .from('faces')
-      .createSignedUrl(storagePath, 31536000) // 1 year
+      .createSignedUrl(storagePath, SIGNED_URL_EXPIRY_ONE_YEAR_SECONDS)
 
     if (urlError || !urlData?.signedUrl) {
       logError(urlError || new Error('Failed to create signed URL'), {
@@ -111,10 +112,6 @@ export async function POST(request: Request) {
       url: urlData.signedUrl,
     })
   } catch (error) {
-    // requireAuth throws NextResponse, so check if it's already a response
-    if (error instanceof NextResponse) {
-      return error
-    }
-    return serverErrorResponse(error, 'Failed to upload face image')
+    return handleApiError(error, 'POST /api/faces/upload', 'upload-face-image', undefined, 'Failed to upload face image')
   }
 }

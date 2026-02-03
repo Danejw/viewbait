@@ -12,6 +12,7 @@ import {
   databaseErrorResponse,
   serverErrorResponse,
 } from '@/lib/server/utils/error-handler'
+import { handleApiError } from '@/lib/server/utils/api-helpers'
 import { logError } from '@/lib/server/utils/logger'
 import { NextResponse } from 'next/server'
 
@@ -129,10 +130,7 @@ export async function GET(request: Request) {
       count: count || 0,
     })
   } catch (error) {
-    if (error instanceof NextResponse) {
-      return error
-    }
-    return serverErrorResponse(error, 'Failed to fetch experiments')
+    return handleApiError(error, 'UNKNOWN', 'fetch-experiments', undefined, 'Failed to fetch experiments')
   }
 }
 
@@ -189,9 +187,6 @@ export async function POST(request: Request) {
       { status: 201 }
     )
   } catch (error) {
-    if (error instanceof NextResponse) {
-      return error
-    }
-    return serverErrorResponse(error, 'Failed to create experiment')
+    return handleApiError(error, 'UNKNOWN', 'create-experiment', undefined, 'Failed to create experiment')
   }
 }

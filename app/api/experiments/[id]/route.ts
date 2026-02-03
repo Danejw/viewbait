@@ -13,6 +13,7 @@ import {
   serverErrorResponse,
   notFoundResponse,
 } from '@/lib/server/utils/error-handler'
+import { handleApiError } from '@/lib/server/utils/api-helpers'
 import { logError } from '@/lib/server/utils/logger'
 import { NextResponse } from 'next/server'
 import type { ExperimentResponse } from '../route'
@@ -80,10 +81,7 @@ export async function GET(
 
     return NextResponse.json({ experiment: experimentResponse })
   } catch (error) {
-    if (error instanceof NextResponse) {
-      return error
-    }
-    return serverErrorResponse(error, 'Failed to fetch experiment')
+    return handleApiError(error, 'UNKNOWN', 'fetch-experiment', undefined, 'Failed to fetch experiment')
   }
 }
 
@@ -158,10 +156,7 @@ export async function PATCH(
 
     return NextResponse.json({ experiment: experimentResponse })
   } catch (error) {
-    if (error instanceof NextResponse) {
-      return error
-    }
-    return serverErrorResponse(error, 'Failed to update experiment')
+    return handleApiError(error, 'UNKNOWN', 'update-experiment', undefined, 'Failed to update experiment')
   }
 }
 
@@ -197,9 +192,6 @@ export async function DELETE(
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    if (error instanceof NextResponse) {
-      return error
-    }
-    return serverErrorResponse(error, 'Failed to delete experiment')
+    return handleApiError(error, 'UNKNOWN', 'delete-experiment', undefined, 'Failed to delete experiment')
   }
 }

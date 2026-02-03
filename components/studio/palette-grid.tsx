@@ -13,6 +13,7 @@
 
 import React, { memo, useCallback } from "react";
 import { cn } from "@/lib/utils";
+import { useEmptySlots } from "@/lib/hooks/useEmptySlots";
 import { PaletteCard, PaletteCardSkeleton, PaletteCardEmpty } from "./palette-card";
 import type { PublicPalette } from "@/lib/types/database";
 
@@ -88,10 +89,7 @@ export const PaletteGrid = memo(function PaletteGrid({
   onUsePalette,
   onClick,
 }: PaletteGridProps) {
-  // Calculate empty slots
-  const emptySlotCount = showEmptySlots
-    ? Math.max(0, minSlots - palettes.length)
-    : 0;
+  const emptySlotCount = useEmptySlots(palettes.length, minSlots, showEmptySlots);
 
   // Memoize callbacks
   const handleUsePalette = useCallback(

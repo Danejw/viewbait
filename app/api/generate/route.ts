@@ -32,6 +32,7 @@ import {
 } from '@/lib/server/utils/error-handler'
 import { getProjectById } from '@/lib/server/data/projects'
 import { createNotificationIfNew } from '@/lib/server/notifications/create'
+import { SIGNED_URL_EXPIRY_ONE_YEAR_SECONDS } from '@/lib/server/utils/url-refresh'
 
 export interface GenerateThumbnailRequest {
   title: string
@@ -199,13 +200,13 @@ async function generateSingleVariation(
         .upload(variant400wPath, variant400w.buffer, {
           contentType: 'image/jpeg',
           upsert: true,
-          cacheControl: '31536000', // 1 year cache
+          cacheControl: String(SIGNED_URL_EXPIRY_ONE_YEAR_SECONDS),
         })
 
       if (!variant400wError) {
         const { data: variant400wUrlData } = await supabase.storage
           .from('thumbnails')
-          .createSignedUrl(variant400wPath, 60 * 60 * 24 * 365) // 1 year expiry
+          .createSignedUrl(variant400wPath, SIGNED_URL_EXPIRY_ONE_YEAR_SECONDS)
         thumbnail400wUrl = variant400wUrlData?.signedUrl || null
       } else {
         logError(variant400wError, {
@@ -225,13 +226,13 @@ async function generateSingleVariation(
         .upload(variant800wPath, variant800w.buffer, {
           contentType: 'image/jpeg',
           upsert: true,
-          cacheControl: '31536000', // 1 year cache
+          cacheControl: String(SIGNED_URL_EXPIRY_ONE_YEAR_SECONDS),
         })
 
       if (!variant800wError) {
         const { data: variant800wUrlData } = await supabase.storage
           .from('thumbnails')
-          .createSignedUrl(variant800wPath, 60 * 60 * 24 * 365) // 1 year expiry
+          .createSignedUrl(variant800wPath, SIGNED_URL_EXPIRY_ONE_YEAR_SECONDS)
         thumbnail800wUrl = variant800wUrlData?.signedUrl || null
       } else {
         logError(variant800wError, {
@@ -246,7 +247,7 @@ async function generateSingleVariation(
     // Get signed URL for the uploaded image (bucket is private)
     const { data: signedUrlData, error: signedUrlError } = await supabase.storage
       .from('thumbnails')
-      .createSignedUrl(storagePath, 60 * 60 * 24 * 365) // 1 year expiry
+      .createSignedUrl(storagePath, SIGNED_URL_EXPIRY_ONE_YEAR_SECONDS)
     
     if (signedUrlError || !signedUrlData?.signedUrl) {
       return {

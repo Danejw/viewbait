@@ -13,6 +13,7 @@ import {
   notFoundResponse,
   forbiddenResponse,
 } from '@/lib/server/utils/error-handler'
+import { handleApiError } from '@/lib/server/utils/api-helpers'
 import { logError, logInfo } from '@/lib/server/utils/logger'
 import { NextResponse } from 'next/server'
 import type { GenerateThumbnailRequest } from '@/app/api/generate/route'
@@ -287,9 +288,6 @@ export async function POST(
       variant,
     })
   } catch (error) {
-    if (error instanceof NextResponse) {
-      return error
-    }
-    return serverErrorResponse(error, 'Failed to generate variant')
+    return handleApiError(error, 'UNKNOWN', 'generate-variant', undefined, 'Failed to generate variant')
   }
 }

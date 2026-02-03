@@ -11,8 +11,8 @@ import { refreshThumbnailUrls } from '@/lib/server/utils/url-refresh'
 import {
   validationErrorResponse,
   databaseErrorResponse,
-  serverErrorResponse,
 } from '@/lib/server/utils/error-handler'
+import { handleApiError } from '@/lib/server/utils/api-helpers'
 import { createCachedResponse } from '@/lib/server/utils/cache-headers'
 import { logError } from '@/lib/server/utils/logger'
 import { NextResponse } from 'next/server'
@@ -102,11 +102,7 @@ export async function GET(request: Request) {
       request
     )
   } catch (error) {
-    // requireAuth throws NextResponse, so check if it's already a response
-    if (error instanceof NextResponse) {
-      return error
-    }
-    return serverErrorResponse(error, 'Failed to fetch thumbnails')
+    return handleApiError(error, 'GET /api/thumbnails', 'fetch-thumbnails', undefined, 'Failed to fetch thumbnails')
   }
 }
 
@@ -156,11 +152,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ thumbnail }, { status: 201 })
   } catch (error) {
-    // requireAuth throws NextResponse, so check if it's already a response
-    if (error instanceof NextResponse) {
-      return error
-    }
-    return serverErrorResponse(error, 'Failed to create thumbnail')
+    return handleApiError(error, 'POST /api/thumbnails', 'create-thumbnail', undefined, 'Failed to create thumbnail')
   }
 }
 

@@ -20,7 +20,7 @@
 import React, { memo, useCallback, useMemo, useState } from "react";
 import { useDraggable } from "@dnd-kit/core";
 import { motion } from "framer-motion";
-import { Heart, Download, Copy, Pencil, Trash2, FolderPlus, AlertCircle } from "lucide-react";
+import { Heart, Download, Copy, Pencil, Trash2, FolderPlus, AlertCircle, ScanLine } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -269,21 +269,24 @@ function ActionButton({
   onClick,
   variant = "default",
   active = false,
+  disabled = false,
 }: {
   icon: React.ElementType;
   label: string;
   onClick: (e: React.MouseEvent) => void;
   variant?: "default" | "destructive";
   active?: boolean;
+  disabled?: boolean;
 }) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <ActionBarIcon>
+        <ActionBarIcon className={cn(disabled && "pointer-events-none opacity-60")}>
           <Button
             variant="ghost"
             size="icon-sm"
             onClick={onClick}
+            disabled={disabled}
             className={cn(
               "h-7 w-7 bg-muted hover:bg-muted",
               variant === "destructive" && "hover:bg-destructive/20 hover:text-destructive",
@@ -321,6 +324,7 @@ export const ThumbnailCard = memo(function ThumbnailCard({
     onEdit,
     onDelete,
     onAddToProject,
+    onAnalyzeThumbnailForInstructions,
     onView,
     onDismissFailed,
   } = useThumbnailActions();
@@ -369,6 +373,7 @@ export const ThumbnailCard = memo(function ThumbnailCard({
   // so the action bar (and dropdown trigger) don't unmount when moving to the list
   const [hoverOpen, setHoverOpen] = useState(false);
   const [projectDropdownOpen, setProjectDropdownOpen] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   // CRT overlay stays until the image has loaded (continuous visual feedback after generation)
   const [imageLoaded, setImageLoaded] = useState(false);
@@ -445,6 +450,17 @@ export const ThumbnailCard = memo(function ThumbnailCard({
     [id, onDelete]
   );
 
+  const handleAnalyzeStyle = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (!onAnalyzeThumbnailForInstructions || isAnalyzing) return;
+      setIsAnalyzing(true);
+      onAnalyzeThumbnailForInstructions({ thumbnailId: id, imageUrl: displaySrc })
+        .finally(() => setIsAnalyzing(false));
+    },
+    [id, displaySrc, onAnalyzeThumbnailForInstructions, isAnalyzing]
+  );
+
   const handleClick = useCallback(() => {
     onView(thumbnail);
   }, [thumbnail, onView]);
@@ -478,6 +494,12 @@ export const ThumbnailCard = memo(function ThumbnailCard({
         icon={Copy}
         label="Copy link"
         onClick={handleCopy}
+      />
+      <ActionButton
+        icon={ScanLine}
+        label="Analyze style and add to instructions"
+        onClick={handleAnalyzeStyle}
+        disabled={isAnalyzing}
       />
       {isOwner && (
         <DropdownMenu open={projectDropdownOpen} onOpenChange={setProjectDropdownOpen}>

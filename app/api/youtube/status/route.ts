@@ -11,6 +11,7 @@ import {
   databaseErrorResponse,
   serverErrorResponse,
 } from '@/lib/server/utils/error-handler'
+import { handleApiError } from '@/lib/server/utils/api-helpers'
 import { logError } from '@/lib/server/utils/logger'
 import { NextResponse } from 'next/server'
 
@@ -95,9 +96,6 @@ export async function GET(request: Request) {
     })
     
   } catch (error) {
-    if (error instanceof NextResponse) {
-      return error
-    }
-    return serverErrorResponse(error, 'Failed to fetch integration status')
+    return handleApiError(error, 'UNKNOWN', 'fetch-integration-status', undefined, 'Failed to fetch integration status')
   }
 }

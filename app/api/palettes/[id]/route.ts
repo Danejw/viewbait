@@ -12,6 +12,7 @@ import { logError } from '@/lib/server/utils/logger'
 import { requireAuth } from '@/lib/server/utils/auth'
 import { isUUID } from '@/lib/server/utils/uuid-validation'
 import { notFoundResponse, validationErrorResponse, forbiddenResponse, databaseErrorResponse, serverErrorResponse } from '@/lib/server/utils/error-handler'
+import { handleApiError } from '@/lib/server/utils/api-helpers'
 
 /**
  * GET /api/palettes/[id]
@@ -57,14 +58,7 @@ export async function GET(
 
     return NextResponse.json({ palette })
   } catch (error) {
-    // requireAuth throws NextResponse, so check if it's already a response
-    if (error instanceof NextResponse) {
-      return error
-    }
-    return serverErrorResponse(error, 'Failed to get palette', {
-      route: 'GET /api/palettes/[id]',
-      userId,
-    })
+    return handleApiError(error, 'GET /api/palettes/[id]', 'get-palette', undefined, 'Failed to get palette')
   }
 }
 
@@ -140,14 +134,7 @@ export async function PATCH(
 
     return NextResponse.json({ palette })
   } catch (error) {
-    // requireAuth throws NextResponse, so check if it's already a response
-    if (error instanceof NextResponse) {
-      return error
-    }
-    return serverErrorResponse(error, 'Failed to update palette', {
-      route: 'PATCH /api/palettes/[id]',
-      userId,
-    })
+    return handleApiError(error, 'PATCH /api/palettes/[id]', 'update-palette', undefined, 'Failed to update palette')
   }
 }
 
@@ -201,14 +188,7 @@ export async function DELETE(
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    // requireAuth throws NextResponse, so check if it's already a response
-    if (error instanceof NextResponse) {
-      return error
-    }
-    return serverErrorResponse(error, 'Failed to delete palette', {
-      route: 'DELETE /api/palettes/[id]',
-      userId,
-    })
+    return handleApiError(error, 'DELETE /api/palettes/[id]', 'delete-palette', undefined, 'Failed to delete palette')
   }
 }
 

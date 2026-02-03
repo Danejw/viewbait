@@ -9,8 +9,9 @@ import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { getTierByProductId } from '@/lib/server/data/subscription-tiers'
 import { callGeminiTextGeneration } from '@/lib/services/ai-core'
-import { sanitizeErrorForClient } from '@/lib/utils/error-sanitizer'
 import { requireAuth } from '@/lib/server/utils/auth'
+import { aiServiceErrorResponse } from '@/lib/server/utils/error-handler'
+import { handleApiError } from '@/lib/server/utils/api-helpers'
 
 export interface EnhanceTitleRequest {
   title: string
@@ -124,13 +125,10 @@ Do not include numbers, bullets, or any other formatting. Just three titles, one
     try {
       response = await callGeminiTextGeneration(systemPrompt, userPrompt, 'gemini-3-pro-preview')
     } catch (error) {
-      return NextResponse.json(
-        { 
-          error: sanitizeErrorForClient(error, 'enhance-title-ai', 'Failed to enhance title'),
-          code: 'AI_SERVICE_ERROR'
-        },
-        { status: 500 }
-      )
+      return aiServiceErrorResponse(error, 'Failed to enhance title', {
+        route: 'POST /api/enhance-title',
+        userId: user.id,
+      })
     }
     
     // Parse response: split by newlines, filter empty lines, take first 3
@@ -144,16 +142,6 @@ Do not include numbers, bullets, or any other formatting. Just three titles, one
       suggestions: suggestions || [],
     })
   } catch (error) {
-    // requireAuth throws NextResponse, so check if it's already a response
-    if (error instanceof NextResponse) {
-      return error
-    }
-    return NextResponse.json(
-      { 
-        error: sanitizeErrorForClient(error, 'enhance-title-route', 'Internal server error'),
-        code: 'INTERNAL_ERROR'
-      },
-      { status: 500 }
-    )
+    return handleApiError(error, 'POST /api/enhance-title', 'enhance-title', undefined, 'Internal server error')
   }
 }

@@ -16,9 +16,9 @@ import { buildPalettesQuery } from '@/lib/server/data/palettes'
 import {
   validationErrorResponse,
   databaseErrorResponse,
-  serverErrorResponse,
   tierLimitResponse,
 } from '@/lib/server/utils/error-handler'
+import { handleApiError } from '@/lib/server/utils/api-helpers'
 import { getTierForUser } from '@/lib/server/utils/tier'
 
 // Cache GET responses for 60 seconds (ISR)
@@ -128,14 +128,7 @@ export async function GET(request: Request) {
       request
     )
   } catch (error) {
-    // requireAuth throws NextResponse, so check if it's already a response
-    if (error instanceof NextResponse) {
-      return error
-    }
-    return serverErrorResponse(error, 'Failed to fetch palettes', {
-      route: 'GET /api/palettes',
-      userId,
-    })
+    return handleApiError(error, 'GET /api/palettes', 'fetch-palettes', userId, 'Failed to fetch palettes')
   }
 }
 
@@ -191,13 +184,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ palette }, { status: 201 })
   } catch (error) {
-    // requireAuth throws NextResponse, so check if it's already a response
-    if (error instanceof NextResponse) {
-      return error
-    }
-    return serverErrorResponse(error, 'Failed to create palette', {
-      route: 'POST /api/palettes',
-    })
+    return handleApiError(error, 'POST /api/palettes', 'create-palette', undefined, 'Failed to create palette')
   }
 }
 

@@ -11,7 +11,10 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 
 export type BucketName = 'thumbnails' | 'faces' | 'style-previews' | 'style-references'
 
-const DEFAULT_EXPIRY = 60 * 60 * 24 * 365 // 1 year in seconds
+/** 1 year in seconds; use for signed URL expiry and cache-control where applicable. */
+export const SIGNED_URL_EXPIRY_ONE_YEAR_SECONDS = 60 * 60 * 24 * 365
+
+const DEFAULT_EXPIRY = SIGNED_URL_EXPIRY_ONE_YEAR_SECONDS
 const REFRESH_THRESHOLD_DAYS = 7 // Refresh if within 7 days of expiry
 const REFRESH_THRESHOLD_SECONDS = 60 * 60 * 24 * REFRESH_THRESHOLD_DAYS
 

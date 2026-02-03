@@ -10,6 +10,7 @@ import {
   databaseErrorResponse,
   serverErrorResponse,
 } from '@/lib/server/utils/error-handler'
+import { handleApiError } from '@/lib/server/utils/api-helpers'
 import { logError, logInfo } from '@/lib/server/utils/logger'
 import { NextResponse } from 'next/server'
 import { ensureValidToken, isYouTubeConnected } from '@/lib/services/youtube'
@@ -232,9 +233,6 @@ export async function POST(request: Request) {
       total: videoIds.length,
     })
   } catch (error) {
-    if (error instanceof NextResponse) {
-      return error
-    }
-    return serverErrorResponse(error, 'Failed to sync analytics')
+    return handleApiError(error, 'UNKNOWN', 'sync-analytics', undefined, 'Failed to sync analytics')
   }
 }

@@ -90,11 +90,7 @@ export async function GET(request: Request) {
       request
     )
   } catch (error) {
-    // requireAuth throws NextResponse, so check if it's already a response
-    if (error instanceof NextResponse) {
-      return error
-    }
-    return serverErrorResponse(error, 'Failed to fetch notifications')
+    return handleApiError(error, 'GET /api/notifications', 'fetch-notifications', undefined, 'Failed to fetch notifications')
   }
 }
 
@@ -191,6 +187,6 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ notification }, { status: 201 })
   } catch (error) {
-    return serverErrorResponse(error, 'Failed to create notification')
+    return handleApiError(error, 'POST /api/notifications', 'create-notification', undefined, 'Failed to create notification')
   }
 }

@@ -9,10 +9,11 @@ import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { callGeminiImageGenerationSimple } from '@/lib/services/ai-core'
 import { fetchImageAsBase64 } from '@/lib/utils/ai-helpers'
-import { sanitizeErrorForClient } from '@/lib/utils/error-sanitizer'
 import { logWarn } from '@/lib/server/utils/logger'
 import { requireAuth } from '@/lib/server/utils/auth'
-import { serverErrorResponse } from '@/lib/server/utils/error-handler'
+import { aiServiceErrorResponse } from '@/lib/server/utils/error-handler'
+import { handleApiError } from '@/lib/server/utils/api-helpers'
+import { SIGNED_URL_EXPIRY_ONE_YEAR_SECONDS } from '@/lib/server/utils/url-refresh'
 
 export interface GenerateStylePreviewRequest {
   prompt: string
@@ -65,22 +66,17 @@ Make it eye-catching, representative of this visual style.`
         'gemini-3-pro-image-preview'
       )
     } catch (error) {
-      return NextResponse.json(
-        { 
-          error: sanitizeErrorForClient(error, 'generate-style-preview-ai', 'Failed to generate style preview'),
-          code: 'AI_SERVICE_ERROR'
-        },
-        { status: 500 }
-      )
+      return aiServiceErrorResponse(error, 'Failed to generate style preview', {
+        route: 'POST /api/generate-style-preview',
+        userId: user.id,
+      })
     }
 
     if (!aiResult) {
-      return NextResponse.json(
-        { 
-          error: 'Failed to generate style preview',
-          code: 'AI_SERVICE_ERROR'
-        },
-        { status: 500 }
+      return aiServiceErrorResponse(
+        new Error('No result from AI'),
+        'Failed to generate style preview',
+        { route: 'POST /api/generate-style-preview', userId: user.id }
       )
     }
 
@@ -122,7 +118,7 @@ Make it eye-catching, representative of this visual style.`
         // If bucket is private, create signed URL
         const { data: signedUrlData } = await supabase.storage
           .from('style-previews')
-          .createSignedUrl(storagePath, 60 * 60 * 24 * 365) // 1 year
+          .createSignedUrl(storagePath, SIGNED_URL_EXPIRY_ONE_YEAR_SECONDS)
         
         finalImageUrl = signedUrlData?.signedUrl || `data:${aiResult.mimeType};base64,${aiResult.imageData}`
       }
@@ -132,13 +128,6 @@ Make it eye-catching, representative of this visual style.`
       imageUrl: finalImageUrl,
     })
   } catch (error) {
-    // requireAuth throws NextResponse, so check if it's already a response
-    if (error instanceof NextResponse) {
-      return error
-    }
-    return serverErrorResponse(error, 'Failed to generate style preview', {
-      route: 'POST /api/generate-style-preview',
-      userId: user?.id,
-    })
+    return handleApiError(error, 'POST /api/generate-style-preview', 'generate-style-preview', undefined, 'Failed to generate style preview')
   }
 }

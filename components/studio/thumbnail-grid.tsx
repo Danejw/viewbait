@@ -17,6 +17,7 @@
 
 import React, { memo, useMemo } from "react";
 import { cn } from "@/lib/utils";
+import { useEmptySlots } from "@/lib/hooks/useEmptySlots";
 import { ThumbnailCard, ThumbnailCardEmpty, ThumbnailCardSkeleton } from "./thumbnail-card";
 import type { Thumbnail } from "@/lib/types/database";
 
@@ -108,11 +109,7 @@ export const ThumbnailGrid = memo(function ThumbnailGrid({
     return [...generatingNewestFirst, ...filteredThumbnails];
   }, [thumbnails, generatingItems]);
 
-  // Calculate empty slots
-  const emptySlotCount = useMemo(() => {
-    if (!showEmptySlots) return 0;
-    return Math.max(0, minSlots - combinedItems.length);
-  }, [showEmptySlots, minSlots, combinedItems.length]);
+  const emptySlotCount = useEmptySlots(combinedItems.length, minSlots, showEmptySlots);
 
   // Show loading skeleton
   if (isLoading) {

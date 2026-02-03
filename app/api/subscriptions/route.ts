@@ -11,8 +11,8 @@ import { requireAuth } from '@/lib/server/utils/auth'
 import {
   validationErrorResponse,
   databaseErrorResponse,
-  serverErrorResponse,
 } from '@/lib/server/utils/error-handler'
+import { handleApiError } from '@/lib/server/utils/api-helpers'
 import { logError } from '@/lib/server/utils/logger'
 import { NextResponse } from 'next/server'
 import type { UserSubscription, UserSubscriptionInsert } from '@/lib/types/database'
@@ -51,13 +51,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ subscription })
   } catch (error) {
-    // requireAuth throws NextResponse, so check if it's already a response
-    if (error instanceof NextResponse) {
-      return error
-    }
-    return serverErrorResponse(error, 'Failed to fetch subscription', {
-      route: 'GET /api/subscriptions',
-    })
+    return handleApiError(error, 'GET /api/subscriptions', 'fetch-subscription', undefined, 'Failed to fetch subscription')
   }
 }
 
@@ -139,12 +133,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ subscription }, { status: 201 })
     }
   } catch (error) {
-    // requireAuth throws NextResponse, so check if it's already a response
-    if (error instanceof NextResponse) {
-      return error
-    }
-    return serverErrorResponse(error, 'Failed to create/update subscription', {
-      route: 'POST /api/subscriptions',
-    })
+    return handleApiError(error, 'POST /api/subscriptions', 'create-update-subscription', undefined, 'Failed to create/update subscription')
   }
 }

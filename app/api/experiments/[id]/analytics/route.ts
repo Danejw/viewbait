@@ -15,6 +15,7 @@ import {
   serverErrorResponse,
   notFoundResponse,
 } from '@/lib/server/utils/error-handler'
+import { handleApiError } from '@/lib/server/utils/api-helpers'
 import { logError } from '@/lib/server/utils/logger'
 import { NextResponse } from 'next/server'
 
@@ -219,9 +220,6 @@ export async function GET(
 
     return NextResponse.json(response)
   } catch (error) {
-    if (error instanceof NextResponse) {
-      return error
-    }
-    return serverErrorResponse(error, 'Failed to fetch experiment analytics')
+    return handleApiError(error, 'UNKNOWN', 'fetch-experiment-analytics', undefined, 'Failed to fetch experiment analytics')
   }
 }

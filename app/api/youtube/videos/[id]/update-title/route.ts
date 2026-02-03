@@ -11,6 +11,7 @@ import {
   validationErrorResponse,
   serverErrorResponse,
 } from '@/lib/server/utils/error-handler'
+import { handleApiError } from '@/lib/server/utils/api-helpers'
 import { logError, logInfo } from '@/lib/server/utils/logger'
 import { NextResponse } from 'next/server'
 import { ensureValidToken, isYouTubeConnected } from '@/lib/services/youtube'
@@ -171,9 +172,6 @@ export async function POST(
       video: updateData.items?.[0],
     })
   } catch (error) {
-    if (error instanceof NextResponse) {
-      return error
-    }
-    return serverErrorResponse(error, 'Failed to update video title')
+    return handleApiError(error, 'UNKNOWN', 'update-video-title', undefined, 'Failed to update video title')
   }
 }

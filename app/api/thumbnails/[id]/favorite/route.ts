@@ -6,9 +6,9 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
-import { sanitizeErrorForClient } from '@/lib/utils/error-sanitizer'
 import { logError } from '@/lib/server/utils/logger'
 import { requireAuth } from '@/lib/server/utils/auth'
+import { handleApiError } from '@/lib/server/utils/api-helpers'
 
 /**
  * POST /api/thumbnails/[id]/favorite
@@ -67,21 +67,7 @@ export async function POST(
       liked: newStatus 
     })
   } catch (error) {
-    // requireAuth throws NextResponse, so check if it's already a response
-    if (error instanceof NextResponse) {
-      return error
-    }
-    logError(error, {
-      route: 'POST /api/thumbnails/[id]/favorite',
-      operation: 'toggle-thumbnail-favorite',
-    })
-    return NextResponse.json(
-      { 
-        error: sanitizeErrorForClient(error, 'toggle-thumbnail-favorite', 'Internal server error'),
-        code: 'INTERNAL_ERROR'
-      },
-      { status: 500 }
-    )
+    return handleApiError(error, 'POST /api/thumbnails/[id]/favorite', 'toggle-thumbnail-favorite', undefined, 'Internal server error')
   }
 }
 

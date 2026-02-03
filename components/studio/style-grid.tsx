@@ -15,6 +15,7 @@
 
 import React, { memo, useCallback } from "react";
 import { cn } from "@/lib/utils";
+import { useEmptySlots } from "@/lib/hooks/useEmptySlots";
 import { 
   StyleThumbnailCard, 
   StyleThumbnailCardSkeleton, 
@@ -108,10 +109,7 @@ export const StyleGrid = memo(function StyleGrid({
   onToggleFavorite,
   onTogglePublic,
 }: StyleGridProps) {
-  // Calculate empty slots
-  const emptySlotCount = showEmptySlots
-    ? Math.max(0, minSlots - styles.length)
-    : 0;
+  const emptySlotCount = useEmptySlots(styles.length, minSlots, showEmptySlots);
 
   // Memoize callbacks
   const handleView = useCallback(

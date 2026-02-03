@@ -13,7 +13,7 @@ import { fetchImageAsBase64 } from '@/lib/utils/ai-helpers'
 import { logError } from '@/lib/server/utils/logger'
 import { generateThumbnailVariants } from '@/lib/server/utils/image-variants'
 import { requireAuth } from '@/lib/server/utils/auth'
-import { refreshSignedUrl } from '@/lib/server/utils/url-refresh'
+import { refreshSignedUrl, SIGNED_URL_EXPIRY_ONE_YEAR_SECONDS } from '@/lib/server/utils/url-refresh'
 import { sanitizeErrorForClient } from '@/lib/utils/error-sanitizer'
 import { decrementCreditsAtomic, incrementCreditsAtomic } from '@/lib/server/utils/credits'
 import { TimeoutError } from '@/lib/utils/retry-with-backoff'
@@ -390,13 +390,13 @@ Requirements:
         .upload(variant400wPath, variant400w.buffer, {
           contentType: 'image/jpeg',
           upsert: true,
-          cacheControl: '31536000', // 1 year cache
+          cacheControl: String(SIGNED_URL_EXPIRY_ONE_YEAR_SECONDS),
         })
 
       if (!variant400wError) {
         const { data: variant400wUrlData } = await supabase.storage
           .from('thumbnails')
-          .createSignedUrl(variant400wPath, 60 * 60 * 24 * 365) // 1 year expiry
+          .createSignedUrl(variant400wPath, SIGNED_URL_EXPIRY_ONE_YEAR_SECONDS)
         thumbnail400wUrl = variant400wUrlData?.signedUrl || null
       } else {
         logError(variant400wError, {
@@ -416,13 +416,13 @@ Requirements:
         .upload(variant800wPath, variant800w.buffer, {
           contentType: 'image/jpeg',
           upsert: true,
-          cacheControl: '31536000', // 1 year cache
+          cacheControl: String(SIGNED_URL_EXPIRY_ONE_YEAR_SECONDS),
         })
 
       if (!variant800wError) {
         const { data: variant800wUrlData } = await supabase.storage
           .from('thumbnails')
-          .createSignedUrl(variant800wPath, 60 * 60 * 24 * 365) // 1 year expiry
+          .createSignedUrl(variant800wPath, SIGNED_URL_EXPIRY_ONE_YEAR_SECONDS)
         thumbnail800wUrl = variant800wUrlData?.signedUrl || null
       } else {
         logError(variant800wError, {
@@ -437,7 +437,7 @@ Requirements:
     // Get signed URL for the uploaded image
     const { data: signedUrlData, error: signedUrlError } = await supabase.storage
       .from('thumbnails')
-      .createSignedUrl(storagePath, 60 * 60 * 24 * 365) // 1 year expiry
+      .createSignedUrl(storagePath, SIGNED_URL_EXPIRY_ONE_YEAR_SECONDS)
 
     if (signedUrlError || !signedUrlData?.signedUrl) {
       // Clean up the database record and storage file if URL creation fails

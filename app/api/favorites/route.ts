@@ -11,9 +11,9 @@ import { logError } from '@/lib/server/utils/logger'
 import { requireAuth } from '@/lib/server/utils/auth'
 import {
   validationErrorResponse,
-  databaseErrorResponse,
-  serverErrorResponse,
+  databaseErrorResponse ,
 } from '@/lib/server/utils/error-handler'
+import { handleApiError } from '@/lib/server/utils/api-helpers'
 import type { Favorite, FavoriteInsert } from '@/lib/types/database'
 
 type FavoriteItemType = 'style' | 'palette' | 'thumbnail'
@@ -73,14 +73,7 @@ export async function GET(request: Request) {
       count: count || 0,
     })
   } catch (error) {
-    // requireAuth throws NextResponse, so check if it's already a response
-    if (error instanceof NextResponse) {
-      return error
-    }
-    return serverErrorResponse(error, 'Failed to fetch favorites', {
-      route: 'GET /api/favorites',
-      userId,
-    })
+    return handleApiError(error, 'GET /api/favorites', 'fetch-favorites', undefined, 'Failed to fetch favorites')
   }
 }
 
@@ -156,14 +149,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ favorite }, { status: 201 })
   } catch (error) {
-    // requireAuth throws NextResponse, so check if it's already a response
-    if (error instanceof NextResponse) {
-      return error
-    }
-    return serverErrorResponse(error, 'Failed to create favorite', {
-      route: 'POST /api/favorites',
-      userId,
-    })
+    return handleApiError(error, 'POST /api/favorites', 'create-favorite', undefined, 'Failed to create favorite')
   }
 }
 
@@ -218,13 +204,6 @@ export async function DELETE(request: Request) {
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    // requireAuth throws NextResponse, so check if it's already a response
-    if (error instanceof NextResponse) {
-      return error
-    }
-    return serverErrorResponse(error, 'Failed to delete favorite', {
-      route: 'DELETE /api/favorites',
-      userId,
-    })
+    return handleApiError(error, 'DELETE /api/favorites', 'delete-favorite', undefined, 'Failed to delete favorite')
   }
 }

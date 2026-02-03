@@ -26,7 +26,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Grid3x3, FolderOpen, FolderKanban, Lock, Palette, Droplets, User, Youtube, RefreshCw, ChevronDown, Plus, Trash2, ImageIcon, Sparkles } from "lucide-react";
+import { Grid3x3, FolderOpen, FolderKanban, Lock, Palette, Droplets, User, Youtube, RefreshCw, ChevronDown, Plus, Trash2, ImageIcon } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BrowseThumbnails } from "./browse-thumbnails";
 import { BrowseStyles } from "@/components/studio/browse-styles";
@@ -45,6 +45,9 @@ import { ViewBaitLogo } from "@/components/ui/viewbait-logo";
 import SubscriptionModal from "@/components/subscription-modal";
 import { useYouTubeIntegration } from "@/lib/hooks/useYouTubeIntegration";
 import { YouTubeVideoCard, YouTubeVideoCardSkeleton } from "@/components/studio/youtube-video-card";
+import { ChannelImportTab } from "@/components/studio/channel-import-tab";
+import { YouTubeStyleExtractBar } from "@/components/studio/youtube-style-extract-bar";
+import { useYouTubeStyleExtract } from "@/lib/hooks/useYouTubeStyleExtract";
 import {
   Dialog,
   DialogContent,
@@ -1915,18 +1918,14 @@ export function StudioViewYouTube() {
     removeReferenceImage,
     updatePreview,
     refresh: refreshStyles,
-    extractStyleFromYouTube,
-    isExtractingFromYouTube,
   } = useStyles();
 
   const { user } = useAuth();
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedVideoIds, setSelectedVideoIds] = useState<Set<string>>(new Set());
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingStyle, setEditingStyle] = useState<DbStyle | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [extractError, setExtractError] = useState<string | null>(null);
 
   const isConnected = status?.isConnected === true;
 
@@ -1953,59 +1952,14 @@ export function StudioViewYouTube() {
     return videos.filter((v) => v.title?.toLowerCase().includes(q));
   }, [videos, searchQuery]);
 
-  const toggleSelectVideo = useCallback((videoId: string) => {
-    setSelectedVideoIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(videoId)) {
-        next.delete(videoId);
-      } else if (next.size < 10) {
-        next.add(videoId);
-      }
-      return next;
-    });
-  }, []);
-
-  const handleExtractStyle = useCallback(async () => {
-    if (selectedVideoIds.size < 2) return;
-    const selectedVideos = filteredVideos.filter((v) => selectedVideoIds.has(v.videoId));
-    const thumbnailUrls = selectedVideos.map((v) => v.thumbnailUrl).filter(Boolean);
-    if (thumbnailUrls.length < 2) {
-      toast.error("Select at least 2 videos with thumbnails");
-      return;
-    }
-    setExtractError(null);
-    const result = await extractStyleFromYouTube(thumbnailUrls);
-    if (!result) {
-      const err = "Failed to extract style. Try again or select different thumbnails.";
-      setExtractError(err);
-      toast.error(err);
-      return;
-    }
-    if (!user) return;
-    const newStyle = await createStyle({
-      name: result.name || "Extracted Style",
-      description: result.description ?? null,
-      prompt: result.prompt ?? null,
-      reference_images: result.reference_images,
-      colors: [],
-    });
-    if (newStyle) {
-      await refreshStyles();
-      setEditingStyle(newStyle);
+  const youtubeStyleExtract = useYouTubeStyleExtract(filteredVideos);
+  const handleExtractAndOpenEditor = useCallback(async () => {
+    const style = await youtubeStyleExtract.handleExtractStyle();
+    if (style) {
+      setEditingStyle(style);
       setEditorOpen(true);
-      setSelectedVideoIds(new Set());
-      toast.success("Style created. You can edit the name and generate a preview.");
-    } else {
-      toast.error("Failed to save style");
     }
-  }, [
-    selectedVideoIds,
-    filteredVideos,
-    extractStyleFromYouTube,
-    user,
-    createStyle,
-    refreshStyles,
-  ]);
+  }, [youtubeStyleExtract.handleExtractStyle]);
 
   const handleSaveStyle = useCallback(
     async (
@@ -2065,187 +2019,175 @@ export function StudioViewYouTube() {
 
   const showVideos = isConnected && !isLoading;
   const showSkeleton = isConnected && (isLoading || isRefreshing) && videos.length === 0;
-  const canExtract = selectedVideoIds.size >= 2 && selectedVideoIds.size <= 10;
 
-  // Not connected: Connect YouTube CTA at top
-  if (!isConnected) {
-    return (
-      <div>
-        <ViewHeader
-          title="YouTube"
-          description="Your channel and videos"
-        />
-        <Card className="mb-6">
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <Youtube className="mb-4 h-12 w-12 text-muted-foreground" />
-            <p className="mb-2 text-center text-muted-foreground">
-              Connect with Google to access your YouTube channel. We only request permission to read
-              your channel and videos—no sensitive actions without your consent.
-            </p>
-            <Button
-              onClick={() => reconnect()}
-              className="gap-2"
-            >
-              <Youtube className="h-4 w-4" />
-              Connect with Google
-            </Button>
-            {error && (
-              <p className="mt-4 text-sm text-destructive">
-                {error}
-              </p>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  // Connected: header, controls, channel strip, grid, load more
   return (
     <div>
       <ViewHeader
         title="YouTube"
         description="Your channel and videos"
-        count={filteredVideos.length}
+        count={isConnected ? filteredVideos.length : undefined}
         countLabel="videos"
       />
 
-      {channel && (
-        <div className="mb-4 flex items-center gap-3 rounded-lg border bg-muted/30 px-3 py-2">
-          {channel.thumbnailUrl && (
-            <img
-              src={channel.thumbnailUrl}
-              alt={channel.title}
-              className="h-10 w-10 rounded-full object-cover"
-            />
-          )}
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium">{channel.title}</p>
-            {channel.videoCount != null && (
-              <p className="text-xs text-muted-foreground">
-                {channel.videoCount} video{channel.videoCount !== 1 ? "s" : ""}
-              </p>
-            )}
-          </div>
-        </div>
-      )}
+      <Tabs defaultValue="my-channel" className="mt-4">
+        <TabsList className="mb-4">
+          <TabsTrigger value="my-channel">My channel</TabsTrigger>
+          <TabsTrigger value="import">Import by URL</TabsTrigger>
+        </TabsList>
 
-      <div className="mb-4 flex flex-wrap items-center gap-3">
-        <p className="text-sm text-muted-foreground">
-          Select 2–10 videos to extract a common style.
-        </p>
-        {selectedVideoIds.size > 0 && (
-          <Button
-            variant={canExtract ? "default" : "outline"}
-            size="sm"
-            onClick={handleExtractStyle}
-            disabled={!canExtract || isExtractingFromYouTube}
-            className="gap-2"
-          >
-            {isExtractingFromYouTube ? (
-              <>
-                <ViewBaitLogo className="h-4 w-4 animate-spin" />
-                Extracting...
-              </>
-            ) : (
-              <>
-                <Sparkles className="h-4 w-4" />
-                Extract style {selectedVideoIds.size > 0 ? `(${selectedVideoIds.size} selected)` : ""}
-              </>
-            )}
-          </Button>
-        )}
-      </div>
-
-      <ViewControls
-        searchQuery={searchQuery}
-        onSearchChange={handleSearchChange}
-        searchPlaceholder="Search videos..."
-        showSearch={true}
-        showFilter={false}
-        showSort={false}
-        showFavorites={false}
-        onRefresh={handleRefresh}
-        isRefreshing={isRefreshing}
-        showRefresh={true}
-        showAdd={false}
-        className="mb-6"
-      />
-
-      {error && (
-        <div className="mb-4 flex items-center justify-between rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2">
-          <p className="text-sm text-destructive">{error}</p>
-          <Button variant="ghost" size="sm" onClick={clearError}>
-            Dismiss
-          </Button>
-        </div>
-      )}
-
-      {showSkeleton && (
-        <div className="grid w-full gap-3 grid-cols-[repeat(auto-fill,minmax(200px,1fr))]">
-          {Array.from({ length: 12 }).map((_, i) => (
-            <YouTubeVideoCardSkeleton key={`skeleton-${i}`} />
-          ))}
-        </div>
-      )}
-
-      {showVideos && filteredVideos.length === 0 && !showSkeleton && (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <Youtube className="mb-4 h-12 w-12 text-muted-foreground" />
-            <p className="text-muted-foreground">
-              {searchQuery.trim()
-                ? "No videos match your search."
-                : "No videos on your channel yet."}
-            </p>
-          </CardContent>
-        </Card>
-      )}
-
-      {extractError && (
-        <div className="mb-4 rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2">
-          <p className="text-sm text-destructive">{extractError}</p>
-        </div>
-      )}
-
-      {showVideos && filteredVideos.length > 0 && (
-        <>
-          <div className="grid w-full gap-3 grid-cols-[repeat(auto-fill,minmax(200px,1fr))]">
-            {filteredVideos.map((video, index) => (
-              <YouTubeVideoCard
-                key={video.videoId}
-                video={video}
-                priority={index < 6}
-                selected={selectedVideoIds.has(video.videoId)}
-                onToggleSelect={toggleSelectVideo}
-              />
-            ))}
-          </div>
-          {videosHasMore && (
-            <div className="mt-6 flex justify-center">
-              <Button
-                variant="outline"
-                onClick={() => loadMoreVideos()}
-                disabled={isRefreshing}
-                className="gap-2"
-              >
-                {isRefreshing ? (
-                  <>
-                    <ViewBaitLogo className="h-4 w-4 animate-spin" />
-                    Loading...
-                  </>
-                ) : (
-                  <>
-                    <RefreshCw className="h-4 w-4" />
-                    Load more
-                  </>
+        <TabsContent value="my-channel" className="mt-0">
+          {!isConnected ? (
+            <Card className="mb-6">
+              <CardContent className="flex flex-col items-center justify-center py-12">
+                <Youtube className="mb-4 h-12 w-12 text-muted-foreground" />
+                <p className="mb-2 text-center text-muted-foreground">
+                  Connect with Google to access your YouTube channel. We only request permission to read
+                  your channel and videos—no sensitive actions without your consent.
+                </p>
+                <Button
+                  onClick={() => reconnect()}
+                  className="gap-2"
+                >
+                  <Youtube className="h-4 w-4" />
+                  Connect with Google
+                </Button>
+                {error && (
+                  <p className="mt-4 text-sm text-destructive">
+                    {error}
+                  </p>
                 )}
-              </Button>
-            </div>
-          )}
-        </>
-      )}
+              </CardContent>
+            </Card>
+          ) : (
+            <>
+              {channel && (
+                <div className="mb-4 flex items-center gap-3 rounded-lg border bg-muted/30 px-3 py-2">
+                  {channel.thumbnailUrl && (
+                    <img
+                      src={channel.thumbnailUrl}
+                      alt={channel.title}
+                      className="h-10 w-10 rounded-full object-cover"
+                    />
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium">{channel.title}</p>
+                    {channel.videoCount != null && (
+                      <p className="text-xs text-muted-foreground">
+                        {channel.videoCount} video{channel.videoCount !== 1 ? "s" : ""}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
 
+              <div className="mb-4">
+                <YouTubeStyleExtractBar
+                  selectedCount={youtubeStyleExtract.selectedVideoIds.size}
+                  canExtract={youtubeStyleExtract.canExtract}
+                  isExtracting={youtubeStyleExtract.isExtracting}
+                  extractError={youtubeStyleExtract.extractError}
+                  onExtract={handleExtractAndOpenEditor}
+                  onClearError={youtubeStyleExtract.clearExtractError}
+                />
+              </div>
+
+              <ViewControls
+                searchQuery={searchQuery}
+                onSearchChange={handleSearchChange}
+                searchPlaceholder="Search videos..."
+                showSearch={true}
+                showFilter={false}
+                showSort={false}
+                showFavorites={false}
+                onRefresh={handleRefresh}
+                isRefreshing={isRefreshing}
+                showRefresh={true}
+                showAdd={false}
+                className="mb-6"
+              />
+
+              {error && (
+                <div className="mb-4 flex items-center justify-between rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2">
+                  <p className="text-sm text-destructive">{error}</p>
+                  <Button variant="ghost" size="sm" onClick={clearError}>
+                    Dismiss
+                  </Button>
+                </div>
+              )}
+
+              {showSkeleton && (
+                <div className="grid w-full gap-3 grid-cols-[repeat(auto-fill,minmax(200px,1fr))]">
+                  {Array.from({ length: 12 }).map((_, i) => (
+                    <YouTubeVideoCardSkeleton key={`skeleton-${i}`} />
+                  ))}
+                </div>
+              )}
+
+              {showVideos && filteredVideos.length === 0 && !showSkeleton && (
+                <Card>
+                  <CardContent className="flex flex-col items-center justify-center py-12">
+                    <Youtube className="mb-4 h-12 w-12 text-muted-foreground" />
+                    <p className="text-muted-foreground">
+                      {searchQuery.trim()
+                        ? "No videos match your search."
+                        : "No videos on your channel yet."}
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+
+              {showVideos && filteredVideos.length > 0 && (
+                <>
+                  <div className="grid w-full gap-3 grid-cols-[repeat(auto-fill,minmax(200px,1fr))]">
+                    {filteredVideos.map((video, index) => (
+                      <YouTubeVideoCard
+                        key={video.videoId}
+                        video={video}
+                        priority={index < 6}
+                        selected={youtubeStyleExtract.selectedVideoIds.has(video.videoId)}
+                        onToggleSelect={youtubeStyleExtract.toggleSelectVideo}
+                      />
+                    ))}
+                  </div>
+                  {videosHasMore && (
+                    <div className="mt-6 flex justify-center">
+                      <Button
+                        variant="outline"
+                        onClick={() => loadMoreVideos()}
+                        disabled={isRefreshing}
+                        className="gap-2"
+                      >
+                        {isRefreshing ? (
+                          <>
+                            <ViewBaitLogo className="h-4 w-4 animate-spin" />
+                            Loading...
+                          </>
+                        ) : (
+                          <>
+                            <RefreshCw className="h-4 w-4" />
+                            Load more
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  )}
+                </>
+              )}
+            </>
+          )}
+        </TabsContent>
+
+        <TabsContent value="import" className="mt-0">
+          <ChannelImportTab
+            onStyleCreated={(style) => {
+              setEditingStyle(style);
+              setEditorOpen(true);
+            }}
+          />
+        </TabsContent>
+      </Tabs>
+
+      {/* Reused for both My channel and Import by URL: after extract, onStyleCreated(style) opens this same modal in edit mode so the user can view, edit, generate preview, and save. */}
       <StyleEditor
         open={editorOpen}
         onOpenChange={(open) => {

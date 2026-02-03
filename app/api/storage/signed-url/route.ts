@@ -7,13 +7,15 @@
 import { createClient } from '@/lib/supabase/server'
 import { requireAuth } from '@/lib/server/utils/auth'
 import { storageErrorResponse, validationErrorResponse, forbiddenResponse } from '@/lib/server/utils/error-handler'
+import { handleApiError } from '@/lib/server/utils/api-helpers'
+import { SIGNED_URL_EXPIRY_ONE_YEAR_SECONDS } from '@/lib/server/utils/url-refresh'
 import { NextResponse } from 'next/server'
 
 export type BucketName = 'thumbnails' | 'faces' | 'style-previews' | 'style-references'
 
 const PRIVATE_BUCKETS: BucketName[] = ['thumbnails', 'faces', 'style-references']
 const VALID_BUCKETS: BucketName[] = ['thumbnails', 'faces', 'style-previews', 'style-references']
-const DEFAULT_EXPIRES_IN = 31536000 // 1 year in seconds
+const DEFAULT_EXPIRES_IN = SIGNED_URL_EXPIRY_ONE_YEAR_SECONDS
 
 /**
  * Validates that a path belongs to the authenticated user
@@ -85,14 +87,6 @@ export async function GET(request: Request) {
       url: urlData.signedUrl,
     })
   } catch (error) {
-    // requireAuth throws NextResponse, so check if it's already a response
-    if (error instanceof NextResponse) {
-      return error
-    }
-    return storageErrorResponse(
-      error,
-      'Failed to create signed URL',
-      { route: 'GET /api/storage/signed-url' }
-    )
+    return handleApiError(error, 'GET /api/storage/signed-url', 'create-signed-url', undefined, 'Failed to create signed URL')
   }
 }

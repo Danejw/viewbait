@@ -452,6 +452,107 @@ export async function callGeminiWithFunctionCalling(
 }
 
 /**
+ * Call Google Gemini API with a YouTube video URL and function calling (structured output).
+ * Uses fileData with fileUri for the video; Gemini supports YouTube URLs directly.
+ * See: https://ai.google.dev/gemini-api/docs/video-understanding#youtube
+ */
+export async function callGeminiWithYouTubeVideoAndFunctionCalling(
+  systemPrompt: string | null,
+  userPrompt: string,
+  youtubeUrl: string,
+  toolDefinition: unknown,
+  toolName: string | string[],
+  model: string = 'gemini-2.5-flash'
+): Promise<FunctionCallingResult> {
+  const apiKey = process.env.GEMINI_API_KEY
+  if (!apiKey) {
+    throw new Error('GEMINI_API_KEY environment variable is not set')
+  }
+
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`
+
+  const parts: Array<
+    | { text?: string }
+    | { fileData?: { fileUri: string } }
+  > = []
+  if (systemPrompt) {
+    parts.push({ text: systemPrompt })
+  }
+  parts.push({ fileData: { fileUri: youtubeUrl } })
+  parts.push({ text: userPrompt })
+
+  const toolDefinitions: unknown[] = Array.isArray(toolDefinition) ? toolDefinition : [toolDefinition]
+  const allowedFunctionNames: string[] = Array.isArray(toolName) ? toolName : [toolName]
+
+  const requestBody = {
+    contents: [
+      {
+        role: 'user',
+        parts,
+      },
+    ],
+    tools: [
+      {
+        functionDeclarations: toolDefinitions,
+      },
+    ],
+    toolConfig: {
+      functionCallingConfig: {
+        mode: 'ANY',
+        allowedFunctionNames,
+      },
+    },
+    generationConfig: {
+      temperature: 0.3,
+      topK: 40,
+      topP: 0.95,
+      maxOutputTokens: 8192,
+    },
+  }
+
+  const response = await retryWithBackoff(
+    () =>
+      fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': apiKey,
+        },
+        body: JSON.stringify(requestBody),
+      })
+  )
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    const sanitizedError = sanitizeApiErrorResponse(errorText)
+    throw new Error(`Gemini API error: ${response.status} - ${sanitizedError}`)
+  }
+
+  const data = await response.json()
+  const functionCall = data.candidates?.[0]?.content?.parts?.find(
+    (part: { functionCall?: { name: string; args: unknown } }) => part.functionCall
+  )
+
+  if (!functionCall?.functionCall) {
+    throw new Error('No function call found in Gemini API response')
+  }
+
+  const name = functionCall.functionCall.name as string
+  const args = functionCall.functionCall.args
+  if (!allowedFunctionNames.includes(name)) {
+    throw new Error(`Unexpected function name: ${name}. Allowed: ${allowedFunctionNames.join(', ')}`)
+  }
+
+  const groundingMetadata: GroundingMetadata | undefined = data.candidates?.[0]?.groundingMetadata
+
+  return {
+    functionName: name,
+    functionCallResult: args,
+    groundingMetadata,
+  }
+}
+
+/**
  * Call Google Gemini API for image generation (simpler version for style preview)
  */
 export async function callGeminiImageGenerationSimple(

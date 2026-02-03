@@ -13,6 +13,7 @@ import {
   serverErrorResponse,
   notFoundResponse,
 } from '@/lib/server/utils/error-handler'
+import { handleApiError } from '@/lib/server/utils/api-helpers'
 import { logError, logInfo } from '@/lib/server/utils/logger'
 import { NextResponse } from 'next/server'
 import type { GenerateThumbnailRequest } from '@/app/api/generate/route'
@@ -330,10 +331,7 @@ export async function POST(
       count: variants.length,
     })
   } catch (error) {
-    if (error instanceof NextResponse) {
-      return error
-    }
-    return serverErrorResponse(error, 'Failed to generate variants')
+    return handleApiError(error, 'UNKNOWN', 'generate-variants', undefined, 'Failed to generate variants')
   }
 }
 
@@ -403,9 +401,6 @@ export async function PATCH(
 
     return NextResponse.json({ variant })
   } catch (error) {
-    if (error instanceof NextResponse) {
-      return error
-    }
-    return serverErrorResponse(error, 'Failed to update variant')
+    return handleApiError(error, 'UNKNOWN', 'update-variant', undefined, 'Failed to update variant')
   }
 }

@@ -13,6 +13,7 @@ import {
   databaseErrorResponse,
   serverErrorResponse,
 } from '@/lib/server/utils/error-handler'
+import { handleApiError } from '@/lib/server/utils/api-helpers'
 import { logError } from '@/lib/server/utils/logger'
 import { NextResponse } from 'next/server'
 import type { ProjectUpdate, ProjectDefaultSettings } from '@/lib/types/database'
@@ -94,10 +95,7 @@ export async function PATCH(
 
     return NextResponse.json({ project: data })
   } catch (error) {
-    if (error instanceof NextResponse) {
-      return error
-    }
-    return serverErrorResponse(error, 'Failed to update project')
+    return handleApiError(error, 'UNKNOWN', 'update-project', undefined, 'Failed to update project')
   }
 }
 
@@ -128,9 +126,6 @@ export async function DELETE(
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    if (error instanceof NextResponse) {
-      return error
-    }
-    return serverErrorResponse(error, 'Failed to delete project')
+    return handleApiError(error, 'UNKNOWN', 'delete-project', undefined, 'Failed to delete project')
   }
 }

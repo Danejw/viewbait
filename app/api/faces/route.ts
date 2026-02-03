@@ -11,9 +11,9 @@ import { refreshFaceUrls } from '@/lib/server/utils/url-refresh'
 import {
   validationErrorResponse,
   databaseErrorResponse,
-  serverErrorResponse,
   tierLimitResponse,
 } from '@/lib/server/utils/error-handler'
+import { handleApiError } from '@/lib/server/utils/api-helpers'
 import { getTierForUser } from '@/lib/server/utils/tier'
 import { createCachedResponse } from '@/lib/server/utils/cache-headers'
 import { logError } from '@/lib/server/utils/logger'
@@ -57,11 +57,7 @@ export async function GET(request: Request) {
       request
     )
   } catch (error) {
-    // requireAuth throws NextResponse, so check if it's already a response
-    if (error instanceof NextResponse) {
-      return error
-    }
-    return serverErrorResponse(error, 'Failed to fetch faces')
+    return handleApiError(error, 'GET /api/faces', 'fetch-faces', undefined, 'Failed to fetch faces')
   }
 }
 
@@ -112,11 +108,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ face }, { status: 201 })
   } catch (error) {
-    // requireAuth throws NextResponse, so check if it's already a response
-    if (error instanceof NextResponse) {
-      return error
-    }
-    return serverErrorResponse(error, 'Failed to create face')
+    return handleApiError(error, 'POST /api/faces', 'create-face', undefined, 'Failed to create face')
   }
 }
 

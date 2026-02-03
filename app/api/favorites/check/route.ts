@@ -10,9 +10,9 @@ import { logError } from '@/lib/server/utils/logger'
 import { requireAuth } from '@/lib/server/utils/auth'
 import {
   validationErrorResponse,
-  databaseErrorResponse,
-  serverErrorResponse,
+  databaseErrorResponse ,
 } from '@/lib/server/utils/error-handler'
+import { handleApiError } from '@/lib/server/utils/api-helpers'
 
 type FavoriteItemType = 'style' | 'palette' | 'thumbnail'
 
@@ -67,13 +67,6 @@ export async function GET(request: Request) {
       favorited: !!data,
     })
   } catch (error) {
-    // requireAuth throws NextResponse, so check if it's already a response
-    if (error instanceof NextResponse) {
-      return error
-    }
-    return serverErrorResponse(error, 'Failed to check favorite status', {
-      route: 'GET /api/favorites/check',
-      userId,
-    })
+    return handleApiError(error, 'GET /api/favorites/check', 'check-favorite-status', undefined, 'Failed to check favorite status')
   }
 }

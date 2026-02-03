@@ -14,11 +14,11 @@ import { logError } from '@/lib/server/utils/logger'
 import { submitFeedbackFromServer } from '@/lib/server/feedback'
 import { getExpressionValues, getPoseValues, formatExpressionsForPrompt, formatPosesForPrompt } from '@/lib/constants/face-options'
 import { getTierForUser } from '@/lib/server/utils/tier'
+import { SIGNED_URL_EXPIRY_ONE_YEAR_SECONDS } from '@/lib/server/utils/url-refresh'
 
 const MAX_STYLE_REFERENCES = 10
 const STYLE_REFERENCES_BUCKET = 'style-references'
 const FACES_BUCKET = 'faces'
-const SIGNED_URL_EXPIRY_SECONDS = 31536000 // 1 year
 const APP_VERSION_FOR_FEEDBACK = process.env.NEXT_PUBLIC_APP_VERSION ?? 'web'
 
 /**
@@ -41,7 +41,7 @@ async function uploadBase64ToStyleReferences(
   if (uploadError) return null
   const { data: urlData, error: urlError } = await supabase.storage
     .from(STYLE_REFERENCES_BUCKET)
-    .createSignedUrl(path, SIGNED_URL_EXPIRY_SECONDS)
+    .createSignedUrl(path, SIGNED_URL_EXPIRY_ONE_YEAR_SECONDS)
   if (urlError || !urlData?.signedUrl) return null
   return urlData.signedUrl
 }
@@ -95,7 +95,7 @@ async function uploadBase64ToFaceImage(
   if (uploadError) return null
   const { data: urlData, error: urlError } = await supabase.storage
     .from(FACES_BUCKET)
-    .createSignedUrl(path, SIGNED_URL_EXPIRY_SECONDS)
+    .createSignedUrl(path, SIGNED_URL_EXPIRY_ONE_YEAR_SECONDS)
   if (urlError || !urlData?.signedUrl) return null
   return urlData.signedUrl
 }

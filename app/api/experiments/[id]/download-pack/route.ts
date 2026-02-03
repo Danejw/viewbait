@@ -12,6 +12,7 @@ import {
   serverErrorResponse,
   notFoundResponse,
 } from '@/lib/server/utils/error-handler'
+import { handleApiError } from '@/lib/server/utils/api-helpers'
 import { logError } from '@/lib/server/utils/logger'
 import { NextResponse } from 'next/server'
 
@@ -185,9 +186,6 @@ export async function GET(
     // TODO: In the future, add a ZIP library (like 'archiver' or 'adm-zip') to create actual ZIP files
     // For now, the frontend can use JSZip to create the ZIP from the JSON response
   } catch (error) {
-    if (error instanceof NextResponse) {
-      return error
-    }
-    return serverErrorResponse(error, 'Failed to create download pack')
+    return handleApiError(error, 'UNKNOWN', 'create-download-pack', undefined, 'Failed to create download pack')
   }
 }

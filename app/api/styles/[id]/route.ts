@@ -11,7 +11,9 @@ import type { StyleUpdate } from '@/lib/types/database'
 import { logError } from '@/lib/server/utils/logger'
 import { requireAuth } from '@/lib/server/utils/auth'
 import { isUUID } from '@/lib/server/utils/uuid-validation'
-import { notFoundResponse, validationErrorResponse, forbiddenResponse, databaseErrorResponse, serverErrorResponse } from '@/lib/server/utils/error-handler'
+import { notFoundResponse, validationErrorResponse, forbiddenResponse, databaseErrorResponse } from '@/lib/server/utils/error-handler'
+import { handleApiError } from '@/lib/server/utils/api-helpers'
+import { SIGNED_URL_EXPIRY_ONE_YEAR_SECONDS } from '@/lib/server/utils/url-refresh'
 
 /**
  * GET /api/styles/[id]
@@ -64,7 +66,7 @@ export async function GET(
             const storagePath = signedUrlMatch[1]
             const { data: urlData } = await supabase.storage
               .from('style-references')
-              .createSignedUrl(storagePath, 60 * 60 * 24 * 365)
+              .createSignedUrl(storagePath, SIGNED_URL_EXPIRY_ONE_YEAR_SECONDS)
             return urlData?.signedUrl || url
           }
           return url
@@ -79,14 +81,7 @@ export async function GET(
 
     return NextResponse.json({ style })
   } catch (error) {
-    // requireAuth throws NextResponse, so check if it's already a response
-    if (error instanceof NextResponse) {
-      return error
-    }
-    return serverErrorResponse(error, 'Failed to get style', {
-      route: 'GET /api/styles/[id]',
-      userId,
-    })
+    return handleApiError(error, 'GET /api/styles/[id]', 'get-style', userId, 'Failed to get style')
   }
 }
 
@@ -157,14 +152,7 @@ export async function PATCH(
 
     return NextResponse.json({ style })
   } catch (error) {
-    // requireAuth throws NextResponse, so check if it's already a response
-    if (error instanceof NextResponse) {
-      return error
-    }
-    return serverErrorResponse(error, 'Failed to update style', {
-      route: 'PATCH /api/styles/[id]',
-      userId,
-    })
+    return handleApiError(error, 'PATCH /api/styles/[id]', 'update-style', userId, 'Failed to update style')
   }
 }
 
@@ -243,14 +231,7 @@ export async function DELETE(
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    // requireAuth throws NextResponse, so check if it's already a response
-    if (error instanceof NextResponse) {
-      return error
-    }
-    return serverErrorResponse(error, 'Failed to delete style', {
-      route: 'DELETE /api/styles/[id]',
-      userId,
-    })
+    return handleApiError(error, 'DELETE /api/styles/[id]', 'delete-style', userId, 'Failed to delete style')
   }
 }
 

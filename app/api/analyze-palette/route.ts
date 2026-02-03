@@ -9,9 +9,9 @@ import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { callGeminiWithFunctionCalling } from '@/lib/services/ai-core'
 import { fetchImageAsBase64 } from '@/lib/utils/ai-helpers'
-import { sanitizeErrorForClient } from '@/lib/utils/error-sanitizer'
 import { requireAuth } from '@/lib/server/utils/auth'
-import { serverErrorResponse, tierLimitResponse } from '@/lib/server/utils/error-handler'
+import { tierLimitResponse, aiServiceErrorResponse } from '@/lib/server/utils/error-handler'
+import { handleApiError } from '@/lib/server/utils/api-helpers'
 import { getTierForUser } from '@/lib/server/utils/tier'
 
 export interface AnalyzePaletteRequest {
@@ -173,13 +173,10 @@ Return 3-6 hex color codes ordered by visual importance or harmony.`
         'gemini-2.5-flash'
       )
     } catch (error) {
-      return NextResponse.json(
-        { 
-          error: sanitizeErrorForClient(error, 'analyze-palette-ai', 'Failed to analyze palette'),
-          code: 'AI_SERVICE_ERROR'
-        },
-        { status: 500 }
-      )
+      return aiServiceErrorResponse(error, 'Failed to analyze palette', {
+        route: 'POST /api/analyze-palette',
+        userId: user?.id,
+      })
     }
 
     // Handle both old format (just function call args) and new format (with grounding metadata)
@@ -198,13 +195,6 @@ Return 3-6 hex color codes ordered by visual importance or harmony.`
       description: result.description,
     })
   } catch (error) {
-    // requireAuth throws NextResponse, so check if it's already a response
-    if (error instanceof NextResponse) {
-      return error
-    }
-    return serverErrorResponse(error, 'Failed to analyze palette', {
-      route: 'POST /api/analyze-palette',
-      userId: user?.id,
-    })
+    return handleApiError(error, 'POST /api/analyze-palette', 'analyze-palette', user?.id, 'Failed to analyze palette')
   }
 }

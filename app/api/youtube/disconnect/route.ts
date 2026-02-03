@@ -12,6 +12,7 @@ import {
   databaseErrorResponse,
   serverErrorResponse,
 } from '@/lib/server/utils/error-handler'
+import { handleApiError } from '@/lib/server/utils/api-helpers'
 import { logError, logInfo, logWarn } from '@/lib/server/utils/logger'
 import { NextResponse } from 'next/server'
 
@@ -153,9 +154,6 @@ export async function POST(request: Request) {
     })
     
   } catch (error) {
-    if (error instanceof NextResponse) {
-      return error
-    }
-    return serverErrorResponse(error, 'Failed to disconnect YouTube integration')
+    return handleApiError(error, 'UNKNOWN', 'disconnect-youtube-integration', undefined, 'Failed to disconnect YouTube integration')
   }
 }

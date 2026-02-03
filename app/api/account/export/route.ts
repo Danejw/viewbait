@@ -10,11 +10,10 @@ import { createClient } from '@/lib/supabase/server'
 import { requireAuth } from '@/lib/server/utils/auth'
 import { NextResponse } from 'next/server'
 import { logError } from '@/lib/server/utils/logger'
-import { serverErrorResponse } from '@/lib/server/utils/error-handler'
+import { handleApiError } from '@/lib/server/utils/api-helpers'
+import { SIGNED_URL_EXPIRY_ONE_YEAR_SECONDS } from '@/lib/server/utils/url-refresh'
 
 type BucketName = 'thumbnails' | 'faces' | 'style-references'
-
-const SIGNED_URL_EXPIRY = 31536000 // 1 year in seconds
 
 /**
  * Extract storage path from signed URL or image URL
@@ -53,7 +52,7 @@ async function generateSignedUrl(
   try {
     const { data: urlData, error } = await supabase.storage
       .from(bucket)
-      .createSignedUrl(path, SIGNED_URL_EXPIRY)
+      .createSignedUrl(path, SIGNED_URL_EXPIRY_ONE_YEAR_SECONDS)
 
     if (error || !urlData?.signedUrl) {
       logError(error || new Error('No signed URL data'), {
@@ -398,13 +397,6 @@ export async function POST(request: Request) {
       },
     })
   } catch (error) {
-    // requireAuth throws NextResponse, so check if it's already a response
-    if (error instanceof NextResponse) {
-      return error
-    }
-    return serverErrorResponse(error, 'Failed to export user data', {
-      route: 'POST /api/account/export',
-      userId,
-    })
+    return handleApiError(error, 'POST /api/account/export', 'export-user-data', undefined, 'Failed to export user data')
   }
 }

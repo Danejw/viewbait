@@ -12,6 +12,7 @@ import {
   databaseErrorResponse,
   serverErrorResponse,
 } from '@/lib/server/utils/error-handler'
+import { handleApiError } from '@/lib/server/utils/api-helpers'
 import { logError, logInfo } from '@/lib/server/utils/logger'
 import { NextResponse } from 'next/server'
 import {
@@ -129,10 +130,7 @@ export async function GET(request: Request) {
     })
     
   } catch (error) {
-    if (error instanceof NextResponse) {
-      return error
-    }
-    return serverErrorResponse(error, 'Failed to fetch analytics data')
+    return handleApiError(error, 'UNKNOWN', 'fetch-analytics-data', undefined, 'Failed to fetch analytics data')
   }
 }
 
@@ -268,9 +266,6 @@ export async function POST(request: Request) {
     }, { status: 201 })
     
   } catch (error) {
-    if (error instanceof NextResponse) {
-      return error
-    }
-    return serverErrorResponse(error, 'Failed to fetch analytics data')
+    return handleApiError(error, 'UNKNOWN', 'fetch-analytics-data', undefined, 'Failed to fetch analytics data')
   }
 }

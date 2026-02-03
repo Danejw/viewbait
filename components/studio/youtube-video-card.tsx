@@ -5,14 +5,23 @@
  *
  * Card for displaying a YouTube video thumbnail and title.
  * Mirrors ThumbnailCard look and feel: same Card, aspect-video, border/radius.
- * Optional link to open video on YouTube. No add-to-project or delete actions.
+ * Action bar on hover (HoverCard): Copy title, Open on YouTube, Video analysis (planned).
  */
 
-import React, { memo, useCallback, useState } from "react";
-import { ExternalLink } from "lucide-react";
+import React, { memo, useCallback, useMemo, useState } from "react";
+import { useDraggable } from "@dnd-kit/core";
+import { motion } from "framer-motion";
+import { Copy, ExternalLink, Eye, ThumbsUp, BarChart3, ScanLine } from "lucide-react";
+import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from "@/components/ui/hover-card";
 import {
   Tooltip,
   TooltipContent,
@@ -20,12 +29,26 @@ import {
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { useIntersectionObserver } from "@/lib/hooks/useIntersectionObserver";
+import { ActionBarIcon } from "@/components/studio/action-bar-icon";
+import { useStudio } from "@/components/studio/studio-provider";
+import type { DragData } from "@/components/studio/studio-dnd-context";
+import type { Thumbnail } from "@/lib/types/database";
 
 export interface YouTubeVideoCardVideo {
   videoId: string;
   title: string;
   publishedAt: string;
   thumbnailUrl: string;
+  /** Optional stats (e.g. from channel-videos proxy) */
+  viewCount?: number;
+  likeCount?: number;
+}
+
+/** Format large numbers for display (e.g. 1200 -> 1.2K, 1500000 -> 1.5M). */
+function formatCount(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+  return String(n);
 }
 
 export interface YouTubeVideoCardProps {
@@ -39,6 +62,42 @@ export interface YouTubeVideoCardProps {
 }
 
 const YOUTUBE_WATCH_URL = "https://www.youtube.com/watch?v=";
+
+/**
+ * Action button with tooltip (matches ThumbnailCard ActionButton / ActionBarIcon pattern).
+ */
+function ActionButton({
+  icon: Icon,
+  label,
+  onClick,
+  disabled = false,
+}: {
+  icon: React.ElementType;
+  label: string;
+  onClick: (e: React.MouseEvent) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <ActionBarIcon className={cn(disabled && "pointer-events-none opacity-60")}>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="h-7 w-7 bg-muted hover:bg-muted"
+            onClick={onClick}
+            disabled={disabled}
+          >
+            <Icon className="h-4 w-4" />
+          </Button>
+        </ActionBarIcon>
+      </TooltipTrigger>
+      <TooltipContent side="bottom" className="text-xs">
+        {label}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
 
 /**
  * Skeleton card for loading state (matches ThumbnailCardSkeleton: image area only).
@@ -65,7 +124,10 @@ export const YouTubeVideoCard = memo(function YouTubeVideoCard({
   selected = false,
   onToggleSelect,
 }: YouTubeVideoCardProps) {
-  const { videoId, title, thumbnailUrl } = video;
+  const { videoId, title, thumbnailUrl, viewCount, likeCount } = video;
+  const hasStats = viewCount != null || likeCount != null;
+  const { actions } = useStudio();
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [ref, isIntersecting] = useIntersectionObserver({
     rootMargin: "200px",
   });
@@ -74,6 +136,22 @@ export const YouTubeVideoCard = memo(function YouTubeVideoCard({
   const showImage = priority || isIntersecting;
   const watchUrl = `${YOUTUBE_WATCH_URL}${videoId}`;
   const selectionMode = onToggleSelect != null;
+
+  const dragData: DragData = useMemo(
+    () => ({
+      type: "thumbnail",
+      id: `youtube-thumbnail-${videoId}`,
+      item: { imageUrl: thumbnailUrl, name: title } as Thumbnail,
+      imageUrl: thumbnailUrl,
+    }),
+    [videoId, thumbnailUrl, title]
+  );
+
+  const { setNodeRef, listeners, attributes, isDragging } = useDraggable({
+    id: `youtube-thumbnail-${videoId}`,
+    data: dragData,
+    disabled: false,
+  });
 
   const handleClick = useCallback(
     (e: React.MouseEvent) => {
@@ -95,17 +173,91 @@ export const YouTubeVideoCard = memo(function YouTubeVideoCard({
     [onToggleSelect, videoId]
   );
 
+  const handleUseTitle = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      actions.setThumbnailText?.(title);
+      navigator.clipboard.writeText(title).then(
+        () => toast.success("Title set as thumbnail text and copied"),
+        () => toast.success("Title set as thumbnail text")
+      );
+    },
+    [actions.setThumbnailText, title]
+  );
+
+  const handleOpenVideo = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      window.open(watchUrl, "_blank", "noopener,noreferrer");
+    },
+    [watchUrl]
+  );
+
+  const handleAnalyzeStyle = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      const onAnalyze = actions.onAnalyzeThumbnailForInstructions;
+      if (!onAnalyze || isAnalyzing) return;
+      setIsAnalyzing(true);
+      onAnalyze({ imageUrl: thumbnailUrl }).finally(() => setIsAnalyzing(false));
+    },
+    [actions.onAnalyzeThumbnailForInstructions, thumbnailUrl, isAnalyzing]
+  );
+
+  const handleVideoAnalytics = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      actions.onRequestVideoAnalytics?.({
+        videoId,
+        title,
+        thumbnailUrl,
+      });
+    },
+    [actions.onRequestVideoAnalytics, videoId, title, thumbnailUrl]
+  );
+
+  const actionBar = (
+    <motion.div
+      className="flex items-center justify-center gap-1"
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{
+        duration: 0.25,
+        ease: [0.25, 0.46, 0.45, 0.94],
+      }}
+    >
+      <ActionButton icon={Copy} label="Use title" onClick={handleUseTitle} />
+      <ActionButton icon={ExternalLink} label="Open on YouTube" onClick={handleOpenVideo} />
+      <ActionButton
+        icon={ScanLine}
+        label="Analyze style and add to instructions"
+        onClick={handleAnalyzeStyle}
+        disabled={isAnalyzing}
+      />
+      <ActionButton
+        icon={BarChart3}
+        label="Video analytics"
+        onClick={handleVideoAnalytics}
+      />
+    </motion.div>
+  );
+
   return (
     <div ref={ref} className="w-full">
-      <Tooltip>
-        <TooltipTrigger asChild>
+      <HoverCard openDelay={150} closeDelay={100}>
+        <HoverCardTrigger asChild>
           <Card
+            ref={setNodeRef}
             className={cn(
               "group relative aspect-video w-full cursor-pointer overflow-hidden p-0 transition-all",
               "hover:ring-2 hover:ring-primary/50 hover:shadow-lg",
-              selectionMode && selected && "ring-2 ring-primary"
+              selectionMode && selected && "ring-2 ring-primary",
+              isDragging && "opacity-50 ring-2 ring-primary cursor-grabbing",
+              !isDragging && "cursor-grab"
             )}
             onClick={handleClick}
+            {...listeners}
+            {...attributes}
           >
             <div className="relative h-full w-full overflow-hidden bg-muted">
               {showImage && (
@@ -170,17 +322,42 @@ export const YouTubeVideoCard = memo(function YouTubeVideoCard({
                   <ExternalLink className="h-4 w-4 shrink-0 text-white drop-shadow-sm" />
                 )}
               </div>
+              {/* Optional stats at bottom */}
+              {hasStats && (
+                <div
+                  className={cn(
+                    "absolute inset-x-0 bottom-0 flex items-center gap-3 px-2 py-1.5",
+                    "bg-gradient-to-t from-black/60 to-transparent",
+                    "opacity-0 transition-opacity duration-200 ease-out",
+                    "group-hover:opacity-100"
+                  )}
+                >
+                  {viewCount != null && (
+                    <span className="flex items-center gap-1 text-xs text-white drop-shadow-sm">
+                      <Eye className="h-3.5 w-3.5" />
+                      {formatCount(viewCount)}
+                    </span>
+                  )}
+                  {likeCount != null && (
+                    <span className="flex items-center gap-1 text-xs text-white drop-shadow-sm">
+                      <ThumbsUp className="h-3.5 w-3.5" />
+                      {formatCount(likeCount)}
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           </Card>
-        </TooltipTrigger>
-        <TooltipContent side="top">
-          {selectionMode
-            ? selected
-              ? "Deselect for style extraction"
-              : "Select for style extraction"
-            : "Open on YouTube"}
-        </TooltipContent>
-      </Tooltip>
+        </HoverCardTrigger>
+        <HoverCardContent
+          side="top"
+          align="center"
+          sideOffset={8}
+          className="w-auto border-0 bg-transparent p-0 shadow-none ring-0 duration-200 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-[side=top]:data-open:slide-in-from-bottom-2 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 data-[side=top]:data-closed:slide-out-to-bottom-2"
+        >
+          {actionBar}
+        </HoverCardContent>
+      </HoverCard>
     </div>
   );
 });

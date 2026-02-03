@@ -14,8 +14,8 @@ import { logInfo, logError } from '@/lib/server/utils/logger'
 import {
   validationErrorResponse,
   forbiddenResponse,
-  serverErrorResponse,
 } from '@/lib/server/utils/error-handler'
+import { handleApiError } from '@/lib/server/utils/api-helpers'
 import { deleteAllUserStorage } from '@/lib/services/storage'
 
 /**
@@ -156,13 +156,6 @@ export async function POST(request: Request) {
       message: 'Account deleted successfully',
     })
   } catch (error) {
-    // requireAuth throws NextResponse, so check if it's already a response
-    if (error instanceof NextResponse) {
-      return error
-    }
-
-    return serverErrorResponse(error, 'Failed to delete account', {
-      route: 'POST /api/account/delete',
-    })
+    return handleApiError(error, 'POST /api/account/delete', 'delete-account', undefined, 'Failed to delete account')
   }
 }

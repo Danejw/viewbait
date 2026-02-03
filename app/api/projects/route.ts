@@ -10,8 +10,8 @@ import { requireAuth } from '@/lib/server/utils/auth'
 import {
   validationErrorResponse,
   databaseErrorResponse,
-  serverErrorResponse,
 } from '@/lib/server/utils/error-handler'
+import { handleApiError } from '@/lib/server/utils/api-helpers'
 import { logError } from '@/lib/server/utils/logger'
 import { NextResponse } from 'next/server'
 import type { ProjectInsert, ProjectDefaultSettings } from '@/lib/types/database'
@@ -42,10 +42,7 @@ export async function GET() {
 
     return NextResponse.json({ projects: data })
   } catch (error) {
-    if (error instanceof NextResponse) {
-      return error
-    }
-    return serverErrorResponse(error, 'Failed to fetch projects')
+    return handleApiError(error, 'GET /api/projects', 'fetch-projects', undefined, 'Failed to fetch projects')
   }
 }
 
@@ -111,9 +108,6 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ project: data }, { status: 201 })
   } catch (error) {
-    if (error instanceof NextResponse) {
-      return error
-    }
-    return serverErrorResponse(error, 'Failed to create project')
+    return handleApiError(error, 'POST /api/projects', 'create-project', undefined, 'Failed to create project')
   }
 }

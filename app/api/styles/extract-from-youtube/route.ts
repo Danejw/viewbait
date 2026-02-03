@@ -19,6 +19,7 @@ import {
   tierLimitResponse,
 } from '@/lib/server/utils/error-handler'
 import { getTierForUser } from '@/lib/server/utils/tier'
+import { SIGNED_URL_EXPIRY_ONE_YEAR_SECONDS } from '@/lib/server/utils/url-refresh'
 import { logError } from '@/lib/server/utils/logger'
 
 const MIN_IMAGES = 2
@@ -98,7 +99,7 @@ export async function POST(request: Request) {
 
       const { data: urlData } = await supabase.storage
         .from('style-references')
-        .createSignedUrl(storagePath, 3600 * 24 * 365) // 1 year for reference images
+        .createSignedUrl(storagePath, SIGNED_URL_EXPIRY_ONE_YEAR_SECONDS)
 
       if (urlData?.signedUrl) {
         referenceImages.push(urlData.signedUrl)

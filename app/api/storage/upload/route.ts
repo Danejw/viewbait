@@ -8,6 +8,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { requireAuth } from '@/lib/server/utils/auth'
 import { storageErrorResponse, validationErrorResponse, forbiddenResponse } from '@/lib/server/utils/error-handler'
+import { handleApiError } from '@/lib/server/utils/api-helpers'
+import { SIGNED_URL_EXPIRY_ONE_YEAR_SECONDS } from '@/lib/server/utils/url-refresh'
 import { NextResponse } from 'next/server'
 
 export type BucketName = 'thumbnails' | 'faces' | 'style-previews' | 'style-references'
@@ -88,7 +90,7 @@ export async function POST(request: Request) {
     // Get signed URL for the uploaded file (private buckets need signed URLs)
     const { data: urlData, error: urlError } = await supabase.storage
       .from(bucket)
-      .createSignedUrl(path, 31536000) // 1 year
+      .createSignedUrl(path, SIGNED_URL_EXPIRY_ONE_YEAR_SECONDS)
 
     if (urlError || !urlData?.signedUrl) {
       // Return the path even if URL creation fails
@@ -103,14 +105,6 @@ export async function POST(request: Request) {
       url: urlData.signedUrl,
     })
   } catch (error) {
-    // requireAuth throws NextResponse, so check if it's already a response
-    if (error instanceof NextResponse) {
-      return error
-    }
-    return storageErrorResponse(
-      error,
-      'Failed to upload file',
-      { route: 'POST /api/storage/upload' }
-    )
+    return handleApiError(error, 'POST /api/storage/upload', 'storage-upload', undefined, 'Failed to upload file')
   }
 }

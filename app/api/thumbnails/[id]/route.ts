@@ -11,7 +11,9 @@ import type { ThumbnailUpdate } from '@/lib/types/database'
 import { getProjectById } from '@/lib/server/data/projects'
 import { logError } from '@/lib/server/utils/logger'
 import { requireAuth } from '@/lib/server/utils/auth'
-import { notFoundResponse, validationErrorResponse, databaseErrorResponse, serverErrorResponse } from '@/lib/server/utils/error-handler'
+import { notFoundResponse, validationErrorResponse, databaseErrorResponse } from '@/lib/server/utils/error-handler'
+import { handleApiError } from '@/lib/server/utils/api-helpers'
+import { SIGNED_URL_EXPIRY_ONE_YEAR_SECONDS } from '@/lib/server/utils/url-refresh'
 
 /**
  * GET /api/thumbnails/[id]
@@ -54,7 +56,7 @@ export async function GET(
 
     const { data: signedUrlData } = await supabase.storage
       .from('thumbnails')
-      .createSignedUrl(storagePath, 60 * 60 * 24 * 365) // 1 year
+      .createSignedUrl(storagePath, SIGNED_URL_EXPIRY_ONE_YEAR_SECONDS)
     
     const newUrl = signedUrlData?.signedUrl || null
     
@@ -62,7 +64,7 @@ export async function GET(
       const jpgPath = storagePath.replace('.png', '.jpg')
       const { data: jpgUrlData } = await supabase.storage
         .from('thumbnails')
-        .createSignedUrl(jpgPath, 60 * 60 * 24 * 365)
+        .createSignedUrl(jpgPath, SIGNED_URL_EXPIRY_ONE_YEAR_SECONDS)
       if (jpgUrlData?.signedUrl) {
         return NextResponse.json({ ...thumbnail, image_url: jpgUrlData.signedUrl })
       }
@@ -73,13 +75,7 @@ export async function GET(
       image_url: newUrl || thumbnail.image_url,
     })
   } catch (error) {
-    // requireAuth throws NextResponse, so check if it's already a response
-    if (error instanceof NextResponse) {
-      return error
-    }
-    return serverErrorResponse(error, 'Failed to get thumbnail', {
-      route: 'GET /api/thumbnails/[id]',
-    })
+    return handleApiError(error, 'GET /api/thumbnails/[id]', 'get-thumbnail', undefined, 'Failed to get thumbnail')
   }
 }
 
@@ -180,13 +176,7 @@ export async function PATCH(
 
     return NextResponse.json({ thumbnail })
   } catch (error) {
-    // requireAuth throws NextResponse, so check if it's already a response
-    if (error instanceof NextResponse) {
-      return error
-    }
-    return serverErrorResponse(error, 'Failed to update thumbnail', {
-      route: 'PATCH /api/thumbnails/[id]',
-    })
+    return handleApiError(error, 'PATCH /api/thumbnails/[id]', 'update-thumbnail', undefined, 'Failed to update thumbnail')
   }
 }
 
@@ -263,13 +253,7 @@ export async function DELETE(
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    // requireAuth throws NextResponse, so check if it's already a response
-    if (error instanceof NextResponse) {
-      return error
-    }
-    return serverErrorResponse(error, 'Failed to delete thumbnail', {
-      route: 'DELETE /api/thumbnails/[id]',
-    })
+    return handleApiError(error, 'DELETE /api/thumbnails/[id]', 'delete-thumbnail', undefined, 'Failed to delete thumbnail')
   }
 }
 

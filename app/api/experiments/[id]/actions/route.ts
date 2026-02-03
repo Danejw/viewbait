@@ -15,6 +15,7 @@ import {
   serverErrorResponse,
   notFoundResponse,
 } from '@/lib/server/utils/error-handler'
+import { handleApiError } from '@/lib/server/utils/api-helpers'
 import { logError, logInfo } from '@/lib/server/utils/logger'
 import { NextResponse } from 'next/server'
 import type { ExperimentResponse } from '../route'
@@ -298,9 +299,6 @@ export async function POST(
         return validationErrorResponse(`Unknown action: ${(body as { action: string }).action}`)
     }
   } catch (error) {
-    if (error instanceof NextResponse) {
-      return error
-    }
-    return serverErrorResponse(error, 'Failed to perform experiment action')
+    return handleApiError(error, 'UNKNOWN', 'perform-experiment-action', undefined, 'Failed to perform experiment action')
   }
 }

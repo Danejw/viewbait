@@ -9,6 +9,7 @@ import { NextResponse } from 'next/server'
 import { sanitizeErrorForClient } from '@/lib/utils/error-sanitizer'
 import { logError } from '@/lib/server/utils/logger'
 import { requireAuth } from '@/lib/server/utils/auth'
+import { handleApiError } from '@/lib/server/utils/api-helpers'
 
 export async function GET(request: Request) {
   try {
@@ -45,24 +46,6 @@ export async function GET(request: Request) {
       hasCode: !!code,
     })
   } catch (error) {
-    // requireAuth throws NextResponse, so check if it's already a response
-    if (error instanceof NextResponse) {
-      return error
-    }
-    logError(error as Error, {
-      route: 'GET /api/referrals/code',
-      operation: 'get-referral-code-route',
-    })
-    return NextResponse.json(
-      {
-        error: sanitizeErrorForClient(
-          error as Error,
-          'get-referral-code-route',
-          'Internal server error'
-        ),
-        code: 'INTERNAL_ERROR',
-      },
-      { status: 500 }
-    )
+    return handleApiError(error, 'GET /api/referrals/code', 'get-referral-code', undefined, 'Internal server error')
   }
 }

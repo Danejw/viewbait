@@ -8,7 +8,8 @@ import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { logError } from '@/lib/server/utils/logger'
 import { requireAuth } from '@/lib/server/utils/auth'
-import { notFoundResponse, forbiddenResponse, databaseErrorResponse, serverErrorResponse } from '@/lib/server/utils/error-handler'
+import { notFoundResponse, forbiddenResponse, databaseErrorResponse } from '@/lib/server/utils/error-handler'
+import { handleApiError } from '@/lib/server/utils/api-helpers'
 
 /**
  * POST /api/styles/[id]/public
@@ -67,14 +68,7 @@ export async function POST(
       isPublic: newStatus 
     })
   } catch (error) {
-    // requireAuth throws NextResponse, so check if it's already a response
-    if (error instanceof NextResponse) {
-      return error
-    }
-    return serverErrorResponse(error, 'Failed to toggle style public status', {
-      route: 'POST /api/styles/[id]/public',
-      userId,
-    })
+    return handleApiError(error, 'POST /api/styles/[id]/public', 'toggle-style-public-status', undefined, 'Failed to toggle style public status')
   }
 }
 

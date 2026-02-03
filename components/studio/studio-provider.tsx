@@ -25,7 +25,12 @@ import { useWatermarkedImage } from "@/lib/hooks/useWatermarkedImage";
 import { applyQrWatermark } from "@/lib/utils/watermarkUtils";
 import { DeleteConfirmationModal } from "@/components/studio/delete-confirmation-modal";
 import { ThumbnailEditModal, type ThumbnailEditData } from "@/components/studio/thumbnail-edit-modal";
+import { YouTubeVideoAnalyticsModal } from "@/components/studio/youtube-video-analytics-modal";
 import { ImageModal, PaletteViewModal } from "@/components/ui/modal";
+import {
+  analyzeYouTubeVideo,
+  type YouTubeVideoAnalytics,
+} from "@/lib/services/youtube-video-analyze";
 
 /**
  * Studio View Types
@@ -114,6 +119,12 @@ export interface StudioState {
   // Face view modal state
   faceImageModalOpen: boolean;
   faceToView: DbFace | null;
+  // YouTube video analytics modal (Gemini video understanding)
+  videoAnalyticsModalOpen: boolean;
+  videoAnalyticsVideo: { videoId: string; title: string; thumbnailUrl: string } | null;
+  videoAnalyticsData: YouTubeVideoAnalytics | null;
+  videoAnalyticsLoading: boolean;
+  videoAnalyticsError: string | null;
   // Active project (null = All thumbnails)
   activeProjectId: string | null;
   /** Set when generation completes successfully; consumed by onboarding to advance to step 5 */
@@ -170,6 +181,8 @@ export interface StudioActions {
   onCopyThumbnail: (id: string) => void;
   onEditThumbnail: (thumbnail: Thumbnail) => void;
   onAddToProject: (id: string, projectId: string | null, previousProjectId?: string | null) => void;
+  /** Analyze thumbnail style and append description to custom instructions */
+  onAnalyzeThumbnailForInstructions: (params: { imageUrl?: string; thumbnailId?: string }) => Promise<void>;
   // Modal actions
   closeDeleteModal: () => void;
   confirmDelete: () => Promise<void>;
@@ -186,6 +199,9 @@ export interface StudioActions {
   // Face view actions
   onViewFace: (face: DbFace) => void;
   closeFaceImageModal: () => void;
+  // YouTube video analytics (Gemini video understanding)
+  onRequestVideoAnalytics: (video: { videoId: string; title: string; thumbnailUrl: string }) => void;
+  closeVideoAnalyticsModal: () => void;
   // Clear error
   clearError: () => void;
   // Apply form state updates from assistant
@@ -291,6 +307,7 @@ export function useThumbnailActions() {
     onEdit: actions.onEditThumbnail,
     onDelete: actions.onDeleteThumbnail,
     onAddToProject: actions.onAddToProject,
+    onAnalyzeThumbnailForInstructions: actions.onAnalyzeThumbnailForInstructions,
     onView: actions.onViewThumbnail,
     onDismissFailed: actions.removeGeneratingItem,
   };
@@ -407,6 +424,12 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
     // Face view modal state
     faceImageModalOpen: false,
     faceToView: null,
+    // YouTube video analytics modal
+    videoAnalyticsModalOpen: false,
+    videoAnalyticsVideo: null,
+    videoAnalyticsData: null,
+    videoAnalyticsLoading: false,
+    videoAnalyticsError: null,
     // Active project (null = All thumbnails); hydrated from localStorage
     activeProjectId: null,
     lastGeneratedThumbnail: null,
@@ -761,6 +784,27 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
     [invalidateAllThumbnails, refetchAllThumbnails]
   );
 
+  const onAnalyzeThumbnailForInstructions = useCallback(
+    async (params: { imageUrl?: string; thumbnailId?: string }) => {
+      const { description, error: analyzeError } =
+        await thumbnailsService.analyzeThumbnailStyleForInstructions(params);
+      if (analyzeError) {
+        toast.error(analyzeError.message || "Failed to analyze thumbnail style.");
+        return;
+      }
+      if (description) {
+        setState((s) => ({
+          ...s,
+          customInstructions: (s.customInstructions?.trimEnd() ?? "") +
+            (s.customInstructions ? "\n\n" : "") +
+            description,
+        }));
+        toast.success("Added to custom instructions.");
+      }
+    },
+    []
+  );
+
   const closeEditModal = useCallback(() => {
     setState((s) => ({
       ...s,
@@ -898,6 +942,39 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
     setTimeout(() => {
       setState((s) => ({ ...s, faceToView: null }));
     }, 300);
+  }, []);
+
+  const onRequestVideoAnalytics = useCallback(
+    (video: { videoId: string; title: string; thumbnailUrl: string }) => {
+      setState((s) => ({
+        ...s,
+        videoAnalyticsModalOpen: true,
+        videoAnalyticsVideo: video,
+        videoAnalyticsData: null,
+        videoAnalyticsLoading: true,
+        videoAnalyticsError: null,
+      }));
+      analyzeYouTubeVideo(video.videoId).then(({ analytics, error }) => {
+        setState((s) => ({
+          ...s,
+          videoAnalyticsLoading: false,
+          videoAnalyticsData: analytics ?? null,
+          videoAnalyticsError: error?.message ?? null,
+        }));
+      });
+    },
+    []
+  );
+
+  const closeVideoAnalyticsModal = useCallback(() => {
+    setState((s) => ({
+      ...s,
+      videoAnalyticsModalOpen: false,
+      videoAnalyticsVideo: null,
+      videoAnalyticsData: null,
+      videoAnalyticsLoading: false,
+      videoAnalyticsError: null,
+    }));
   }, []);
 
   const clearError = useCallback(() => {
@@ -1091,6 +1168,7 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
     onCopyThumbnail,
     onEditThumbnail,
     onAddToProject,
+    onAnalyzeThumbnailForInstructions,
     closeDeleteModal,
     confirmDelete,
     closeEditModal,
@@ -1103,6 +1181,8 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
     closePaletteViewModal,
     onViewFace,
     closeFaceImageModal,
+    onRequestVideoAnalytics,
+    closeVideoAnalyticsModal,
     clearError,
     setActiveProjectId,
     saveProjectSettings,
@@ -1302,6 +1382,18 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
           title={state.faceToView.name}
         />
       )}
+
+      {/* YouTube Video Analytics Modal (Gemini video understanding) */}
+      <YouTubeVideoAnalyticsModal
+        open={state.videoAnalyticsModalOpen}
+        onOpenChange={(open) => {
+          if (!open) closeVideoAnalyticsModal();
+        }}
+        video={state.videoAnalyticsVideo}
+        analytics={state.videoAnalyticsData}
+        loading={state.videoAnalyticsLoading}
+        error={state.videoAnalyticsError}
+      />
     </StudioContext.Provider>
     </StudioStateContext.Provider>
   );
