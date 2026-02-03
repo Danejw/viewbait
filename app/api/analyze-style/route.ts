@@ -14,9 +14,9 @@ import {
   validationErrorResponse,
   configErrorResponse,
   aiServiceErrorResponse,
-  serverErrorResponse,
   tierLimitResponse,
 } from '@/lib/server/utils/error-handler'
+import { handleApiError } from '@/lib/server/utils/api-helpers'
 import { getTierForUser } from '@/lib/server/utils/tier'
 
 export interface AnalyzeStyleRequest {
@@ -193,12 +193,6 @@ You MUST call the extract_style_info function with your analysis.`
       prompt: result.prompt ?? '',
     })
   } catch (error) {
-    // requireAuth throws NextResponse, so check if it's already a response
-    if (error instanceof NextResponse) {
-      return error
-    }
-    return serverErrorResponse(error, 'Failed to analyze style', {
-      route: 'POST /api/analyze-style',
-    })
+    return handleApiError(error, 'POST /api/analyze-style', 'analyze-style', undefined, 'Failed to analyze style')
   }
 }

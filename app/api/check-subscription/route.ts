@@ -9,7 +9,8 @@ import { NextResponse } from 'next/server'
 import { checkSubscription } from '@/lib/services/stripe'
 import { logError } from '@/lib/server/utils/logger'
 import { requireAuth } from '@/lib/server/utils/auth'
-import { subscriptionErrorResponse, serverErrorResponse } from '@/lib/server/utils/error-handler'
+import { subscriptionErrorResponse } from '@/lib/server/utils/error-handler'
+import { handleApiError } from '@/lib/server/utils/api-helpers'
 
 // Cache responses for 30 seconds (shorter than other routes since credits change frequently)
 export const revalidate = 30
@@ -41,12 +42,6 @@ export async function POST(request: Request) {
       credits_total: subscriptionData.credits_total,
     })
   } catch (error) {
-    // requireAuth throws NextResponse, so check if it's already a response
-    if (error instanceof NextResponse) {
-      return error
-    }
-    return serverErrorResponse(error, 'Failed to check subscription', {
-      route: 'POST /api/check-subscription',
-    })
+    return handleApiError(error, 'POST /api/check-subscription', 'check-subscription', undefined, 'Failed to check subscription')
   }
 }

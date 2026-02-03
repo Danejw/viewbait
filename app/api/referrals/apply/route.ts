@@ -8,7 +8,8 @@ import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { logError } from '@/lib/server/utils/logger'
 import { requireAuth } from '@/lib/server/utils/auth'
-import { validationErrorResponse, serverErrorResponse } from '@/lib/server/utils/error-handler'
+import { validationErrorResponse } from '@/lib/server/utils/error-handler'
+import { handleApiError } from '@/lib/server/utils/api-helpers'
 
 export interface ApplyReferralCodeRequest {
   code: string
@@ -95,12 +96,6 @@ export async function POST(request: Request) {
       { status: 500 }
     )
   } catch (error) {
-    // requireAuth throws NextResponse, so check if it's already a response
-    if (error instanceof NextResponse) {
-      return error
-    }
-    return serverErrorResponse(error, 'Failed to apply referral code', {
-      route: 'POST /api/referrals/apply',
-    })
+    return handleApiError(error, 'POST /api/referrals/apply', 'apply-referral-code', undefined, 'Failed to apply referral code')
   }
 }

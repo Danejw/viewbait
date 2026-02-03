@@ -11,8 +11,8 @@ import {
   notFoundResponse,
   validationErrorResponse,
   databaseErrorResponse,
-  serverErrorResponse,
 } from '@/lib/server/utils/error-handler'
+import { handleApiError } from '@/lib/server/utils/api-helpers'
 import { logError } from '@/lib/server/utils/logger'
 import { NextResponse } from 'next/server'
 
@@ -76,11 +76,7 @@ export async function POST(
 
     return NextResponse.json({ style })
   } catch (error) {
-    // requireAuth throws NextResponse, so check if it's already a response
-    if (error instanceof NextResponse) {
-      return error
-    }
-    return serverErrorResponse(error, 'Failed to add reference images')
+    return handleApiError(error, 'POST /api/styles/[id]/reference-images', 'add-reference-images', undefined, 'Failed to add reference images')
   }
 }
 
@@ -145,11 +141,7 @@ export async function DELETE(
 
     return NextResponse.json({ style })
   } catch (error) {
-    // requireAuth throws NextResponse, so check if it's already a response
-    if (error instanceof NextResponse) {
-      return error
-    }
-    return serverErrorResponse(error, 'Failed to remove reference image')
+    return handleApiError(error, 'DELETE /api/styles/[id]/reference-images', 'remove-reference-image', undefined, 'Failed to remove reference image')
   }
 }
 

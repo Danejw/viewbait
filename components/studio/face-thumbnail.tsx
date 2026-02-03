@@ -19,15 +19,9 @@ import React, { memo, useCallback, useState } from "react";
 import { useDraggable } from "@dnd-kit/core";
 import { Pencil, Trash2, User, Expand } from "lucide-react";
 import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { ActionBarIcon } from "@/components/studio/action-bar-icon";
+import { ActionBarIcon, ActionButton } from "@/components/studio/action-bar-icon";
 import type { DbFace } from "@/lib/types/database";
 import type { DragData } from "./studio-dnd-context";
 
@@ -67,47 +61,6 @@ export interface FaceThumbnailProps {
   isSelected?: boolean;
   /** Whether drag-and-drop is enabled (default: true for card variant) */
   draggable?: boolean;
-}
-
-/**
- * Action button with tooltip (uses shared ActionBarIcon for consistent dock-style hover)
- */
-function ActionButton({
-  icon: Icon,
-  label,
-  onClick,
-  variant = "default",
-  active = false,
-}: {
-  icon: React.ElementType;
-  label: string;
-  onClick: (e: React.MouseEvent) => void;
-  variant?: "default" | "destructive";
-  active?: boolean;
-}) {
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <ActionBarIcon>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={onClick}
-            className={cn(
-              "h-7 w-7 bg-muted/80 hover:bg-muted",
-              variant === "destructive" && "hover:bg-destructive/20 hover:text-destructive",
-              active && "text-primary"
-            )}
-          >
-            <Icon className={cn("h-4 w-4", active && "fill-primary")} />
-          </Button>
-        </ActionBarIcon>
-      </TooltipTrigger>
-      <TooltipContent side="bottom" className="text-xs">
-        {label}
-      </TooltipContent>
-    </Tooltip>
-  );
 }
 
 /**

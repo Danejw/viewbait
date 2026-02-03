@@ -16,9 +16,9 @@ import {
   validationErrorResponse,
   configErrorResponse,
   aiServiceErrorResponse,
-  serverErrorResponse,
   notFoundResponse,
 } from '@/lib/server/utils/error-handler'
+import { handleApiError } from '@/lib/server/utils/api-helpers'
 
 const MAX_DESCRIPTION_LENGTH = 500
 
@@ -140,11 +140,6 @@ Rules:
 
     return NextResponse.json({ description })
   } catch (error) {
-    if (error instanceof NextResponse) {
-      return error
-    }
-    return serverErrorResponse(error, 'Failed to analyze thumbnail style', {
-      route: 'POST /api/thumbnails/analyze-style-for-instructions',
-    })
+    return handleApiError(error, 'POST /api/thumbnails/analyze-style-for-instructions', 'analyze-thumbnail-style', undefined, 'Failed to analyze thumbnail style')
   }
 }

@@ -15,8 +15,8 @@ import {
   validationErrorResponse,
   configErrorResponse,
   aiServiceErrorResponse,
-  serverErrorResponse,
 } from '@/lib/server/utils/error-handler'
+import { handleApiError } from '@/lib/server/utils/api-helpers'
 import { logError } from '@/lib/server/utils/logger'
 
 const YOUTUBE_WATCH_BASE = 'https://www.youtube.com/watch?v='
@@ -298,11 +298,6 @@ Rubric:
 
     return NextResponse.json({ analytics: normalized })
   } catch (error) {
-    if (error instanceof NextResponse) {
-      return error
-    }
-    return serverErrorResponse(error, 'Failed to analyze video', {
-      route: 'POST /api/youtube/videos/analyze',
-    })
+    return handleApiError(error, 'POST /api/youtube/videos/analyze', 'analyze-video', undefined, 'Failed to analyze video')
   }
 }

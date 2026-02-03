@@ -15,6 +15,7 @@
 
 import React, { memo, useCallback } from "react";
 import { cn } from "@/lib/utils";
+import { gridItemAboveFoldClass, GRID_ABOVE_FOLD_DEFAULT } from "@/lib/utils/grid-visibility";
 import { useEmptySlots } from "@/lib/hooks/useEmptySlots";
 import { 
   StyleThumbnailCard, 
@@ -70,8 +71,7 @@ const GridItem = memo(function GridItem({
   return (
     <div
       style={gridItemStyles}
-      // First 6 items (above the fold) don't need content-visibility
-      className={cn(index < 6 && "![content-visibility:visible]")}
+      className={cn(gridItemAboveFoldClass(index, GRID_ABOVE_FOLD_DEFAULT))}
     >
       {children}
     </div>

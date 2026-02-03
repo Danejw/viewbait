@@ -12,8 +12,8 @@ import {
   validationErrorResponse,
   notFoundResponse,
   configErrorResponse,
-  serverErrorResponse,
 } from '@/lib/server/utils/error-handler'
+import { handleApiError } from '@/lib/server/utils/api-helpers'
 import { logError, logInfo } from '@/lib/server/utils/logger'
 import { NextResponse } from 'next/server'
 import { LRUCache } from 'lru-cache'
@@ -400,13 +400,6 @@ export async function GET(request: Request) {
       count: result.videos.length,
     })
   } catch (error) {
-    if (error instanceof NextResponse) return error
-    logError(error, {
-      route: 'GET /api/youtube/channel-videos',
-      operation: 'channel-videos',
-    })
-    return serverErrorResponse(error, 'Failed to fetch channel videos', {
-      route: 'GET /api/youtube/channel-videos',
-    })
+    return handleApiError(error, 'GET /api/youtube/channel-videos', 'channel-videos', undefined, 'Failed to fetch channel videos')
   }
 }

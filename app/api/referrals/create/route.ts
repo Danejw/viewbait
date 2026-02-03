@@ -10,7 +10,8 @@ import { createReferralCode } from '@/lib/services/referrals'
 import { checkSubscription } from '@/lib/services/stripe'
 import { logError } from '@/lib/server/utils/logger'
 import { requireAuth } from '@/lib/server/utils/auth'
-import { subscriptionErrorResponse, forbiddenResponse, databaseErrorResponse, serverErrorResponse } from '@/lib/server/utils/error-handler'
+import { subscriptionErrorResponse, forbiddenResponse, databaseErrorResponse } from '@/lib/server/utils/error-handler'
+import { handleApiError } from '@/lib/server/utils/api-helpers'
 
 export async function POST(request: Request) {
   try {
@@ -79,12 +80,6 @@ export async function POST(request: Request) {
       message: 'Referral code created successfully',
     })
   } catch (error) {
-    // requireAuth throws NextResponse, so check if it's already a response
-    if (error instanceof NextResponse) {
-      return error
-    }
-    return serverErrorResponse(error, 'Failed to create referral code', {
-      route: 'POST /api/referrals/create',
-    })
+    return handleApiError(error, 'POST /api/referrals/create', 'create-referral-code', undefined, 'Failed to create referral code')
   }
 }

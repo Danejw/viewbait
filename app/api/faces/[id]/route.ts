@@ -12,8 +12,8 @@ import {
   notFoundResponse,
   validationErrorResponse,
   databaseErrorResponse,
-  serverErrorResponse,
 } from '@/lib/server/utils/error-handler'
+import { handleApiError } from '@/lib/server/utils/api-helpers'
 import { logError } from '@/lib/server/utils/logger'
 import { NextResponse } from 'next/server'
 import type { FaceUpdate } from '@/lib/types/database'
@@ -48,11 +48,7 @@ export async function GET(
 
     return NextResponse.json(refreshedFace)
   } catch (error) {
-    // requireAuth throws NextResponse, so check if it's already a response
-    if (error instanceof NextResponse) {
-      return error
-    }
-    return serverErrorResponse(error, 'Failed to fetch face')
+    return handleApiError(error, 'GET /api/faces/[id]', 'get-face', undefined, 'Failed to fetch face')
   }
 }
 
@@ -110,11 +106,7 @@ export async function PATCH(
 
     return NextResponse.json({ face })
   } catch (error) {
-    // requireAuth throws NextResponse, so check if it's already a response
-    if (error instanceof NextResponse) {
-      return error
-    }
-    return serverErrorResponse(error, 'Failed to update face')
+    return handleApiError(error, 'PATCH /api/faces/[id]', 'update-face', undefined, 'Failed to update face')
   }
 }
 
@@ -180,11 +172,7 @@ export async function DELETE(
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    // requireAuth throws NextResponse, so check if it's already a response
-    if (error instanceof NextResponse) {
-      return error
-    }
-    return serverErrorResponse(error, 'Failed to delete face')
+    return handleApiError(error, 'DELETE /api/faces/[id]', 'delete-face', undefined, 'Failed to delete face')
   }
 }
 

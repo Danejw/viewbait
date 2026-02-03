@@ -11,6 +11,7 @@ import { useState } from "react";
 import { Gift, Copy, Check } from "lucide-react";
 import { ViewBaitLogo } from "@/components/ui/viewbait-logo";
 import { toast } from "sonner";
+import { copyToClipboardWithToast } from "@/lib/utils/clipboard";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -41,13 +42,10 @@ export default function ReferralModal({ isOpen, onClose }: ReferralModalProps) {
 
   const handleCopy = async () => {
     if (!referralCode) return;
-    try {
-      await navigator.clipboard.writeText(referralCode);
+    const ok = await copyToClipboardWithToast(referralCode, "Referral code copied to clipboard");
+    if (ok) {
       setCopied(true);
-      toast.success("Referral code copied to clipboard");
       setTimeout(() => setCopied(false), 2000);
-    } catch {
-      toast.error("Failed to copy");
     }
   };
 

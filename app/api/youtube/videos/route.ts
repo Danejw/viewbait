@@ -8,10 +8,8 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { requireAuth } from '@/lib/server/utils/auth'
-import {
-  databaseErrorResponse,
-  serverErrorResponse,
-} from '@/lib/server/utils/error-handler'
+import { databaseErrorResponse } from '@/lib/server/utils/error-handler'
+import { handleApiError } from '@/lib/server/utils/api-helpers'
 import { logError, logInfo } from '@/lib/server/utils/logger'
 import { NextResponse } from 'next/server'
 import {
@@ -382,7 +380,6 @@ export async function GET(request: Request) {
     if (error instanceof NextResponse) {
       return error
     }
-
     // Token refresh failed (invalid_grant, unauthorized_client, etc.) — ask client to reconnect
     const message = error instanceof Error ? error.message : ''
     if (message === 'Unable to get valid access token') {
@@ -395,12 +392,6 @@ export async function GET(request: Request) {
         { status: 401 }
       )
     }
-
-    logError(error, {
-      route: 'GET /api/youtube/videos',
-      operation: 'fetch-videos',
-    })
-
-    return serverErrorResponse(error, 'Failed to fetch videos')
+    return handleApiError(error, 'GET /api/youtube/videos', 'fetch-videos', undefined, 'Failed to fetch videos')
   }
 }

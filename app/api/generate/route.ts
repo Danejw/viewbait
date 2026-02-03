@@ -27,9 +27,9 @@ import {
   configErrorResponse,
   databaseErrorResponse,
   storageErrorResponse,
-  serverErrorResponse,
   aiServiceErrorResponse,
 } from '@/lib/server/utils/error-handler'
+import { handleApiError } from '@/lib/server/utils/api-helpers'
 import { getProjectById } from '@/lib/server/data/projects'
 import { createNotificationIfNew } from '@/lib/server/notifications/create'
 import { SIGNED_URL_EXPIRY_ONE_YEAR_SECONDS } from '@/lib/server/utils/url-refresh'
@@ -831,12 +831,6 @@ export async function POST(request: Request) {
       totalFailed: failedResults.length,
     })
   } catch (error) {
-    // requireAuth throws NextResponse, so check if it's already a response
-    if (error instanceof NextResponse) {
-      return error
-    }
-    return serverErrorResponse(error, 'Failed to generate thumbnail', {
-      route: 'POST /api/generate',
-    })
+    return handleApiError(error, 'POST /api/generate', 'generate-thumbnail', undefined, 'Failed to generate thumbnail')
   }
 }

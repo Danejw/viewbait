@@ -10,7 +10,6 @@ import { requireAuth } from '@/lib/server/utils/auth'
 import {
   validationErrorResponse,
   databaseErrorResponse,
-  serverErrorResponse,
   notFoundResponse,
 } from '@/lib/server/utils/error-handler'
 import { handleApiError } from '@/lib/server/utils/api-helpers'
@@ -135,10 +134,6 @@ export async function PATCH(
 
     return NextResponse.json({ notification: result })
   } catch (error) {
-    // requireAuth throws NextResponse, so check if it's already a response
-    if (error instanceof NextResponse) {
-      return error
-    }
-    return serverErrorResponse(error, 'Failed to update notification')
+    return handleApiError(error, 'PATCH /api/notifications/[id]', 'update-notification', undefined, 'Failed to update notification')
   }
 }

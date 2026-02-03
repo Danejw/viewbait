@@ -7,6 +7,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { requireAuth } from '@/lib/server/utils/auth'
 import { storageErrorResponse, validationErrorResponse, forbiddenResponse } from '@/lib/server/utils/error-handler'
+import { handleStorageApiError } from '@/lib/server/utils/api-helpers'
 import { NextResponse } from 'next/server'
 
 export type BucketName = 'thumbnails' | 'faces' | 'style-previews' | 'style-references'
@@ -79,14 +80,6 @@ export async function GET(request: Request) {
       files,
     })
   } catch (error) {
-    // requireAuth throws NextResponse, so check if it's already a response
-    if (error instanceof NextResponse) {
-      return error
-    }
-    return storageErrorResponse(
-      error,
-      'Failed to list files',
-      { route: 'GET /api/storage/list' }
-    )
+    return handleStorageApiError(error, 'GET /api/storage/list', 'storage-list', undefined, 'Failed to list files')
   }
 }

@@ -13,8 +13,8 @@ import {
   validationErrorResponse,
   configErrorResponse,
   stripeErrorResponse,
-  serverErrorResponse,
 } from '@/lib/server/utils/error-handler'
+import { handleApiError } from '@/lib/server/utils/api-helpers'
 
 export interface CreateCheckoutRequest {
   priceId: string
@@ -69,12 +69,6 @@ export async function POST(request: Request) {
       url,
     })
   } catch (error) {
-    // requireAuth throws NextResponse, so check if it's already a response
-    if (error instanceof NextResponse) {
-      return error
-    }
-    return serverErrorResponse(error, 'Failed to create checkout session', {
-      route: 'POST /api/create-checkout',
-    })
+    return handleApiError(error, 'POST /api/create-checkout', 'create-checkout-session', undefined, 'Failed to create checkout session')
   }
 }

@@ -21,6 +21,7 @@ import type {
 } from "@/lib/types/database";
 import * as thumbnailsService from "@/lib/services/thumbnails";
 import { toast } from "sonner";
+import { copyToClipboardWithToast } from "@/lib/utils/clipboard";
 import { useWatermarkedImage } from "@/lib/hooks/useWatermarkedImage";
 import { applyQrWatermark } from "@/lib/utils/watermarkUtils";
 import { DeleteConfirmationModal } from "@/components/studio/delete-confirmation-modal";
@@ -805,23 +806,25 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
     [thumbnails, hasWatermark]
   );
 
-  const onShareThumbnail = useCallback((id: string) => {
-    // Copy URL to clipboard for sharing
-    const thumbnail = thumbnails.find((t) => t.id === id);
-    if (thumbnail?.imageUrl) {
-      navigator.clipboard.writeText(thumbnail.imageUrl);
-      // Could add toast notification here
-    }
-  }, [thumbnails]);
+  const onShareThumbnail = useCallback(
+    async (id: string) => {
+      const thumbnail = thumbnails.find((t) => t.id === id);
+      if (thumbnail?.imageUrl) {
+        await copyToClipboardWithToast(thumbnail.imageUrl, "Image URL copied to clipboard");
+      }
+    },
+    [thumbnails]
+  );
 
-  const onCopyThumbnail = useCallback((id: string) => {
-    // Copy image URL to clipboard
-    const thumbnail = thumbnails.find((t) => t.id === id);
-    if (thumbnail?.imageUrl) {
-      navigator.clipboard.writeText(thumbnail.imageUrl);
-      // Could add toast notification here
-    }
-  }, [thumbnails]);
+  const onCopyThumbnail = useCallback(
+    async (id: string) => {
+      const thumbnail = thumbnails.find((t) => t.id === id);
+      if (thumbnail?.imageUrl) {
+        await copyToClipboardWithToast(thumbnail.imageUrl, "Image URL copied to clipboard");
+      }
+    },
+    [thumbnails]
+  );
 
   const onEditThumbnail = useCallback((thumbnail: Thumbnail) => {
     setState((s) => ({

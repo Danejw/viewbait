@@ -359,10 +359,7 @@ export function YouTubeVideoAnalyticsModal({
                       video.title,
                       channelForContext ?? undefined
                     );
-                    navigator.clipboard
-                      .writeText(summary)
-                      .then(() => toast.success("Context copied to clipboard"))
-                      .catch(() => toast.error("Could not copy to clipboard"));
+                    copyToClipboardWithToast(summary, "Context copied to clipboard");
                   }}
                 >
                   <Copy className="h-4 w-4" />

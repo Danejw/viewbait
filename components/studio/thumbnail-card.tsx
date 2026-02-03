@@ -46,7 +46,7 @@ import { useIntersectionObserver } from "@/lib/hooks/useIntersectionObserver";
 import { useWatermarkedImage } from "@/lib/hooks/useWatermarkedImage";
 import { useSubscription } from "@/lib/hooks/useSubscription";
 import { useThumbnailActions } from "@/components/studio/studio-provider";
-import { ActionBarIcon } from "@/components/studio/action-bar-icon";
+import { ActionBarIcon, ActionButton } from "@/components/studio/action-bar-icon";
 import { ViewBaitLogo } from "@/components/ui/viewbait-logo";
 import type { Thumbnail } from "@/lib/types/database";
 import type { DragData } from "./studio-dnd-context";
@@ -261,52 +261,6 @@ const ProgressiveImage = memo(function ProgressiveImage({
     </div>
   );
 });
-
-/**
- * Action button with tooltip
- */
-function ActionButton({
-  icon: Icon,
-  label,
-  onClick,
-  variant = "default",
-  active = false,
-  disabled = false,
-  iconClassName,
-}: {
-  icon: React.ElementType;
-  label: string;
-  onClick: (e: React.MouseEvent) => void;
-  variant?: "default" | "destructive";
-  active?: boolean;
-  disabled?: boolean;
-  iconClassName?: string;
-}) {
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <ActionBarIcon className={cn(disabled && "pointer-events-none opacity-60")}>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={onClick}
-            disabled={disabled}
-            className={cn(
-              "h-7 w-7 bg-muted hover:bg-muted",
-              variant === "destructive" && "hover:bg-destructive/20 hover:text-destructive",
-              active && "text-red-500"
-            )}
-          >
-            <Icon className={cn("h-4 w-4", active && "fill-red-500", iconClassName)} />
-          </Button>
-        </ActionBarIcon>
-      </TooltipTrigger>
-      <TooltipContent side="bottom" className="text-xs">
-        {label}
-      </TooltipContent>
-    </Tooltip>
-  );
-}
 
 /**
  * Memoized ThumbnailCard component

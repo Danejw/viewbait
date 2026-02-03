@@ -29,7 +29,7 @@ import {
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { useIntersectionObserver } from "@/lib/hooks/useIntersectionObserver";
-import { ActionBarIcon } from "@/components/studio/action-bar-icon";
+import { ActionBarIcon, ActionButton } from "@/components/studio/action-bar-icon";
 import { ViewBaitLogo } from "@/components/ui/viewbait-logo";
 import { useStudio } from "@/components/studio/studio-provider";
 import type { DragData } from "@/components/studio/studio-dnd-context";
@@ -65,44 +65,6 @@ export interface YouTubeVideoCardProps {
 }
 
 const YOUTUBE_WATCH_URL = "https://www.youtube.com/watch?v=";
-
-/**
- * Action button with tooltip (matches ThumbnailCard ActionButton / ActionBarIcon pattern).
- */
-function ActionButton({
-  icon: Icon,
-  label,
-  onClick,
-  disabled = false,
-  iconClassName,
-}: {
-  icon: React.ElementType;
-  label: string;
-  onClick: (e: React.MouseEvent) => void;
-  disabled?: boolean;
-  iconClassName?: string;
-}) {
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <ActionBarIcon className={cn(disabled && "pointer-events-none opacity-60")}>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            className="h-7 w-7 bg-muted hover:bg-muted"
-            onClick={onClick}
-            disabled={disabled}
-          >
-            <Icon className={cn("h-4 w-4", iconClassName)} />
-          </Button>
-        </ActionBarIcon>
-      </TooltipTrigger>
-      <TooltipContent side="bottom" className="text-xs">
-        {label}
-      </TooltipContent>
-    </Tooltip>
-  );
-}
 
 /**
  * Skeleton card for loading state (matches ThumbnailCardSkeleton: image area only).
@@ -211,13 +173,11 @@ export const YouTubeVideoCard = memo(function YouTubeVideoCard({
   );
 
   const handleUseTitle = useCallback(
-    (e: React.MouseEvent) => {
+    async (e: React.MouseEvent) => {
       e.stopPropagation();
       actions.setThumbnailText?.(title);
-      navigator.clipboard.writeText(title).then(
-        () => toast.success("Title set as thumbnail text and copied"),
-        () => toast.success("Title set as thumbnail text")
-      );
+      const copied = await copyToClipboardWithToast(title, "Title set as thumbnail text and copied");
+      if (!copied) toast.success("Title set as thumbnail text");
     },
     [actions.setThumbnailText, title]
   );

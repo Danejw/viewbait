@@ -10,8 +10,8 @@ import { requireAuth } from '@/lib/server/utils/auth'
 import {
   validationErrorResponse,
   databaseErrorResponse,
-  serverErrorResponse,
 } from '@/lib/server/utils/error-handler'
+import { handleApiError } from '@/lib/server/utils/api-helpers'
 import { logError } from '@/lib/server/utils/logger'
 import { NextResponse } from 'next/server'
 import type { CreditTransaction } from '@/lib/types/database'
@@ -79,12 +79,6 @@ export async function GET(request: Request) {
       count: count || 0,
     })
   } catch (error) {
-    // requireAuth throws NextResponse, so check if it's already a response
-    if (error instanceof NextResponse) {
-      return error
-    }
-    return serverErrorResponse(error, 'Failed to fetch credit history', {
-      route: 'GET /api/subscriptions/credits/history',
-    })
+    return handleApiError(error, 'GET /api/subscriptions/credits/history', 'fetch-credit-history', undefined, 'Failed to fetch credit history')
   }
 }

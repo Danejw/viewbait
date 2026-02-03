@@ -9,9 +9,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { requireAuth } from '@/lib/server/utils/auth'
-import {
-  serverErrorResponse,
-} from '@/lib/server/utils/error-handler'
+import { handleApiError } from '@/lib/server/utils/api-helpers'
 import { logError, logInfo } from '@/lib/server/utils/logger'
 import { NextResponse } from 'next/server'
 import {
@@ -332,15 +330,6 @@ export async function GET(request: Request) {
     })
     
   } catch (error) {
-    if (error instanceof NextResponse) {
-      return error
-    }
-    
-    logError(error, {
-      route: 'GET /api/youtube/videos/analytics',
-      operation: 'fetch-videos-with-analytics',
-    })
-    
-    return serverErrorResponse(error, 'Failed to fetch videos with analytics')
+    return handleApiError(error, 'GET /api/youtube/videos/analytics', 'fetch-videos-with-analytics', undefined, 'Failed to fetch videos with analytics')
   }
 }

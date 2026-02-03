@@ -10,6 +10,7 @@ import { logError } from './logger'
 import {
   validationErrorResponse,
   serverErrorResponse,
+  storageErrorResponse,
 } from './error-handler'
 
 /**
@@ -254,4 +255,22 @@ export function handleApiError(
     route,
     userId,
   })
+}
+
+/**
+ * Handles API errors for storage routes (uses storageErrorResponse).
+ * Same as handleApiError but returns storageErrorResponse for storage-specific logging/code.
+ */
+export function handleStorageApiError(
+  error: unknown,
+  route: string,
+  operation: string,
+  userId?: string,
+  defaultMessage: string = 'Storage operation failed'
+): NextResponse {
+  if (error instanceof NextResponse) {
+    return error
+  }
+  logError(error, { route, userId, operation })
+  return storageErrorResponse(error, defaultMessage, { route, userId })
 }

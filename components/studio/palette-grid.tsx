@@ -13,6 +13,7 @@
 
 import React, { memo, useCallback } from "react";
 import { cn } from "@/lib/utils";
+import { gridItemAboveFoldClass, GRID_ABOVE_FOLD_PALETTE } from "@/lib/utils/grid-visibility";
 import { useEmptySlots } from "@/lib/hooks/useEmptySlots";
 import { PaletteCard, PaletteCardSkeleton, PaletteCardEmpty } from "./palette-card";
 import type { PublicPalette } from "@/lib/types/database";
@@ -56,8 +57,7 @@ const GridItem = memo(function GridItem({
   return (
     <div
       style={gridItemStyles}
-      // First 8 items (above the fold) don't need content-visibility
-      className={cn(index < 8 && "![content-visibility:visible]")}
+      className={cn(gridItemAboveFoldClass(index, GRID_ABOVE_FOLD_PALETTE))}
     >
       {children}
     </div>

@@ -26,8 +26,8 @@ import {
   aiServiceErrorResponse,
   databaseErrorResponse,
   storageErrorResponse,
-  serverErrorResponse,
 } from '@/lib/server/utils/error-handler'
+import { handleApiError } from '@/lib/server/utils/api-helpers'
 import { getEditCreditCost } from '@/lib/server/data/subscription-tiers'
 
 export interface EditThumbnailRequest {
@@ -578,12 +578,6 @@ Requirements:
       creditsRemaining: newCreditsRemaining,
     })
   } catch (error) {
-    // requireAuth throws NextResponse, so check if it's already a response
-    if (error instanceof NextResponse) {
-      return error
-    }
-    return serverErrorResponse(error, 'Failed to edit thumbnail', {
-      route: 'POST /api/edit',
-    })
+    return handleApiError(error, 'POST /api/edit', 'edit-thumbnail', undefined, 'Failed to edit thumbnail')
   }
 }

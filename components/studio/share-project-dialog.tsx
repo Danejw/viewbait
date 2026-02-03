@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/tooltip";
 import { useProjects } from "@/lib/hooks/useProjects";
 import { cn } from "@/lib/utils";
+import { copyToClipboardWithToast } from "@/lib/utils/clipboard";
 import type { DbProject } from "@/lib/types/database";
 
 export interface ShareProjectDialogProps {
@@ -59,12 +60,13 @@ export function ShareProjectDialog({
     ? `${window.location.origin}/p/${displaySlug}`
     : '';
 
-  const copyLink = useCallback(() => {
+  const copyLink = useCallback(async () => {
     if (!shareUrl) return;
-    navigator.clipboard.writeText(shareUrl).then(() => {
+    const ok = await copyToClipboardWithToast(shareUrl, "Link copied");
+    if (ok) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    });
+    }
   }, [shareUrl]);
 
   const handleEnableToggle = useCallback(

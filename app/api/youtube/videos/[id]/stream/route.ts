@@ -11,8 +11,8 @@ import {
   validationErrorResponse,
   notFoundResponse,
   forbiddenResponse,
-  serverErrorResponse,
 } from '@/lib/server/utils/error-handler'
+import { handleApiError } from '@/lib/server/utils/api-helpers'
 import { NextResponse } from 'next/server'
 
 const YOUTUBE_WATCH_BASE = 'https://www.youtube.com/watch?v='
@@ -137,9 +137,6 @@ export async function GET(
       },
     })
   } catch (error) {
-    if (error instanceof NextResponse) return error
-    return serverErrorResponse(error, 'Failed to stream video', {
-      route: 'GET /api/youtube/videos/[id]/stream',
-    })
+    return handleApiError(error, 'GET /api/youtube/videos/[id]/stream', 'stream-video', undefined, 'Failed to stream video')
   }
 }

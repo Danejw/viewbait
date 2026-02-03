@@ -15,8 +15,8 @@ import {
   notFoundResponse,
   validationErrorResponse,
   databaseErrorResponse,
-  serverErrorResponse,
 } from '@/lib/server/utils/error-handler'
+import { handleApiError } from '@/lib/server/utils/api-helpers'
 
 export async function POST(
   request: Request,
@@ -90,11 +90,6 @@ export async function POST(
 
     return NextResponse.json({ thumbnail })
   } catch (error) {
-    if (error instanceof NextResponse) {
-      return error
-    }
-    return serverErrorResponse(error, 'Failed to update thumbnail project', {
-      route: 'POST /api/thumbnails/[id]/project',
-    })
+    return handleApiError(error, 'POST /api/thumbnails/[id]/project', 'update-thumbnail-project', undefined, 'Failed to update thumbnail project')
   }
 }

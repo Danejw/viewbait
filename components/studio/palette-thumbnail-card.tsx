@@ -19,14 +19,8 @@ import React, { memo, useCallback } from "react";
 import { useDraggable } from "@dnd-kit/core";
 import { Heart, Palette, Pencil, Trash2, Globe, Lock } from "lucide-react";
 import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { ActionBarIcon } from "@/components/studio/action-bar-icon";
+import { ActionBarIcon, ActionButton } from "@/components/studio/action-bar-icon";
 import type { PublicPalette, DbPalette } from "@/lib/types/database";
 import type { DragData } from "./studio-dnd-context";
 
@@ -35,48 +29,6 @@ type PaletteForCard = (PublicPalette | DbPalette) & { user_id?: string | null };
 
 function hasUserId(p: PublicPalette | DbPalette): p is DbPalette {
   return "user_id" in p && p.user_id != null;
-}
-
-/**
- * Action button with tooltip (uses shared ActionBarIcon for consistent dock-style hover)
- */
-function ActionButton({
-  icon: Icon,
-  label,
-  onClick,
-  variant = "default",
-  active = false,
-}: {
-  icon: React.ElementType;
-  label: string;
-  onClick: (e: React.MouseEvent) => void;
-  variant?: "default" | "destructive";
-  active?: boolean;
-}) {
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <ActionBarIcon>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={onClick}
-            className={cn(
-              "h-7 w-7 bg-muted/80 hover:bg-muted",
-              variant === "destructive" &&
-                "hover:bg-destructive/20 hover:text-destructive",
-              active && "text-red-500"
-            )}
-          >
-            <Icon className={cn("h-4 w-4", active && "fill-red-500")} />
-          </Button>
-        </ActionBarIcon>
-      </TooltipTrigger>
-      <TooltipContent side="bottom" className="text-xs">
-        {label}
-      </TooltipContent>
-    </Tooltip>
-  );
 }
 
 /**

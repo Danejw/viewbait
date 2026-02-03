@@ -12,8 +12,8 @@ import { requireAuth } from '@/lib/server/utils/auth'
 import {
   configErrorResponse,
   stripeErrorResponse,
-  serverErrorResponse,
 } from '@/lib/server/utils/error-handler'
+import { handleApiError } from '@/lib/server/utils/api-helpers'
 
 export async function POST(request: Request) {
   try {
@@ -40,12 +40,6 @@ export async function POST(request: Request) {
       url,
     })
   } catch (error) {
-    // requireAuth throws NextResponse, so check if it's already a response
-    if (error instanceof NextResponse) {
-      return error
-    }
-    return serverErrorResponse(error, 'Failed to create customer portal session', {
-      route: 'POST /api/customer-portal',
-    })
+    return handleApiError(error, 'POST /api/customer-portal', 'create-customer-portal-session', undefined, 'Failed to create customer portal session')
   }
 }

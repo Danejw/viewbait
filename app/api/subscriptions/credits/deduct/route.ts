@@ -12,8 +12,8 @@ import {
   validationErrorResponse,
   insufficientCreditsResponse,
   databaseErrorResponse,
-  serverErrorResponse,
 } from '@/lib/server/utils/error-handler'
+import { handleApiError } from '@/lib/server/utils/api-helpers'
 import { logError } from '@/lib/server/utils/logger'
 import { decrementCreditsAtomic } from '@/lib/server/utils/credits'
 import { NextResponse } from 'next/server'
@@ -148,12 +148,6 @@ export async function POST(request: Request) {
       creditsRemaining: newCreditsRemaining,
     })
   } catch (error) {
-    // requireAuth throws NextResponse, so check if it's already a response
-    if (error instanceof NextResponse) {
-      return error
-    }
-    return serverErrorResponse(error, 'Failed to deduct credits', {
-      route: 'POST /api/subscriptions/credits/deduct',
-    })
+    return handleApiError(error, 'POST /api/subscriptions/credits/deduct', 'deduct-credits', undefined, 'Failed to deduct credits')
   }
 }

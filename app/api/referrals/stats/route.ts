@@ -8,7 +8,7 @@ import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { logError } from '@/lib/server/utils/logger'
 import { requireAuth } from '@/lib/server/utils/auth'
-import { serverErrorResponse } from '@/lib/server/utils/error-handler'
+import { handleApiError } from '@/lib/server/utils/api-helpers'
 
 export async function GET(request: Request) {
   try {
@@ -46,12 +46,6 @@ export async function GET(request: Request) {
       stats,
     })
   } catch (error) {
-    // requireAuth throws NextResponse, so check if it's already a response
-    if (error instanceof NextResponse) {
-      return error
-    }
-    return serverErrorResponse(error, 'Failed to get referral stats', {
-      route: 'GET /api/referrals/stats',
-    })
+    return handleApiError(error, 'GET /api/referrals/stats', 'get-referral-stats', undefined, 'Failed to get referral stats')
   }
 }
