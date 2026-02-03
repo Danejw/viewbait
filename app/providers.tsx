@@ -26,6 +26,9 @@ export function Providers({ children }: ProvidersProps) {
         defaultOptions: {
           queries: {
             staleTime: 60 * 1000, // 1 minute
+            // Avoid refetching every query when user switches back to the tab.
+            // Hooks that need focus refresh (e.g. subscription, notifications) set refetchOnWindowFocus: true.
+            refetchOnWindowFocus: false,
           },
         },
       })

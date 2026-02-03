@@ -432,76 +432,80 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
     refetch: refetchProjects,
   } = useProjects();
 
-  // Studio state (declared before useThumbnails so projectId can be passed)
-  const [state, setState] = useState<StudioState>({
-    currentView: "generator",
-    mode: "manual",
-    leftSidebarCollapsed: false,
-    rightSidebarCollapsed: false,
-    leftSidebarWidth: 256, // 16rem default (w-64)
-    rightSidebarWidth: 384, // 24rem default (w-96)
-    mobilePanel: "results",
-    chatAssistant: {
-      isOpen: false,
-      conversationHistory: [],
-      isProcessing: false,
-    },
-    thumbnailText: "",
-    customInstructions: "",
-    includeFaces: false,
-    selectedFaces: [],
-    faceExpression: "None",
-    facePose: "None",
-    includeStyles: false,
-    selectedStyle: null,
-    includePalettes: false,
-    selectedPalette: null,
-    selectedAspectRatio: "16:9",
-    selectedResolution: "1K",
-    variations: 1,
-    includeStyleReferences: false,
-    styleReferences: [],
-    isGenerating: false,
-    isButtonDisabled: false,
-    generationError: null,
-    // Modal state
-    deleteModalOpen: false,
-    editModalOpen: false,
-    imageModalOpen: false,
-    thumbnailToDelete: null,
-    thumbnailToEdit: null,
-    thumbnailToView: null,
-    isDeleting: false,
-    isRegenerating: false,
-    // Style modal state
-    styleImageModalOpen: false,
-    styleToView: null,
-    // Palette view modal state
-    paletteViewModalOpen: false,
-    paletteToView: null,
-    // Face view modal state
-    faceImageModalOpen: false,
-    faceToView: null,
-    snapshotViewModalOpen: false,
-    snapshotToView: null,
-    // YouTube video analytics modal
-    videoAnalyticsModalOpen: false,
-    videoAnalyticsVideo: null,
-    videoAnalyticsData: null,
-    videoAnalyticsLoading: false,
-    videoAnalyticsError: null,
-    videoAnalyticsCache: {},
-    videoAnalyticsLoadingVideoIds: [],
-    videoAnalyticsLoadingVideos: {},
-    videoAnalyticsChannelContext: null,
-    thumbnailStyleAnalysisCache: {},
-    characterSnapshotsByVideoId: {},
-    placeSnapshotsByVideoId: {},
-    pendingFaceFromSnapshot: null,
-    pendingFaceDefaultName: null,
-    // Active project (null = All thumbnails); hydrated from localStorage
-    activeProjectId: null,
-    lastGeneratedThumbnail: null,
+  // Studio state (declared before useThumbnails so projectId can be passed).
+  // Hydrate activeProjectId from localStorage in initial state to avoid a second thumbnails GET after mount.
+  const [state, setState] = useState<StudioState>(() => {
+    const activeProjectId =
+      typeof window !== "undefined" ? localStorage.getItem("studio-active-project-id") : null;
+    return {
+      currentView: "generator",
+      mode: "manual",
+      leftSidebarCollapsed: false,
+      rightSidebarCollapsed: false,
+      leftSidebarWidth: 256, // 16rem default (w-64)
+      rightSidebarWidth: 384, // 24rem default (w-96)
+      mobilePanel: "results",
+      chatAssistant: {
+        isOpen: false,
+        conversationHistory: [],
+        isProcessing: false,
+      },
+      thumbnailText: "",
+      customInstructions: "",
+      includeFaces: false,
+      selectedFaces: [],
+      faceExpression: "None",
+      facePose: "None",
+      includeStyles: false,
+      selectedStyle: null,
+      includePalettes: false,
+      selectedPalette: null,
+      selectedAspectRatio: "16:9",
+      selectedResolution: "1K",
+      variations: 1,
+      includeStyleReferences: false,
+      styleReferences: [],
+      isGenerating: false,
+      isButtonDisabled: false,
+      generationError: null,
+      // Modal state
+      deleteModalOpen: false,
+      editModalOpen: false,
+      imageModalOpen: false,
+      thumbnailToDelete: null,
+      thumbnailToEdit: null,
+      thumbnailToView: null,
+      isDeleting: false,
+      isRegenerating: false,
+      // Style modal state
+      styleImageModalOpen: false,
+      styleToView: null,
+      // Palette view modal state
+      paletteViewModalOpen: false,
+      paletteToView: null,
+      // Face view modal state
+      faceImageModalOpen: false,
+      faceToView: null,
+      snapshotViewModalOpen: false,
+      snapshotToView: null,
+      // YouTube video analytics modal
+      videoAnalyticsModalOpen: false,
+      videoAnalyticsVideo: null,
+      videoAnalyticsData: null,
+      videoAnalyticsLoading: false,
+      videoAnalyticsError: null,
+      videoAnalyticsCache: {},
+      videoAnalyticsLoadingVideoIds: [],
+      videoAnalyticsLoadingVideos: {},
+      videoAnalyticsChannelContext: null,
+      thumbnailStyleAnalysisCache: {},
+      characterSnapshotsByVideoId: {},
+      placeSnapshotsByVideoId: {},
+      pendingFaceFromSnapshot: null,
+      pendingFaceDefaultName: null,
+      activeProjectId,
+      lastGeneratedThumbnail: null,
+    };
   });
 
   // Thumbnails data hook (React Query); filter by activeProjectId when set
@@ -531,15 +535,6 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
   // Mutation hooks
   const deleteMutation = useDeleteThumbnail();
   const favoriteMutation = useToggleFavorite();
-
-  // Hydrate activeProjectId from localStorage on mount
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const stored = localStorage.getItem("studio-active-project-id");
-    if (stored) {
-      setState((s) => ({ ...s, activeProjectId: stored }));
-    }
-  }, []);
 
   // When activeProjectId changes, apply project default_settings to form once (if any)
   const lastAppliedProjectIdRef = useRef<string | null>(null);
