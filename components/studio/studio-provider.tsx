@@ -125,6 +125,12 @@ export interface StudioState {
   videoAnalyticsData: YouTubeVideoAnalytics | null;
   videoAnalyticsLoading: boolean;
   videoAnalyticsError: string | null;
+  /** Cache of analytics by videoId; session-only, cleared on refresh */
+  videoAnalyticsCache: Record<string, YouTubeVideoAnalytics>;
+  /** Video ids currently being analyzed (drives spinners and effect) */
+  videoAnalyticsLoadingVideoIds: string[];
+  /** Metadata for each loading id so completion can set modal video */
+  videoAnalyticsLoadingVideos: Record<string, { videoId: string; title: string; thumbnailUrl: string }>;
   // Active project (null = All thumbnails)
   activeProjectId: string | null;
   /** Set when generation completes successfully; consumed by onboarding to advance to step 5 */
@@ -430,6 +436,9 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
     videoAnalyticsData: null,
     videoAnalyticsLoading: false,
     videoAnalyticsError: null,
+    videoAnalyticsCache: {},
+    videoAnalyticsLoadingVideoIds: [],
+    videoAnalyticsLoadingVideos: {},
     // Active project (null = All thumbnails); hydrated from localStorage
     activeProjectId: null,
     lastGeneratedThumbnail: null,
@@ -946,35 +955,96 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
 
   const onRequestVideoAnalytics = useCallback(
     (video: { videoId: string; title: string; thumbnailUrl: string }) => {
-      setState((s) => ({
-        ...s,
-        videoAnalyticsModalOpen: true,
-        videoAnalyticsVideo: video,
-        videoAnalyticsData: null,
-        videoAnalyticsLoading: true,
-        videoAnalyticsError: null,
-      }));
-      analyzeYouTubeVideo(video.videoId).then(({ analytics, error }) => {
-        setState((s) => ({
+      const vid = video.videoId;
+      setState((s) => {
+        const cached = s.videoAnalyticsCache[vid];
+        const loadingThis = s.videoAnalyticsLoadingVideoIds.includes(vid);
+        const modalOpenForThis =
+          s.videoAnalyticsModalOpen && s.videoAnalyticsVideo?.videoId === vid;
+
+        // 1) Cached: toggle close or open with cached data
+        if (cached) {
+          if (modalOpenForThis) {
+            return { ...s, videoAnalyticsModalOpen: false };
+          }
+          return {
+            ...s,
+            videoAnalyticsVideo: video,
+            videoAnalyticsData: cached,
+            videoAnalyticsLoading: false,
+            videoAnalyticsError: null,
+            videoAnalyticsModalOpen: true,
+          };
+        }
+
+        // 2) Currently loading this video: don't open modal; close if it was open
+        if (loadingThis) {
+          if (modalOpenForThis) {
+            return { ...s, videoAnalyticsModalOpen: false };
+          }
+          return s;
+        }
+
+        // 3) Not cached and not loading: add to loading sets; modal opens when analysis completes
+        return {
           ...s,
-          videoAnalyticsLoading: false,
-          videoAnalyticsData: analytics ?? null,
-          videoAnalyticsError: error?.message ?? null,
-        }));
+          videoAnalyticsLoadingVideoIds: [...s.videoAnalyticsLoadingVideoIds, vid],
+          videoAnalyticsLoadingVideos: { ...s.videoAnalyticsLoadingVideos, [vid]: video },
+          videoAnalyticsLoading: true,
+          videoAnalyticsModalOpen: false,
+        };
       });
     },
     []
   );
 
+  const inFlightIdsRef = useRef<Set<string>>(new Set());
+  const cancelledRef = useRef(false);
+
+  /** Effect: for each id in loading list not yet in flight, start analyze API; on completion update cache, remove id, open modal. */
+  useEffect(() => {
+    cancelledRef.current = false;
+    const loadingIds = state.videoAnalyticsLoadingVideoIds;
+    const cache = state.videoAnalyticsCache;
+    const inFlight = inFlightIdsRef.current;
+
+    for (const id of loadingIds) {
+      if (cache[id] != null) continue;
+      if (inFlight.has(id)) continue;
+      inFlight.add(id);
+      analyzeYouTubeVideo(id).then(({ analytics, error }) => {
+        if (cancelledRef.current) return;
+        inFlight.delete(id);
+        setState((s) => {
+          const videoMeta = s.videoAnalyticsLoadingVideos[id];
+          const next: StudioState = {
+            ...s,
+            videoAnalyticsLoadingVideoIds: s.videoAnalyticsLoadingVideoIds.filter((x) => x !== id),
+            videoAnalyticsLoadingVideos: (() => {
+              const { [id]: _, ...rest } = s.videoAnalyticsLoadingVideos;
+              return rest;
+            })(),
+            videoAnalyticsLoading: false,
+            videoAnalyticsVideo: videoMeta ?? null,
+            videoAnalyticsData: analytics ?? null,
+            videoAnalyticsError: error?.message ?? null,
+            videoAnalyticsModalOpen: true,
+          };
+          if (analytics) {
+            next.videoAnalyticsCache = { ...s.videoAnalyticsCache, [id]: analytics };
+          }
+          return next;
+        });
+      });
+    }
+
+    return () => {
+      cancelledRef.current = true;
+    };
+  }, [state.videoAnalyticsLoadingVideoIds]);
+
   const closeVideoAnalyticsModal = useCallback(() => {
-    setState((s) => ({
-      ...s,
-      videoAnalyticsModalOpen: false,
-      videoAnalyticsVideo: null,
-      videoAnalyticsData: null,
-      videoAnalyticsLoading: false,
-      videoAnalyticsError: null,
-    }));
+    setState((s) => ({ ...s, videoAnalyticsModalOpen: false }));
   }, []);
 
   const clearError = useCallback(() => {

@@ -11,7 +11,7 @@
 import React, { memo, useCallback, useMemo, useState } from "react";
 import { useDraggable } from "@dnd-kit/core";
 import { motion } from "framer-motion";
-import { Copy, ExternalLink, Eye, ThumbsUp, BarChart3, ScanLine } from "lucide-react";
+import { Copy, ExternalLink, Eye, ThumbsUp, BarChart3, ScanLine, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -71,11 +71,13 @@ function ActionButton({
   label,
   onClick,
   disabled = false,
+  iconClassName,
 }: {
   icon: React.ElementType;
   label: string;
   onClick: (e: React.MouseEvent) => void;
   disabled?: boolean;
+  iconClassName?: string;
 }) {
   return (
     <Tooltip>
@@ -88,7 +90,7 @@ function ActionButton({
             onClick={onClick}
             disabled={disabled}
           >
-            <Icon className="h-4 w-4" />
+            <Icon className={cn("h-4 w-4", iconClassName)} />
           </Button>
         </ActionBarIcon>
       </TooltipTrigger>
@@ -126,7 +128,9 @@ export const YouTubeVideoCard = memo(function YouTubeVideoCard({
 }: YouTubeVideoCardProps) {
   const { videoId, title, thumbnailUrl, viewCount, likeCount } = video;
   const hasStats = viewCount != null || likeCount != null;
-  const { actions } = useStudio();
+  const { state, actions } = useStudio();
+  const isVideoAnalyticsLoading = state.videoAnalyticsLoadingVideoIds.includes(videoId);
+  const hasAnalyticsCached = state.videoAnalyticsCache[videoId] != null;
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [ref, isIntersecting] = useIntersectionObserver({
     rootMargin: "200px",
@@ -235,9 +239,13 @@ export const YouTubeVideoCard = memo(function YouTubeVideoCard({
         disabled={isAnalyzing}
       />
       <ActionButton
-        icon={BarChart3}
-        label="Video analytics"
+        icon={isVideoAnalyticsLoading ? Loader2 : BarChart3}
+        label={isVideoAnalyticsLoading ? "Analyzing…" : "Video analytics"}
         onClick={handleVideoAnalytics}
+        iconClassName={cn(
+          isVideoAnalyticsLoading && "animate-spin",
+          hasAnalyticsCached && "text-primary"
+        )}
       />
     </motion.div>
   );
