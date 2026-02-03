@@ -255,7 +255,8 @@ export function StudioGeneratorStyleReferences() {
   const { active } = useDndContext();
   const activeData = active?.data.current as DragData | undefined;
   const isThumbnailBeingDragged = activeData?.type === "thumbnail";
-  
+  const isSnapshotBeingDragged = activeData?.type === "snapshot";
+
   const { setNodeRef, isOver } = useDroppable({
     id: DROP_ZONE_IDS.STYLE_REFERENCES,
   });
@@ -412,12 +413,12 @@ export function StudioGeneratorStyleReferences() {
           <label className="my-2 text-sm font-medium">References</label>
           <span className="text-xs text-muted-foreground">(max {MAX_STYLE_REFERENCES})</span>
           {/* Drop hint when dragging thumbnail */}
-          {isThumbnailBeingDragged && hasRoom && (
+          {(isThumbnailBeingDragged || isSnapshotBeingDragged) && hasRoom && (
             <span className="text-xs text-primary animate-pulse">
-              {isOver ? "Release to add" : "Drop thumbnail here"}
+              {isOver ? "Release to add" : isSnapshotBeingDragged ? "Drop snapshot here" : "Drop thumbnail here"}
             </span>
           )}
-          {isThumbnailBeingDragged && !hasRoom && (
+          {(isThumbnailBeingDragged || isSnapshotBeingDragged) && !hasRoom && (
             <span className="text-xs text-muted-foreground">Max references reached</span>
           )}
         </div>
@@ -1050,8 +1051,8 @@ export function StudioGeneratorVariations() {
  */
 export function StudioGeneratorFaces() {
   const {
-    state: { includeFaces, selectedFaces, faceExpression, facePose },
-    actions: { setIncludeFaces, toggleFace, setFaceExpression, setFacePose, setView, onViewFace },
+    state: { includeFaces, selectedFaces, faceExpression, facePose, pendingFaceFromSnapshot, pendingFaceDefaultName },
+    actions: { setIncludeFaces, toggleFace, setFaceExpression, setFacePose, setView, onViewFace, setPendingFaceFromSnapshot },
   } = useStudio();
   const { isOnboarding } = useOnboarding();
 
@@ -1074,6 +1075,21 @@ export function StudioGeneratorFaces() {
   // Create new face modal (add-new-face button opens this instead of navigating to faces)
   const [faceEditorOpen, setFaceEditorOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+
+  // When a snapshot is dropped on Faces, open create-face modal with that image
+  React.useEffect(() => {
+    if (pendingFaceFromSnapshot) {
+      setFaceEditorOpen(true);
+    }
+  }, [pendingFaceFromSnapshot]);
+
+  const handleFaceEditorOpenChange = useCallback(
+    (open: boolean) => {
+      setFaceEditorOpen(open);
+      if (!open) setPendingFaceFromSnapshot(null);
+    },
+    [setPendingFaceFromSnapshot]
+  );
 
   // Setup drop zone for face items
   const { active } = useDndContext();
@@ -1163,7 +1179,7 @@ export function StudioGeneratorFaces() {
           {/* Drop hint when dragging */}
           {isFaceBeingDragged && (
             <span className="text-xs text-primary animate-pulse">
-              {isOver ? "Release to add" : "Drop face here"}
+              {isOver ? "Release to add" : activeData?.type === "snapshot" ? "Drop to create face" : "Drop face here"}
             </span>
           )}
         </div>
@@ -1335,13 +1351,15 @@ export function StudioGeneratorFaces() {
         </>
       )}
 
-      {/* Create new face modal – opened by add-new-face button (Create tab / mobile) */}
+      {/* Create new face modal – opened by add-new-face button or by dropping a snapshot on Faces */}
       <FaceEditor
         open={faceEditorOpen}
-        onOpenChange={setFaceEditorOpen}
+        onOpenChange={handleFaceEditorOpenChange}
         face={null}
         onSave={handleSaveFace}
         isLoading={isSaving}
+        initialFiles={pendingFaceFromSnapshot ? [pendingFaceFromSnapshot] : []}
+        initialName={pendingFaceDefaultName ?? undefined}
       />
     </div>
   );

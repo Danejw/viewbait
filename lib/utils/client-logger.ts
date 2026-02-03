@@ -96,16 +96,19 @@ export function logClientError(
   const errorInfo = extractSafeErrorInfo(error)
   const sanitizedContext = redactContext(context)
 
+  const errorPayload: Record<string, unknown> = {
+    type: errorInfo.type,
+    ...(errorInfo.code != null ? { code: errorInfo.code } : {}),
+  }
+  if (process.env.NODE_ENV === 'development' && errorInfo.message) {
+    errorPayload.message = errorInfo.message
+  } else if (!errorInfo.message && process.env.NODE_ENV === 'development') {
+    errorPayload.message = String(error)
+  }
+
   const logEntry = {
     level: 'error' as const,
-    error: {
-      type: errorInfo.type,
-      code: errorInfo.code,
-      // Only include message in development
-      ...(process.env.NODE_ENV === 'development' && errorInfo.message
-        ? { message: errorInfo.message }
-        : {}),
-    },
+    error: errorPayload,
     context: sanitizedContext,
     timestamp: new Date().toISOString(),
   }

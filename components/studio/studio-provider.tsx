@@ -133,6 +133,12 @@ export interface StudioState {
   videoAnalyticsLoadingVideos: Record<string, { videoId: string; title: string; thumbnailUrl: string }>;
   /** Cache of thumbnail style descriptions by imageUrl or thumbnailId; session-only, avoids re-analyzing */
   thumbnailStyleAnalysisCache: Record<string, string>;
+  /** Character snapshots from video frame extraction (FFmpeg.wasm); session-only, keyed by videoId */
+  characterSnapshotsByVideoId: Record<string, Array<{ characterName: string; imageBlobUrl: string; blob: Blob }>>;
+  /** When set, open create-face modal with this file pre-filled (e.g. from dropping a snapshot on Faces) */
+  pendingFaceFromSnapshot: File | null;
+  /** Suggested name when opening create-face from a snapshot (e.g. character name) */
+  pendingFaceDefaultName: string | null;
   // Active project (null = All thumbnails)
   activeProjectId: string | null;
   /** Set when generation completes successfully; consumed by onboarding to advance to step 5 */
@@ -176,6 +182,8 @@ export interface StudioActions {
   setIncludeStyleReferences: (include: boolean) => void;
   setStyleReferences: (references: string[]) => void;
   addStyleReference: (url: string) => void;
+  /** Upload a blob (e.g. from a snapshot) to storage and add as style reference */
+  addStyleReferenceFromBlob: (blob: Blob) => Promise<void>;
   removeStyleReference: (index: number) => void;
   // Generation
   generateThumbnails: () => Promise<void>;
@@ -210,6 +218,12 @@ export interface StudioActions {
   // YouTube video analytics (Gemini video understanding)
   onRequestVideoAnalytics: (video: { videoId: string; title: string; thumbnailUrl: string }) => void;
   closeVideoAnalyticsModal: () => void;
+  /** Set character snapshots for a video (from FFmpeg frame extraction) */
+  setCharacterSnapshots: (videoId: string, snapshots: Array<{ characterName: string; imageBlobUrl: string; blob: Blob }>) => void;
+  /** Clear character snapshots for a video */
+  clearCharacterSnapshots: (videoId: string) => void;
+  /** Set pending face image to open create-face modal with (e.g. from snapshot drop); clear after modal uses it */
+  setPendingFaceFromSnapshot: (file: File | null, defaultName?: string | null) => void;
   // Clear error
   clearError: () => void;
   // Apply form state updates from assistant
@@ -442,6 +456,9 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
     videoAnalyticsLoadingVideoIds: [],
     videoAnalyticsLoadingVideos: {},
     thumbnailStyleAnalysisCache: {},
+    characterSnapshotsByVideoId: {},
+    pendingFaceFromSnapshot: null,
+    pendingFaceDefaultName: null,
     // Active project (null = All thumbnails); hydrated from localStorage
     activeProjectId: null,
     lastGeneratedThumbnail: null,
@@ -1261,6 +1278,22 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
       setState((s) =>
         s.styleReferences.length < 10 ? { ...s, styleReferences: [...s.styleReferences, url] } : s
       ),
+    addStyleReferenceFromBlob: async (blob: Blob) => {
+      if (state.styleReferences.length >= 10) return;
+      const file = new File([blob], "snapshot.png", { type: blob.type || "image/png" });
+      const userId = user?.id;
+      if (!userId) return;
+      const path = `${userId}/ref-${Date.now()}-${state.styleReferences.length}.png`;
+      const formData = new FormData();
+      formData.set("file", file);
+      formData.set("bucket", "style-references");
+      formData.set("path", path);
+      const res = await fetch("/api/storage/upload", { method: "POST", body: formData });
+      if (!res.ok) return;
+      const data = await res.json();
+      const url = data?.url ?? data?.path ?? null;
+      if (url) setState((s) => (s.styleReferences.length < 10 ? { ...s, styleReferences: [...s.styleReferences, url] } : s));
+    },
     removeStyleReference: (index) =>
       setState((s) => ({
         ...s,
@@ -1290,6 +1323,16 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
     closeFaceImageModal,
     onRequestVideoAnalytics,
     closeVideoAnalyticsModal,
+    setCharacterSnapshots: (videoId, snapshots) =>
+      setState((s) => ({ ...s, characterSnapshotsByVideoId: { ...s.characterSnapshotsByVideoId, [videoId]: snapshots } })),
+    clearCharacterSnapshots: (videoId) =>
+      setState((s) => {
+        const next = { ...s.characterSnapshotsByVideoId };
+        delete next[videoId];
+        return { ...s, characterSnapshotsByVideoId: next };
+      }),
+    setPendingFaceFromSnapshot: (file, defaultName) =>
+      setState((s) => ({ ...s, pendingFaceFromSnapshot: file ?? null, pendingFaceDefaultName: defaultName ?? null })),
     clearError,
     setActiveProjectId,
     saveProjectSettings,
@@ -1500,6 +1543,7 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
         analytics={state.videoAnalyticsData}
         loading={state.videoAnalyticsLoading}
         error={state.videoAnalyticsError}
+        onSetCharacterSnapshots={actions.setCharacterSnapshots}
       />
     </StudioContext.Provider>
     </StudioStateContext.Provider>

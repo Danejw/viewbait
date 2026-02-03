@@ -79,15 +79,6 @@ export const RecentThumbnailsStrip = memo(function RecentThumbnailsStrip() {
               ))}
             </div>
           )}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleViewAll}
-            className="shrink-0"
-            aria-label="View all in Create tab"
-          >
-            View all
-          </Button>
         </div>
       </div>
     </section>

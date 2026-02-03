@@ -22,9 +22,12 @@ import type { DbStyle, DbPalette, DbFace, PublicStyle, PublicPalette, Thumbnail 
 
 interface DragOverlayPreviewProps {
   type: DragItemType;
-  item: DbStyle | DbPalette | DbFace | PublicStyle | PublicPalette | Thumbnail;
+  item: DbStyle | DbPalette | DbFace | PublicStyle | PublicPalette | Thumbnail | { type: "snapshot"; name: string };
   /** Image URL for thumbnails */
   imageUrl?: string;
+  /** Snapshot: blob URL and name for preview */
+  imageBlobUrl?: string;
+  characterName?: string;
 }
 
 /**
@@ -152,7 +155,13 @@ function ThumbnailPreview({ item, imageUrl }: { item: Thumbnail; imageUrl?: stri
  * Main DragOverlayPreview component
  * Renders the appropriate preview based on item type
  */
-export function DragOverlayPreview({ type, item, imageUrl }: DragOverlayPreviewProps) {
+export function DragOverlayPreview({
+  type,
+  item,
+  imageUrl,
+  imageBlobUrl,
+  characterName,
+}: DragOverlayPreviewProps) {
   return (
     <div
       className={cn(
@@ -165,6 +174,7 @@ export function DragOverlayPreview({ type, item, imageUrl }: DragOverlayPreviewP
       {type === "palette" && isPalette(item) && <PalettePreview item={item} />}
       {type === "face" && isFace(item) && <FacePreview item={item} />}
       {type === "thumbnail" && isThumbnail(item) && <ThumbnailPreview item={item} imageUrl={imageUrl} />}
+      {type === "snapshot" && <SnapshotPreview imageBlobUrl={imageBlobUrl} characterName={characterName} />}
     </div>
   );
 }

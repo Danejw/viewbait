@@ -33,7 +33,7 @@ import type { DbStyle, DbPalette, DbFace, PublicStyle, PublicPalette, Thumbnail 
 /**
  * Drag item types for type-safe drag data
  */
-export type DragItemType = "style" | "palette" | "face" | "thumbnail";
+export type DragItemType = "style" | "palette" | "face" | "thumbnail" | "snapshot";
 
 /**
  * Drag data structure passed via useDraggable
@@ -41,9 +41,13 @@ export type DragItemType = "style" | "palette" | "face" | "thumbnail";
 export interface DragData {
   type: DragItemType;
   id: string;
-  item: DbStyle | DbPalette | DbFace | PublicStyle | PublicPalette | Thumbnail;
+  item: DbStyle | DbPalette | DbFace | PublicStyle | PublicPalette | Thumbnail | { type: "snapshot"; name: string };
   /** Image URL for thumbnails - used when adding to style references */
   imageUrl?: string;
+  /** Snapshot drag: character name and blob for creating face or uploading as style ref */
+  characterName?: string;
+  imageBlobUrl?: string;
+  blob?: Blob;
 }
 
 /**
@@ -141,6 +145,14 @@ export function StudioDndContext({ children }: StudioDndContextProps) {
       return;
     }
 
+    // Handle snapshot drop on Faces: open create-face modal with blob as initial image
+    if (overId === DROP_ZONE_IDS.FACES && data.type === "snapshot" && data.blob) {
+      actions.setIncludeFaces(true);
+      const file = new File([data.blob], "snapshot.png", { type: data.blob.type || "image/png" });
+      actions.setPendingFaceFromSnapshot(file, data.characterName ?? "From video");
+      return;
+    }
+
     // Handle thumbnail drop to style references
     if (overId === DROP_ZONE_IDS.STYLE_REFERENCES && data.type === "thumbnail") {
       // Auto-enable style references so the section expands and shows the new reference
@@ -148,6 +160,13 @@ export function StudioDndContext({ children }: StudioDndContextProps) {
       if (data.imageUrl) {
         actions.addStyleReference(data.imageUrl);
       }
+      return;
+    }
+
+    // Handle snapshot drop to style references: upload blob then add URL
+    if (overId === DROP_ZONE_IDS.STYLE_REFERENCES && data.type === "snapshot" && data.blob) {
+      actions.setIncludeStyleReferences(true);
+      actions.addStyleReferenceFromBlob(data.blob);
       return;
     }
   }, [actions]);
@@ -174,10 +193,12 @@ export function StudioDndContext({ children }: StudioDndContextProps) {
         easing: "cubic-bezier(0.18, 0.67, 0.6, 1.22)",
       }}>
         {activeData ? (
-          <DragOverlayPreview 
-            type={activeData.type} 
-            item={activeData.item} 
+          <DragOverlayPreview
+            type={activeData.type}
+            item={activeData.item}
             imageUrl={activeData.imageUrl}
+            imageBlobUrl={activeData.imageBlobUrl}
+            characterName={activeData.characterName}
           />
         ) : null}
       </DragOverlay>

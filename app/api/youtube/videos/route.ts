@@ -69,6 +69,10 @@ export interface YouTubeVideo {
   title: string
   publishedAt: string
   thumbnailUrl: string
+  viewCount?: number
+  likeCount?: number
+  /** Duration in seconds (from contentDetails.duration). Used to classify Shorts (< 60s). */
+  durationSeconds?: number
 }
 
 export interface YouTubeVideosResponse {
@@ -242,13 +246,17 @@ async function fetchVideos(
   )
   
   // Step 2: Get videos from the uploads playlist
-  const result = await getPlaylistVideos(accessToken, uploadsPlaylistId, 10, pageToken)
-  
+  let result = await getPlaylistVideos(accessToken, uploadsPlaylistId, 10, pageToken)
+  result = {
+    ...result,
+    videos: await attachVideoStatisticsAndDuration(accessToken, result.videos),
+  }
+
   // Cache the results only for first page
   if (!pageToken && result.videos.length > 0) {
     setCachedVideos(userId, result)
   }
-  
+
   logInfo('Fetched videos from YouTube', {
     route: 'GET /api/youtube/videos',
     userId,

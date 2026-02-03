@@ -33,6 +33,16 @@ export interface VideoAnalyticsCharacter {
   scenes: VideoAnalyticsCharacterScene[]
 }
 
+export interface VideoAnalyticsPlaceScene {
+  part: string
+  description: string
+}
+
+export interface VideoAnalyticsPlace {
+  name: string
+  scenes: VideoAnalyticsPlaceScene[]
+}
+
 export interface YouTubeVideoAnalytics {
   summary: string
   topic: string
@@ -43,6 +53,7 @@ export interface YouTubeVideoAnalytics {
   thumbnail_appeal_notes: string
   content_type: string
   characters: VideoAnalyticsCharacter[]
+  places: VideoAnalyticsPlace[]
 }
 
 export async function POST(request: Request) {
@@ -63,7 +74,7 @@ export async function POST(request: Request) {
 
     const youtubeUrl = `${YOUTUBE_WATCH_BASE}${videoId}`
 
-    const systemPrompt = `You are an expert video analyst for content creators. Analyze the provided YouTube video and fill out the rubric below. Focus on what matters for thumbnail and title optimization, audience engagement, and content strategy. Also identify main characters or people in the video and where they appear. Be concise but informative. Use clear, short phrases or bullet points where appropriate.`
+    const systemPrompt = `You are an expert video analyst for content creators. Analyze the provided YouTube video and fill out the rubric below. Focus on what matters for thumbnail and title optimization, audience engagement, and content strategy. Also identify main characters or people in the video and where they appear, and identify distinct places or locations the video goes through (e.g. a kitchen, a studio, outdoors, a specific city). Be concise but informative. Use clear, short phrases or bullet points where appropriate.`
 
     const userPrompt = `Analyze this YouTube video and extract the following attributes. You MUST call the video_analytics_rubric function with your analysis.
 
@@ -76,7 +87,8 @@ Rubric:
 6. duration_estimate: Approximate length or pacing note (e.g. "short and punchy", "long-form deep dive").
 7. thumbnail_appeal_notes: How the current or suggested thumbnail could align with the content; what visuals would work.
 8. content_type: One or two words (e.g. Tutorial, Vlog, Review, Comedy, How-to).
-9. characters: List the main characters or people in the video. For each, give a short name or description and a list of scenes: each scene has a part (timestamp or segment, e.g. 0:30–1:15 or Intro) and a one-sentence description of what that person did in that part of the video.`
+9. characters: List the main characters or people in the video. For each, give a short name or description and a list of scenes: each scene has a part (timestamp or segment, e.g. 0:30–1:15 or Intro) and a one-sentence description of what that person did in that part of the video.
+10. places: List the distinct places or locations the video goes through (e.g. kitchen, studio, park, office). For each place, give a short name and a list of scenes: each scene has a part (timestamp or segment) and a one-sentence description of what that place is or what happens there in the video.`
 
     const toolDefinition = {
       name: 'video_analytics_rubric',
@@ -148,6 +160,38 @@ Rubric:
               required: ['name', 'scenes'],
             },
           },
+          places: {
+            type: 'array',
+            description: 'Distinct places or locations the video goes through, with scenes where each appears',
+            items: {
+              type: 'object',
+              properties: {
+                name: {
+                  type: 'string',
+                  description: 'Place or location name (e.g. kitchen, studio, park)',
+                },
+                scenes: {
+                  type: 'array',
+                  description: 'Parts of the video where this place appears',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      part: {
+                        type: 'string',
+                        description: 'Timestamp or segment (e.g. 0:30–1:15, Intro)',
+                      },
+                      description: {
+                        type: 'string',
+                        description: 'One sentence describing the place or what happens there in this scene',
+                      },
+                    },
+                    required: ['part', 'description'],
+                  },
+                },
+              },
+              required: ['name', 'scenes'],
+            },
+          },
         },
         required: [
           'summary',
@@ -159,6 +203,7 @@ Rubric:
           'thumbnail_appeal_notes',
           'content_type',
           'characters',
+          'places',
         ],
       },
     }
@@ -205,6 +250,28 @@ Rubric:
       return out
     }
 
+    function normalizePlaces(raw: unknown): VideoAnalyticsPlace[] {
+      if (!Array.isArray(raw)) return []
+      const out: VideoAnalyticsPlace[] = []
+      for (const item of raw) {
+        if (!item || typeof item !== 'object') continue
+        const name = String((item as Record<string, unknown>).name ?? '').trim()
+        const scenesRaw = (item as Record<string, unknown>).scenes
+        if (!name) continue
+        const scenes: VideoAnalyticsPlaceScene[] = []
+        if (Array.isArray(scenesRaw)) {
+          for (const s of scenesRaw) {
+            if (!s || typeof s !== 'object') continue
+            const part = String((s as Record<string, unknown>).part ?? '').trim()
+            const description = String((s as Record<string, unknown>).description ?? '').trim()
+            if (part || description) scenes.push({ part: part || '—', description: description || '—' })
+          }
+        }
+        out.push({ name, scenes })
+      }
+      return out
+    }
+
     const normalized: YouTubeVideoAnalytics = {
       summary: String(analytics.summary ?? '').trim() || '—',
       topic: String(analytics.topic ?? '').trim() || '—',
@@ -215,6 +282,7 @@ Rubric:
       thumbnail_appeal_notes: String(analytics.thumbnail_appeal_notes ?? '').trim() || '—',
       content_type: String(analytics.content_type ?? '').trim() || '—',
       characters: normalizeCharacters(analytics.characters),
+      places: normalizePlaces(analytics.places),
     }
 
     return NextResponse.json({ analytics: normalized })

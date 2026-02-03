@@ -48,6 +48,7 @@ import { YouTubeVideoCard, YouTubeVideoCardSkeleton } from "@/components/studio/
 import { ChannelImportTab } from "@/components/studio/channel-import-tab";
 import { YouTubeStyleExtractBar } from "@/components/studio/youtube-style-extract-bar";
 import { RecentThumbnailsStrip } from "@/components/studio/recent-thumbnails-strip";
+import { CharacterSnapshotsStrip } from "@/components/studio/character-snapshots-strip";
 import { useYouTubeStyleExtract } from "@/lib/hooks/useYouTubeStyleExtract";
 import {
   Dialog,
@@ -1924,11 +1925,31 @@ export function StudioViewYouTube() {
   const { user } = useAuth();
 
   const [searchQuery, setSearchQuery] = useState("");
+  const [filterValue, setFilterValue] = useState("all");
+  const [sortValue, setSortValue] = useState("newest");
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingStyle, setEditingStyle] = useState<DbStyle | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
   const isConnected = status?.isConnected === true;
+
+  const YOUTUBE_FILTER_OPTIONS: FilterOption[] = useMemo(
+    () => [
+      { value: "all", label: "All" },
+      { value: "shorts", label: "Shorts" },
+      { value: "standard", label: "Standard" },
+    ],
+    []
+  );
+  const YOUTUBE_SORT_OPTIONS: SortOption[] = useMemo(
+    () => [
+      { value: "newest", label: "Newest First" },
+      { value: "oldest", label: "Oldest First" },
+      { value: "most-views", label: "Most Views" },
+      { value: "most-likes", label: "Most Liked" },
+    ],
+    []
+  );
 
   // When connected, fetch channel and videos on first load
   useEffect(() => {
@@ -1945,6 +1966,14 @@ export function StudioViewYouTube() {
 
   const handleSearchChange = useCallback((query: string) => {
     setSearchQuery(query);
+  }, []);
+
+  const handleFilterChange = useCallback((value: string) => {
+    setFilterValue(value);
+  }, []);
+
+  const handleSortChange = useCallback((value: string) => {
+    setSortValue(value);
   }, []);
 
   const filteredVideos = useMemo(() => {
@@ -2031,6 +2060,7 @@ export function StudioViewYouTube() {
       />
 
       <RecentThumbnailsStrip />
+      <CharacterSnapshotsStrip />
 
       <Tabs defaultValue="my-channel" className="mt-4">
         <TabsList className="mb-4">
@@ -2099,8 +2129,14 @@ export function StudioViewYouTube() {
                 onSearchChange={handleSearchChange}
                 searchPlaceholder="Search videos..."
                 showSearch={true}
-                showFilter={false}
-                showSort={false}
+                showFilter={true}
+                filterValue={filterValue}
+                filterOptions={YOUTUBE_FILTER_OPTIONS}
+                onFilterChange={handleFilterChange}
+                showSort={true}
+                sortValue={sortValue}
+                sortOptions={YOUTUBE_SORT_OPTIONS}
+                onSortChange={handleSortChange}
                 showFavorites={false}
                 onRefresh={handleRefresh}
                 isRefreshing={isRefreshing}

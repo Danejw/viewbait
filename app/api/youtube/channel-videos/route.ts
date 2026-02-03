@@ -49,6 +49,8 @@ export interface ChannelVideo {
   thumbnailUrl: string
   viewCount?: number
   likeCount?: number
+  /** Duration in seconds (from contentDetails.duration). Used to classify Shorts (< 60s). */
+  durationSeconds?: number
 }
 
 export interface ChannelVideosResponse {
@@ -236,13 +238,28 @@ async function fetchPlaylistItems(
   }
 }
 
-/** Attach viewCount and likeCount via videos.list(statistics). */
-async function attachVideoStatistics(videos: ChannelVideo[]): Promise<ChannelVideo[]> {
+/**
+ * Parse YouTube ISO 8601 duration (e.g. PT1M30S, PT45S) to total seconds.
+ * Returns 0 for missing or invalid input.
+ */
+function parseDurationSeconds(isoDuration: string | null | undefined): number {
+  if (!isoDuration || typeof isoDuration !== 'string') return 0
+  const match = isoDuration.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/i)
+  if (!match) return 0
+  const hours = parseInt(match[1] ?? '0', 10)
+  const minutes = parseInt(match[2] ?? '0', 10)
+  const seconds = parseInt(match[3] ?? '0', 10)
+  if (Number.isNaN(hours) || Number.isNaN(minutes) || Number.isNaN(seconds)) return 0
+  return hours * 3600 + minutes * 60 + seconds
+}
+
+/** Attach viewCount, likeCount, and durationSeconds via videos.list(statistics,contentDetails). */
+async function attachVideoStatisticsAndDuration(videos: ChannelVideo[]): Promise<ChannelVideo[]> {
   if (videos.length === 0) return videos
 
   const ids = videos.map((v) => v.videoId).join(',')
   const url = buildApiUrl('/videos', {
-    part: 'statistics',
+    part: 'statistics,contentDetails',
     id: ids,
   })
   const res = await fetch(url)
@@ -252,22 +269,28 @@ async function attachVideoStatistics(videos: ChannelVideo[]): Promise<ChannelVid
     items?: Array<{
       id?: string
       statistics?: { viewCount?: string; likeCount?: string }
+      contentDetails?: { duration?: string }
     }>
   }
 
-  const statsById = new Map<string, { viewCount: number; likeCount: number }>()
+  const byId = new Map<string, { viewCount: number; likeCount: number; durationSeconds: number }>()
   for (const item of data.items ?? []) {
     const id = item.id
     if (!id) continue
     const viewCount = item.statistics?.viewCount != null ? parseInt(item.statistics.viewCount, 10) : 0
     const likeCount = item.statistics?.likeCount != null ? parseInt(item.statistics.likeCount, 10) : 0
-    statsById.set(id, { viewCount: Number.isNaN(viewCount) ? 0 : viewCount, likeCount: Number.isNaN(likeCount) ? 0 : likeCount })
+    const durationSeconds = parseDurationSeconds(item.contentDetails?.duration)
+    byId.set(id, {
+      viewCount: Number.isNaN(viewCount) ? 0 : viewCount,
+      likeCount: Number.isNaN(likeCount) ? 0 : likeCount,
+      durationSeconds,
+    })
   }
 
   return videos.map((v) => {
-    const stats = statsById.get(v.videoId)
-    return stats
-      ? { ...v, viewCount: stats.viewCount, likeCount: stats.likeCount }
+    const extra = byId.get(v.videoId)
+    return extra
+      ? { ...v, viewCount: extra.viewCount, likeCount: extra.likeCount, durationSeconds: extra.durationSeconds }
       : v
   })
 }
@@ -351,7 +374,7 @@ export async function GET(request: Request) {
     }
 
     const { videos, nextPageToken } = await fetchPlaylistItems(playlistId, maxResults, pageToken)
-    const videosWithStats = await attachVideoStatistics(videos)
+    const videosWithStats = await attachVideoStatisticsAndDuration(videos)
 
     const result: CachedChannelVideos = {
       videos: videosWithStats,

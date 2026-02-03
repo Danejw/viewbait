@@ -34,6 +34,10 @@ export interface FaceEditorProps {
   face?: DbFace | null; // null = create mode, DbFace = edit mode
   onSave: (name: string, images: File[], existingUrls: string[]) => Promise<void>;
   isLoading?: boolean;
+  /** Pre-fill with files (e.g. from dropping a snapshot on Faces); used when open and !face */
+  initialFiles?: File[];
+  /** Suggested name when creating from initialFiles */
+  initialName?: string;
 }
 
 interface ImagePreview {
@@ -213,6 +217,8 @@ export function FaceEditor({
   face,
   onSave,
   isLoading = false,
+  initialFiles,
+  initialName,
 }: FaceEditorProps) {
   const isEditMode = !!face;
   const [name, setName] = useState("");
@@ -233,12 +239,23 @@ export function FaceEditor({
           }))
         );
       } else {
-        setName("");
-        setImages([]);
+        setName(initialName ?? "");
+        if (initialFiles?.length) {
+          setImages(
+            initialFiles.slice(0, MAX_IMAGES).map((file, index) => ({
+              id: `new-initial-${Date.now()}-${index}`,
+              url: URL.createObjectURL(file),
+              file,
+              isExisting: false,
+            }))
+          );
+        } else {
+          setImages([]);
+        }
       }
       setError(null);
     }
-  }, [open, face]);
+  }, [open, face, initialFiles, initialName]);
 
   // Clean up blob URLs on unmount
   useEffect(() => {

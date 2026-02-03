@@ -13,7 +13,7 @@ import { useState, useCallback, useMemo, useEffect } from "react";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { logClientError, logClientInfo } from "@/lib/utils/client-logger";
 
-// Match proxy response shape (optionally with stats)
+// Match proxy response shape (optionally with stats and duration)
 export interface ChannelVideo {
   videoId: string;
   title: string;
@@ -21,6 +21,8 @@ export interface ChannelVideo {
   thumbnailUrl: string;
   viewCount?: number;
   likeCount?: number;
+  /** Duration in seconds. Used to classify Shorts (< 60s). */
+  durationSeconds?: number;
 }
 
 export interface UseChannelVideosState {

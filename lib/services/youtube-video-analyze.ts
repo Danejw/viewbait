@@ -13,6 +13,16 @@ export interface YouTubeVideoAnalyticsCharacter {
   scenes: YouTubeVideoAnalyticsCharacterScene[]
 }
 
+export interface YouTubeVideoAnalyticsPlaceScene {
+  part: string
+  description: string
+}
+
+export interface YouTubeVideoAnalyticsPlace {
+  name: string
+  scenes: YouTubeVideoAnalyticsPlaceScene[]
+}
+
 export interface YouTubeVideoAnalytics {
   summary: string
   topic: string
@@ -24,6 +34,8 @@ export interface YouTubeVideoAnalytics {
   content_type: string
   /** Main characters/people and the scenes where they appear (optional for backward compatibility with cached entries). */
   characters?: YouTubeVideoAnalyticsCharacter[]
+  /** Places/locations the video goes through and scenes where each appears (optional for backward compatibility). */
+  places?: YouTubeVideoAnalyticsPlace[]
 }
 
 export async function analyzeYouTubeVideo(

@@ -10,13 +10,14 @@
  * Last loaded query is persisted in sessionStorage so returning to the tab restores the grid from cache.
  */
 
-import React, { memo, useState, useCallback, useEffect } from "react";
+import React, { memo, useState, useCallback, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { YouTubeVideoCard, YouTubeVideoCardSkeleton } from "@/components/studio/youtube-video-card";
 import { YouTubeStyleExtractBar } from "@/components/studio/youtube-style-extract-bar";
+import { ViewControls, type FilterOption, type SortOption } from "@/components/studio/view-controls";
 import { useChannelVideos, type ChannelVideo } from "@/lib/hooks/useChannelVideos";
 import { useYouTubeStyleExtract } from "@/lib/hooks/useYouTubeStyleExtract";
 import type { DbStyle } from "@/lib/types/database";
@@ -30,11 +31,26 @@ export interface ChannelImportTabProps {
   onStyleCreated?: (style: DbStyle) => void;
 }
 
+const IMPORT_FILTER_OPTIONS: FilterOption[] = [
+  { value: "all", label: "All" },
+  { value: "shorts", label: "Shorts" },
+  { value: "standard", label: "Standard" },
+];
+const IMPORT_SORT_OPTIONS: SortOption[] = [
+  { value: "newest", label: "Newest First" },
+  { value: "oldest", label: "Oldest First" },
+  { value: "most-views", label: "Most Views" },
+  { value: "most-likes", label: "Most Liked" },
+];
+
 export const ChannelImportTab = memo(function ChannelImportTab({
   onStyleCreated,
 }: ChannelImportTabProps) {
   const [inputValue, setInputValue] = useState("");
   const [restoredQuery, setRestoredQuery] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterValue, setFilterValue] = useState("all");
+  const [sortValue, setSortValue] = useState("newest");
 
   const {
     videos,
@@ -72,7 +88,33 @@ export const ChannelImportTab = memo(function ChannelImportTab({
     }
   }, [currentQuery, videos.length, error]);
 
-  const youtubeStyleExtract = useYouTubeStyleExtract(videos);
+  const filteredAndSortedVideos = useMemo(() => {
+    let list = videos;
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      list = list.filter((v) => v.title?.toLowerCase().includes(q));
+    }
+    if (filterValue === "shorts") {
+      list = list.filter((v) => v.durationSeconds != null && v.durationSeconds < 60);
+    } else if (filterValue === "standard") {
+      list = list.filter((v) => v.durationSeconds == null || v.durationSeconds >= 60);
+    }
+    const sorted = [...list];
+    const viewCount = (v: ChannelVideo) => v.viewCount ?? 0;
+    const likeCount = (v: ChannelVideo) => v.likeCount ?? 0;
+    if (sortValue === "newest") {
+      sorted.sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
+    } else if (sortValue === "oldest") {
+      sorted.sort((a, b) => new Date(a.publishedAt).getTime() - new Date(b.publishedAt).getTime());
+    } else if (sortValue === "most-views") {
+      sorted.sort((a, b) => viewCount(b) - viewCount(a));
+    } else if (sortValue === "most-likes") {
+      sorted.sort((a, b) => likeCount(b) - likeCount(a));
+    }
+    return sorted;
+  }, [videos, searchQuery, filterValue, sortValue]);
+
+  const youtubeStyleExtract = useYouTubeStyleExtract(filteredAndSortedVideos);
   const handleExtractAndOpenEditor = useCallback(async () => {
     const style = await youtubeStyleExtract.handleExtractStyle();
     if (style && onStyleCreated) {
@@ -115,6 +157,7 @@ export const ChannelImportTab = memo(function ChannelImportTab({
   const hasQuery = inputValue.trim().length > 0;
   const showGrid = videos.length > 0 && !isLoading;
   const showEmptyResult = !isLoading && hasQuery && videos.length === 0 && !error;
+  const showFilteredEmpty = showGrid && filteredAndSortedVideos.length === 0;
 
   return (
     <div className="space-y-6">
@@ -207,8 +250,36 @@ export const ChannelImportTab = memo(function ChannelImportTab({
 
       {showGrid && (
         <>
+          <ViewControls
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            searchPlaceholder="Search videos..."
+            showSearch={true}
+            showFilter={true}
+            filterValue={filterValue}
+            filterOptions={IMPORT_FILTER_OPTIONS}
+            onFilterChange={setFilterValue}
+            showSort={true}
+            sortValue={sortValue}
+            sortOptions={IMPORT_SORT_OPTIONS}
+            onSortChange={setSortValue}
+            showFavorites={false}
+            onRefresh={refetch}
+            isRefreshing={isLoading}
+            showRefresh={true}
+            showAdd={false}
+            className="mb-4"
+          />
+
+          {showFilteredEmpty ? (
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center py-12">
+                <p className="text-muted-foreground">No videos match your search or filter.</p>
+              </CardContent>
+            </Card>
+          ) : (
           <div className="grid w-full gap-3 grid-cols-[repeat(auto-fill,minmax(200px,1fr))]">
-            {videos.map((video: ChannelVideo, index: number) => (
+            {filteredAndSortedVideos.map((video: ChannelVideo, index: number) => (
               <YouTubeVideoCard
                 key={video.videoId}
                 video={{
@@ -225,6 +296,7 @@ export const ChannelImportTab = memo(function ChannelImportTab({
               />
             ))}
           </div>
+          )}
           {hasMore && (
             <div className="flex justify-center pt-4">
               <Button

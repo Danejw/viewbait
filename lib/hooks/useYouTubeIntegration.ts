@@ -59,6 +59,10 @@ export interface YouTubeVideo {
   title: string;
   publishedAt: string;
   thumbnailUrl: string;
+  viewCount?: number;
+  likeCount?: number;
+  /** Duration in seconds. Used to classify Shorts (< 60s). */
+  durationSeconds?: number;
 }
 
 export interface VideoAnalyticsTimeSeries {
@@ -365,14 +369,15 @@ export function useYouTubeIntegration(): UseYouTubeIntegrationReturn {
         }));
       }
     } catch (error) {
-      logClientError(error, {
+      const err = error instanceof Error ? error : new Error(String(error));
+      logClientError(err, {
         operation: "fetch-youtube-videos",
         component: "useYouTubeIntegration",
       });
       setState(prev => ({
         ...prev,
         isRefreshing: false,
-        error: error instanceof Error ? error.message : "Failed to fetch videos",
+        error: err.message,
       }));
     }
   }, [isAuthenticated]);
