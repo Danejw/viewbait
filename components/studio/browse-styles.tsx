@@ -16,6 +16,8 @@ import React, { memo, useState, useCallback } from "react";
 import { RefreshCw, Palette } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { EmptyStateCard } from "@/components/ui/empty-state-card";
+import { getErrorMessage } from "@/lib/utils/error";
 import { BrowseControls } from "./browse-controls";
 import { StyleGrid } from "./style-grid";
 import { usePublicStyles } from "@/lib/hooks/usePublicContent";
@@ -129,7 +131,7 @@ export const BrowseStyles = memo(function BrowseStyles({
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <p className="text-destructive">
-              {error instanceof Error ? error.message : "Failed to load styles"}
+              {getErrorMessage(error, "Failed to load styles")}
             </p>
             <Button variant="outline" onClick={handleRefresh} className="mt-4">
               <RefreshCw className="mr-2 h-4 w-4" />
@@ -157,16 +159,14 @@ export const BrowseStyles = memo(function BrowseStyles({
 
       {/* Empty state */}
       {!isLoading && styles.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <Palette className="mb-4 h-12 w-12 text-muted-foreground" />
-            <p className="text-muted-foreground">
-              {searchQuery
-                ? "No styles match your search"
-                : "No public styles available"}
-            </p>
-          </CardContent>
-        </Card>
+        <EmptyStateCard
+          icon={<Palette />}
+          title={
+            searchQuery
+              ? "No styles match your search"
+              : "No public styles available"
+          }
+        />
       ) : (
         <StyleGrid
           styles={styles}

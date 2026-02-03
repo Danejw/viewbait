@@ -15,6 +15,7 @@ import { PaletteCardManage, PaletteCardManageSkeleton } from "./palette-card-man
 import { PaletteEditor } from "@/components/studio/palette-editor";
 import { ViewControls, ViewHeader, type FilterOption, type SortOption, DEFAULT_SORT_OPTIONS } from "@/components/studio/view-controls";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmptyStateCard } from "@/components/ui/empty-state-card";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -26,7 +27,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Grid3x3, FolderOpen, FolderKanban, Lock, Palette, Droplets, User, Youtube, RefreshCw, ChevronDown, Plus, Trash2, ImageIcon } from "lucide-react";
+import { Grid3x3, FolderOpen, FolderKanban, Lock, Palette, Droplets, User, Youtube, RefreshCw, Plus, Trash2, ImageIcon } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BrowseThumbnails } from "./browse-thumbnails";
 import { BrowseStyles } from "@/components/studio/browse-styles";
@@ -42,6 +43,7 @@ import type { DbFace, DbStyle, DbPalette, DbProject, StyleInsert, StyleUpdate, P
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useSubscription } from "@/lib/hooks/useSubscription";
 import { ViewBaitLogo } from "@/components/ui/viewbait-logo";
+import { LoadMoreButton } from "@/components/studio/load-more-button";
 import SubscriptionModal from "@/components/subscription-modal";
 import { useYouTubeIntegration } from "@/lib/hooks/useYouTubeIntegration";
 import { YouTubeVideoCard, YouTubeVideoCardSkeleton } from "@/components/studio/youtube-video-card";
@@ -264,28 +266,12 @@ export const StudioViewGallery = memo(function StudioViewGallery() {
             showEmptySlots={false}
           />
 
-          {/* Load more */}
           {hasNextPage && (
-            <div className="mt-6 flex justify-center">
-              <Button
-                variant="outline"
-                onClick={() => fetchNextPage()}
-                disabled={isFetchingNextPage}
-                className="gap-2"
-              >
-                {isFetchingNextPage ? (
-                  <>
-                    <ViewBaitLogo className="h-4 w-4 animate-spin" />
-                    Loading...
-                  </>
-                ) : (
-                  <>
-                    <ChevronDown className="h-4 w-4" />
-                    Load More
-                  </>
-                )}
-              </Button>
-            </div>
+            <LoadMoreButton
+              onLoadMore={() => fetchNextPage()}
+              loading={isFetchingNextPage}
+              className="mt-6"
+            />
           )}
         </>
       )}
@@ -782,58 +768,42 @@ export const StudioViewStyles = memo(function StudioViewStyles() {
           ))}
         </div>
       ) : filteredStyles.length === 0 ? (
-        // Empty state
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <Palette className="mb-4 h-12 w-12 text-muted-foreground" />
-            <h3 className="mb-2 text-lg font-medium">
-              {searchQuery
-                ? "No styles match your search"
-                : favoritesOnly
-                ? "No favorite styles"
-                : filter === "all"
-                ? "No styles saved yet"
-                : filter === "mine"
-                ? "You haven't created any styles"
-                : filter === "defaults"
-                ? "No default styles available"
-                : "No public styles found"}
-            </h3>
-            <p className="mb-4 max-w-sm text-center text-muted-foreground">
-              {searchQuery
-                ? "Try adjusting your search or clear filters."
-                : favoritesOnly
-                ? "Mark some styles as favorites to see them here."
-                : filter === "all" || filter === "mine"
-                ? "Create visual styles to maintain consistency across your thumbnails. Upload reference images and let AI analyze the style."
-                : "Browse other filter options to find styles."}
-            </p>
-            {!searchQuery && !favoritesOnly && (filter === "all" || filter === "mine") && (
-              <div className="flex flex-wrap items-center justify-center gap-2">
-                <Button
-                  onClick={canCreateCustomAssets() ? handleAddNew : undefined}
-                  disabled={!canCreateCustomAssets()}
-                  className="gap-2"
-                >
-                  {!canCreateCustomAssets() && <Lock className="h-4 w-4 shrink-0" />}
-                  <Plus className="h-4 w-4" />
-                  Create Your First Style
-                </Button>
-                {!canCreateCustomAssets() && (
-                  <Button
-                    type="button"
-                    variant="link"
-                    size="sm"
-                    className="h-auto p-0 text-primary"
-                    onClick={() => setSubscriptionModalOpen(true)}
-                  >
-                    Upgrade to unlock
-                  </Button>
-                )}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        <EmptyStateCard
+          icon={<Palette />}
+          title={
+            searchQuery
+              ? "No styles match your search"
+              : favoritesOnly
+              ? "No favorite styles"
+              : filter === "all"
+              ? "No styles saved yet"
+              : filter === "mine"
+              ? "You haven't created any styles"
+              : filter === "defaults"
+              ? "No default styles available"
+              : "No public styles found"
+          }
+          description={
+            searchQuery
+              ? "Try adjusting your search or clear filters."
+              : favoritesOnly
+              ? "Mark some styles as favorites to see them here."
+              : filter === "all" || filter === "mine"
+              ? "Create visual styles to maintain consistency across your thumbnails. Upload reference images and let AI analyze the style."
+              : "Browse other filter options to find styles."
+          }
+          primaryAction={
+            !searchQuery && !favoritesOnly && (filter === "all" || filter === "mine")
+              ? {
+                  label: "Create Your First Style",
+                  onClick: handleAddNew,
+                  disabled: !canCreateCustomAssets(),
+                  showLock: !canCreateCustomAssets(),
+                }
+              : undefined
+          }
+          onUpgradeClick={!canCreateCustomAssets() ? () => setSubscriptionModalOpen(true) : undefined}
+        />
       ) : (
         // Styles grid
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -1224,57 +1194,42 @@ export const StudioViewPalettes = memo(function StudioViewPalettes() {
           ))}
         </div>
       ) : (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <Droplets className="mb-4 h-12 w-12 text-muted-foreground" />
-            <h3 className="mb-2 text-lg font-medium">
-              {searchQuery
-                ? "No palettes match your search"
-                : favoritesOnly
-                ? "No favorite palettes"
-                : filter === "all"
-                ? "No palettes yet"
-                : filter === "mine"
-                ? "No custom palettes yet"
-                : filter === "defaults"
-                ? "No default palettes"
-                : "No public palettes"}
-            </h3>
-            <p className="mb-4 max-w-sm text-center text-muted-foreground">
-              {searchQuery
-                ? "Try adjusting your search or clear filters."
-                : favoritesOnly
-                ? "Mark some palettes as favorites to see them here."
-                : filter === "all" || filter === "mine"
-                ? "Create color palettes to maintain consistency across your thumbnails."
-                : "Browse other filter options to find palettes."}
-            </p>
-            {!searchQuery && !favoritesOnly && (filter === "all" || filter === "mine") && (
-              <div className="flex flex-wrap items-center justify-center gap-2">
-                <Button
-                  onClick={canCreateCustomAssets() ? handleAddNew : undefined}
-                  disabled={!canCreateCustomAssets()}
-                  className="gap-2"
-                >
-                  {!canCreateCustomAssets() && <Lock className="h-4 w-4 shrink-0" />}
-                  <Plus className="h-4 w-4" />
-                  Create Your First Palette
-                </Button>
-                {!canCreateCustomAssets() && (
-                  <Button
-                    type="button"
-                    variant="link"
-                    size="sm"
-                    className="h-auto p-0 text-primary"
-                    onClick={() => setSubscriptionModalOpen(true)}
-                  >
-                    Upgrade to unlock
-                  </Button>
-                )}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        <EmptyStateCard
+          icon={<Droplets />}
+          title={
+            searchQuery
+              ? "No palettes match your search"
+              : favoritesOnly
+              ? "No favorite palettes"
+              : filter === "all"
+              ? "No palettes yet"
+              : filter === "mine"
+              ? "No custom palettes yet"
+              : filter === "defaults"
+              ? "No default palettes"
+              : "No public palettes"
+          }
+          description={
+            searchQuery
+              ? "Try adjusting your search or clear filters."
+              : favoritesOnly
+              ? "Mark some palettes as favorites to see them here."
+              : filter === "all" || filter === "mine"
+              ? "Create color palettes to maintain consistency across your thumbnails."
+              : "Browse other filter options to find palettes."
+          }
+          primaryAction={
+            !searchQuery && !favoritesOnly && (filter === "all" || filter === "mine")
+              ? {
+                  label: "Create Your First Palette",
+                  onClick: handleAddNew,
+                  disabled: !canCreateCustomAssets(),
+                  showLock: !canCreateCustomAssets(),
+                }
+              : undefined
+          }
+          onUpgradeClick={!canCreateCustomAssets() ? () => setSubscriptionModalOpen(true) : undefined}
+        />
       )}
 
       {/* Palette Editor Modal */}
@@ -1556,44 +1511,26 @@ export const StudioViewFaces = memo(function StudioViewFaces() {
           ))}
         </div>
       ) : faces.length === 0 ? (
-        // Empty state
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <User className="mb-4 h-12 w-12 text-muted-foreground" />
-            <h3 className="mb-2 text-lg font-medium">
-              {searchQuery ? "No faces match your search" : "No faces saved yet"}
-            </h3>
-            <p className="mb-4 max-w-sm text-center text-muted-foreground">
-              {searchQuery
-                ? "Try adjusting your search."
-                : "Add face references to maintain consistent character appearances in your generated thumbnails."}
-            </p>
-            {!searchQuery && (
-              <div className="flex flex-wrap items-center justify-center gap-2">
-                <Button
-                  onClick={canCreateCustomAssets() ? handleAddNew : undefined}
-                  disabled={!canCreateCustomAssets()}
-                  className="gap-2"
-                >
-                  {!canCreateCustomAssets() && <Lock className="h-4 w-4 shrink-0" />}
-                  <Plus className="h-4 w-4" />
-                  Add Your First Face
-                </Button>
-                {!canCreateCustomAssets() && (
-                  <Button
-                    type="button"
-                    variant="link"
-                    size="sm"
-                    className="h-auto p-0 text-primary"
-                    onClick={() => setSubscriptionModalOpen(true)}
-                  >
-                    Upgrade to unlock
-                  </Button>
-                )}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        <EmptyStateCard
+          icon={<User />}
+          title={searchQuery ? "No faces match your search" : "No faces saved yet"}
+          description={
+            searchQuery
+              ? "Try adjusting your search."
+              : "Add face references to maintain consistent character appearances in your generated thumbnails."
+          }
+          primaryAction={
+            !searchQuery
+              ? {
+                  label: "Add Your First Face",
+                  onClick: handleAddNew,
+                  disabled: !canCreateCustomAssets(),
+                  showLock: !canCreateCustomAssets(),
+                }
+              : undefined
+          }
+          onUpgradeClick={!canCreateCustomAssets() ? () => setSubscriptionModalOpen(true) : undefined}
+        />
       ) : (
         // Faces grid – FaceThumbnail with thumbnail-card styling and view modal
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">

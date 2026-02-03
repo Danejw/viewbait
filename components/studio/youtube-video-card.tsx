@@ -28,6 +28,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import { formatCompactNumber } from "@/lib/utils/format";
 import { useIntersectionObserver } from "@/lib/hooks/useIntersectionObserver";
 import { ActionBarIcon, ActionButton } from "@/components/studio/action-bar-icon";
 import { ViewBaitLogo } from "@/components/ui/viewbait-logo";
@@ -43,13 +44,6 @@ export interface YouTubeVideoCardVideo {
   /** Optional stats (e.g. from channel-videos proxy) */
   viewCount?: number;
   likeCount?: number;
-}
-
-/** Format large numbers for display (e.g. 1200 -> 1.2K, 1500000 -> 1.5M). */
-function formatCount(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
-  return String(n);
 }
 
 export interface YouTubeVideoCardProps {
@@ -372,13 +366,13 @@ export const YouTubeVideoCard = memo(function YouTubeVideoCard({
                     {viewCount != null && (
                       <span className="flex items-center gap-1 text-xs text-white drop-shadow-sm">
                         <Eye className="h-3.5 w-3.5" />
-                        {formatCount(viewCount)}
+                        {formatCompactNumber(viewCount)}
                       </span>
                     )}
                     {likeCount != null && (
                       <span className="flex items-center gap-1 text-xs text-white drop-shadow-sm">
                         <ThumbsUp className="h-3.5 w-3.5" />
-                        {formatCount(likeCount)}
+                        {formatCompactNumber(likeCount)}
                       </span>
                     )}
                   </div>

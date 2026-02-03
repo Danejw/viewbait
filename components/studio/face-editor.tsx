@@ -23,6 +23,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { getErrorMessage } from "@/lib/utils/error";
+import { VALIDATION_NAME_REQUIRED } from "@/lib/constants/validation-messages";
 import type { DbFace } from "@/lib/types/database";
 
 const MAX_IMAGES = 3;
@@ -306,7 +308,7 @@ export function FaceEditor({
   const handleSave = useCallback(async () => {
     const trimmedName = name.trim();
     if (!trimmedName) {
-      setError("Name is required");
+      setError(VALIDATION_NAME_REQUIRED);
       return;
     }
 
@@ -324,7 +326,7 @@ export function FaceEditor({
       await onSave(trimmedName, newFiles, existingUrls);
       onOpenChange(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save face");
+      setError(getErrorMessage(err, "Failed to save face"));
     } finally {
       setIsSaving(false);
     }

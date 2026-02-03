@@ -43,6 +43,8 @@ import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
+import { getErrorMessage } from "@/lib/utils/error";
+import { VALIDATION_NAME_REQUIRED } from "@/lib/constants/validation-messages";
 import type { DbStyle, StyleInsert, StyleUpdate } from "@/lib/types/database";
 import * as stylesService from "@/lib/services/styles";
 
@@ -423,7 +425,7 @@ export function StyleEditor({
       setPrompt(typeof result.prompt === "string" ? result.prompt : "");
       setAnalysisComplete(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Analysis failed");
+      setError(getErrorMessage(err, "Analysis failed"));
     } finally {
       setIsAnalyzing(false);
     }
@@ -460,7 +462,7 @@ export function StyleEditor({
 
       setPreviewUrl(imageUrl);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Preview generation failed");
+      setError(getErrorMessage(err, "Preview generation failed"));
     } finally {
       setIsGeneratingPreview(false);
     }
@@ -472,7 +474,7 @@ export function StyleEditor({
   const handleSave = useCallback(async () => {
     const trimmedName = name.trim();
     if (!trimmedName) {
-      setError("Name is required");
+      setError(VALIDATION_NAME_REQUIRED);
       return;
     }
 
@@ -497,7 +499,7 @@ export function StyleEditor({
       await onSave(data, newFiles, existingUrls, previewUrl);
       onOpenChange(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save style");
+      setError(getErrorMessage(err, "Failed to save style"));
     } finally {
       setIsSaving(false);
     }

@@ -16,10 +16,12 @@
  */
 
 import React, { memo, useState, useCallback } from "react";
-import { RefreshCw, ChevronDown, ImageIcon } from "lucide-react";
+import { RefreshCw, ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { ViewBaitLogo } from "@/components/ui/viewbait-logo";
 import { Card, CardContent } from "@/components/ui/card";
+import { EmptyStateCard } from "@/components/ui/empty-state-card";
+import { LoadMoreButton } from "./load-more-button";
+import { getErrorMessage } from "@/lib/utils/error";
 import { BrowseControls } from "./browse-controls";
 import { ThumbnailGrid } from "./thumbnail-grid";
 import { usePublicThumbnails } from "@/lib/hooks/usePublicContent";
@@ -88,7 +90,7 @@ export const BrowseThumbnails = memo(function BrowseThumbnails() {
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <p className="text-destructive">
-              {error instanceof Error ? error.message : "Failed to load thumbnails"}
+              {getErrorMessage(error, "Failed to load thumbnails")}
             </p>
             <Button variant="outline" onClick={handleRefresh} className="mt-4">
               <RefreshCw className="mr-2 h-4 w-4" />
@@ -116,16 +118,14 @@ export const BrowseThumbnails = memo(function BrowseThumbnails() {
 
       {/* Empty state */}
       {!isLoading && thumbnails.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <ImageIcon className="mb-4 h-12 w-12 text-muted-foreground" />
-            <p className="text-muted-foreground">
-              {searchQuery
-                ? "No thumbnails match your search"
-                : "No public thumbnails available"}
-            </p>
-          </CardContent>
-        </Card>
+        <EmptyStateCard
+          icon={<ImageIcon />}
+          title={
+            searchQuery
+              ? "No thumbnails match your search"
+              : "No public thumbnails available"
+          }
+        />
       ) : (
         <>
           {/* Thumbnail grid - ThumbnailCard handles all actions via context */}
@@ -136,28 +136,11 @@ export const BrowseThumbnails = memo(function BrowseThumbnails() {
             showEmptySlots={false}
           />
 
-          {/* Load more */}
           {hasNextPage && (
-            <div className="flex justify-center pt-4">
-              <Button
-                variant="outline"
-                onClick={() => fetchNextPage()}
-                disabled={isFetchingNextPage}
-                className="gap-2"
-              >
-                {isFetchingNextPage ? (
-                  <>
-                    <ViewBaitLogo className="h-4 w-4 animate-spin" />
-                    Loading...
-                  </>
-                ) : (
-                  <>
-                    <ChevronDown className="h-4 w-4" />
-                    Load More
-                  </>
-                )}
-              </Button>
-            </div>
+            <LoadMoreButton
+              onLoadMore={() => fetchNextPage()}
+              loading={isFetchingNextPage}
+            />
           )}
         </>
       )}

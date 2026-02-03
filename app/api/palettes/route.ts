@@ -20,6 +20,7 @@ import {
 } from '@/lib/server/utils/error-handler'
 import { handleApiError } from '@/lib/server/utils/api-helpers'
 import { getTierForUser } from '@/lib/server/utils/tier'
+import { VALIDATION_NAME_REQUIRED } from '@/lib/constants/validation-messages'
 
 // Cache GET responses for 60 seconds (ISR)
 // POST requests remain dynamic (not cached)
@@ -151,7 +152,7 @@ export async function POST(request: Request) {
     
     // Validate required fields
     if (!body.name || !body.name.trim()) {
-      return validationErrorResponse('Name is required')
+      return validationErrorResponse(VALIDATION_NAME_REQUIRED)
     }
 
     if (!body.colors || !Array.isArray(body.colors) || body.colors.length === 0) {

@@ -16,6 +16,8 @@ import React, { memo, useState, useCallback } from "react";
 import { RefreshCw, Droplets } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { EmptyStateCard } from "@/components/ui/empty-state-card";
+import { getErrorMessage } from "@/lib/utils/error";
 import { BrowseControls } from "./browse-controls";
 import { PaletteGrid } from "./palette-grid";
 import { usePublicPalettes } from "@/lib/hooks/usePublicContent";
@@ -127,7 +129,7 @@ export const BrowsePalettes = memo(function BrowsePalettes({
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <p className="text-destructive">
-              {error instanceof Error ? error.message : "Failed to load palettes"}
+              {getErrorMessage(error, "Failed to load palettes")}
             </p>
             <Button variant="outline" onClick={handleRefresh} className="mt-4">
               <RefreshCw className="mr-2 h-4 w-4" />
@@ -155,16 +157,14 @@ export const BrowsePalettes = memo(function BrowsePalettes({
 
       {/* Empty state */}
       {!isLoading && palettes.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <Droplets className="mb-4 h-12 w-12 text-muted-foreground" />
-            <p className="text-muted-foreground">
-              {searchQuery
-                ? "No palettes match your search"
-                : "No public palettes available"}
-            </p>
-          </CardContent>
-        </Card>
+        <EmptyStateCard
+          icon={<Droplets />}
+          title={
+            searchQuery
+              ? "No palettes match your search"
+              : "No public palettes available"
+          }
+        />
       ) : (
         <PaletteGrid
           palettes={palettes}

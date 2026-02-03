@@ -15,6 +15,7 @@ import {
 } from '@/lib/server/utils/error-handler'
 import { handleApiError } from '@/lib/server/utils/api-helpers'
 import { getTierForUser } from '@/lib/server/utils/tier'
+import { VALIDATION_NAME_REQUIRED } from '@/lib/constants/validation-messages'
 import { createCachedResponse } from '@/lib/server/utils/cache-headers'
 import { logError } from '@/lib/server/utils/logger'
 import { NextResponse } from 'next/server'
@@ -80,7 +81,7 @@ export async function POST(request: Request) {
     
     // Validate required fields
     if (!body.name || !body.name.trim()) {
-      return validationErrorResponse('Name is required')
+      return validationErrorResponse(VALIDATION_NAME_REQUIRED)
     }
 
     // Ensure user_id matches authenticated user

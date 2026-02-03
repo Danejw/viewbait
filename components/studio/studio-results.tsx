@@ -6,9 +6,10 @@ import { ThumbnailGrid } from "./thumbnail-grid";
 import type { Thumbnail } from "@/lib/types/database";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { AlertCircle, RefreshCw, ChevronDown } from "lucide-react";
+import { AlertCircle, RefreshCw } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ViewBaitLogo } from "@/components/ui/viewbait-logo";
+import { LoadMoreButton } from "@/components/studio/load-more-button";
 
 /**
  * StudioResultsHeader
@@ -85,26 +86,11 @@ export const StudioResultsLoadMore = memo(function StudioResultsLoadMore() {
   if (!hasNextPage) return null;
 
   return (
-    <div className="mt-6 flex justify-center">
-      <Button
-        variant="outline"
-        onClick={() => fetchNextPage()}
-        disabled={isFetchingNextPage}
-        className="gap-2"
-      >
-        {isFetchingNextPage ? (
-          <>
-            <ViewBaitLogo className="h-4 w-4 animate-spin" />
-            Loading...
-          </>
-        ) : (
-          <>
-            <ChevronDown className="h-4 w-4" />
-            Load More
-          </>
-        )}
-      </Button>
-    </div>
+    <LoadMoreButton
+      onLoadMore={() => fetchNextPage()}
+      loading={isFetchingNextPage}
+      className="mt-6"
+    />
   );
 });
 

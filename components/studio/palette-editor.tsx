@@ -40,6 +40,8 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
+import { getErrorMessage } from "@/lib/utils/error";
+import { VALIDATION_NAME_REQUIRED } from "@/lib/constants/validation-messages";
 import type { DbPalette, PaletteInsert, PaletteUpdate } from "@/lib/types/database";
 import * as palettesService from "@/lib/services/palettes";
 
@@ -523,7 +525,7 @@ export function PaletteEditor({
       }
       setAnalysisComplete(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Analysis failed");
+      setError(getErrorMessage(err, "Analysis failed"));
     } finally {
       setIsAnalyzing(false);
     }
@@ -535,7 +537,7 @@ export function PaletteEditor({
   const handleSave = useCallback(async () => {
     const trimmedName = name.trim();
     if (!trimmedName) {
-      setError("Name is required");
+      setError(VALIDATION_NAME_REQUIRED);
       return;
     }
 
@@ -563,7 +565,7 @@ export function PaletteEditor({
       await onSave(data);
       onOpenChange(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save palette");
+      setError(getErrorMessage(err, "Failed to save palette"));
     } finally {
       setIsSaving(false);
     }
