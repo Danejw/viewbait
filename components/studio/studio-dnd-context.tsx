@@ -25,9 +25,11 @@ import {
   PointerSensor,
   KeyboardSensor,
   TouchSensor,
+  pointerWithin,
 } from "@dnd-kit/core";
 import { useStudio } from "./studio-provider";
 import { DragOverlayPreview } from "./drag-overlay-preview";
+import { useChatDropHandler } from "./chat-drop-handler-context";
 import type { DbStyle, DbPalette, DbFace, PublicStyle, PublicPalette, Thumbnail } from "@/lib/types/database";
 
 /**
@@ -58,6 +60,7 @@ export const DROP_ZONE_IDS = {
   PALETTE: "palette-drop-zone",
   FACES: "faces-drop-zone",
   STYLE_REFERENCES: "style-references-drop-zone",
+  CHAT_INPUT: "chat-input-drop-zone",
 } as const;
 
 interface StudioDndContextProps {
@@ -72,6 +75,7 @@ interface StudioDndContextProps {
  */
 export function StudioDndContext({ children }: StudioDndContextProps) {
   const { actions } = useStudio();
+  const chatDropHandlerRef = useChatDropHandler();
   const [activeData, setActiveData] = useState<DragData | null>(null);
 
   // Configure sensors for mouse, touch, and keyboard
@@ -171,7 +175,29 @@ export function StudioDndContext({ children }: StudioDndContextProps) {
       actions.closeSnapshotViewModal();
       return;
     }
-  }, [actions]);
+
+    // Handle drop on chat input: add as attachment for chat reference (style, face, thumbnail, snapshot only)
+    if (overId === DROP_ZONE_IDS.CHAT_INPUT) {
+      const handler = chatDropHandlerRef?.current;
+      if (!handler) return;
+      if (data.type === "style") {
+        const item = data.item as DbStyle | PublicStyle;
+        const imageUrl = item.preview_thumbnail_url;
+        if (imageUrl) handler({ type: "style", imageUrl });
+      } else if (data.type === "face") {
+        const item = data.item as DbFace;
+        const imageUrl = item.image_urls?.[0];
+        if (imageUrl) handler({ type: "face", imageUrl });
+      } else if (data.type === "thumbnail") {
+        const item = data.item as Thumbnail;
+        const imageUrl = data.imageUrl ?? item.imageUrl;
+        if (imageUrl) handler({ type: "thumbnail", imageUrl });
+      } else if (data.type === "snapshot" && data.blob) {
+        handler({ type: "snapshot", blob: data.blob });
+      }
+      return;
+    }
+  }, [actions, chatDropHandlerRef]);
 
   /**
    * Handle drag cancel - clear active data
@@ -183,6 +209,7 @@ export function StudioDndContext({ children }: StudioDndContextProps) {
   return (
     <DndContext
       sensors={sensors}
+      collisionDetection={pointerWithin}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
       onDragCancel={handleDragCancel}

@@ -1,16 +1,22 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
+import { useDroppable } from "@dnd-kit/core";
 import { MessageSquare, Send, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CloseButton } from "@/components/ui/close-button";
 import { Input } from "@/components/ui/input";
 import { useStudio } from "./studio-provider";
 import { useStyles } from "@/lib/hooks/useStyles";
+import type { YouTubeVideoAnalytics } from "@/lib/services/youtube-video-analyze";
 import { usePalettes } from "@/lib/hooks/usePalettes";
+import { useSubscription } from "@/lib/hooks/useSubscription";
+import SubscriptionModal from "@/components/subscription-modal";
 import { ChatMessage } from "./chat-message";
 import { ThinkingMessage, type ThinkingState } from "./thinking-message";
 import { DynamicUIRenderer, type UIComponentName } from "./dynamic-ui-renderer";
+import { DROP_ZONE_IDS } from "./studio-dnd-context";
+import { useChatDropHandler, type ChatDropPayload } from "./chat-drop-handler-context";
 import { cn } from "@/lib/utils";
 import { getItemSafe, setItemWithCap } from "@/lib/utils/safe-storage";
 
@@ -38,6 +44,40 @@ function readFileAsDataUrl(file: File): Promise<string> {
   });
 }
 
+function readBlobAsDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(blob);
+  });
+}
+
+/** Convert a blob to AttachedImage; returns null if too large or parse fails. */
+async function blobToAttachedImage(blob: Blob): Promise<AttachedImage | null> {
+  if (blob.size > MAX_IMAGE_SIZE_BYTES) return null;
+  const mime = blob.type && ALLOWED_IMAGE_TYPES.includes(blob.type) ? blob.type : "image/png";
+  const dataUrl = await readBlobAsDataUrl(blob);
+  const parsed = parseDataUrl(dataUrl);
+  if (!parsed) return null;
+  return { ...parsed, mimeType: parsed.mimeType || mime };
+}
+
+/** Fetch image via same-origin proxy (avoids CORS) and convert to AttachedImage; returns null on failure. */
+async function urlToAttachedImage(imageUrl: string): Promise<AttachedImage | null> {
+  try {
+    const proxyUrl = `/api/proxy-image?url=${encodeURIComponent(imageUrl)}`;
+    const res = await fetch(proxyUrl);
+    if (!res.ok) return null;
+    const json = (await res.json()) as { data?: string; mimeType?: string };
+    if (!json.data || !json.mimeType) return null;
+    const mime = ALLOWED_IMAGE_TYPES.includes(json.mimeType) ? json.mimeType : "image/png";
+    return { data: json.data, mimeType: mime };
+  } catch {
+    return null;
+  }
+}
+
 const WELCOME_MESSAGE: ChatPanelMessage = {
   role: "assistant",
   content:
@@ -51,6 +91,8 @@ export interface ChatPanelMessage {
   timestamp?: Date;
   uiComponents?: UIComponentName[];
   suggestions?: string[];
+  /** When true, show "Upgrade to Pro" chip that opens subscription modal. Persisted in chat history. */
+  offerUpgrade?: boolean;
   /** Attached images for user messages; shown above the bubble. Not persisted to storage. */
   attachedImages?: Array<{ data: string; mimeType: string }>;
 }
@@ -67,11 +109,13 @@ function loadHistoryFromStorage(): ChatPanelMessage[] {
       timestamp?: string;
       uiComponents?: UIComponentName[];
       suggestions?: string[];
+      offerUpgrade?: boolean;
     }>;
     if (!Array.isArray(parsed)) return [WELCOME_MESSAGE];
     return parsed.map((m) => ({
       ...m,
       timestamp: m.timestamp ? new Date(m.timestamp) : undefined,
+      offerUpgrade: !!m.offerUpgrade,
     }));
   } catch {
     return [WELCOME_MESSAGE];
@@ -130,10 +174,10 @@ export function StudioChatPanel() {
       variations,
       customInstructions,
     },
-    actions: { applyFormStateUpdates, resetChat },
+    actions: { applyFormStateUpdates, resetChat, openVideoAnalyticsWithResult },
   } = useStudio();
 
-  const { styles, defaultStyles } = useStyles({ autoFetch: true });
+  const { styles, defaultStyles, refresh: refreshStyles } = useStyles({ autoFetch: true });
   const { palettes, defaultPalettes } = usePalettes({ includeDefaults: true, autoFetch: true });
 
   const [messages, setMessages] = useState<ChatPanelMessage[]>(() => {
@@ -152,10 +196,50 @@ export function StudioChatPanel() {
   const [error, setError] = useState<string | null>(null);
   const [thinkingState, setThinkingState] = useState<ThinkingState | null>(null);
   const [isThinkingExpanded, setIsThinkingExpanded] = useState(true);
+  const [subscriptionModalOpen, setSubscriptionModalOpen] = useState(false);
 
+  const { tier, productId } = useSubscription();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const isInitializedRef = useRef(false);
+  const chatDropHandlerRef = useChatDropHandler();
+
+  const { setNodeRef: setChatInputDropRef, isOver: isChatInputDropOver } = useDroppable({
+    id: DROP_ZONE_IDS.CHAT_INPUT,
+  });
+
+  const handleChatDrop = useCallback(
+    async (payload: { type: string; imageUrl?: string; blob?: Blob }) => {
+      if (isLoading) return;
+      setError(null);
+      let img: AttachedImage | null = null;
+      try {
+        if (payload.blob) {
+          img = await blobToAttachedImage(payload.blob);
+        } else if (payload.imageUrl) {
+          img = await urlToAttachedImage(payload.imageUrl);
+        }
+        if (!img) {
+          setError("Couldn't add image as reference");
+          return;
+        }
+        setAttachedImages((prev) =>
+          [...prev, img!].slice(0, MAX_ATTACHED_IMAGES)
+        );
+      } catch {
+        setError("Couldn't add image as reference");
+      }
+    },
+    [isLoading]
+  );
+
+  useEffect(() => {
+    if (!chatDropHandlerRef) return;
+    chatDropHandlerRef.current = handleChatDrop;
+    return () => {
+      chatDropHandlerRef.current = null;
+    };
+  }, [chatDropHandlerRef, handleChatDrop]);
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -349,12 +433,23 @@ export function StudioChatPanel() {
                   }
                   applyFormStateUpdates(updates);
                 }
+                if (data.youtube_analytics) {
+                  const { videoId, title, thumbnailUrl, analytics } = data.youtube_analytics;
+                  openVideoAnalyticsWithResult(
+                    { videoId, title, thumbnailUrl },
+                    analytics as YouTubeVideoAnalytics
+                  );
+                }
+                if (data.youtube_extract_style && refreshStyles) {
+                  void refreshStyles();
+                }
                 const assistantMessage: ChatPanelMessage = {
                   role: "assistant",
                   content: data.human_readable_message ?? "",
                   timestamp: new Date(),
                   uiComponents: Array.isArray(data.ui_components) ? data.ui_components : [],
                   suggestions: Array.isArray(data.suggestions) ? data.suggestions : [],
+                  offerUpgrade: !!data.offer_upgrade,
                 };
                 setMessages((prev) => [...prev, assistantMessage]);
                 setThinkingState(null);
@@ -400,6 +495,8 @@ export function StudioChatPanel() {
     availableStyles,
     availablePalettes,
     applyFormStateUpdates,
+    openVideoAnalyticsWithResult,
+    refreshStyles,
   ]);
 
   const handleKeyDown = useCallback(
@@ -489,9 +586,9 @@ export function StudioChatPanel() {
             />
             {msg.role === "assistant" && (
               <>
-                {msg.suggestions && msg.suggestions.length > 0 && (
+                {(msg.suggestions?.length > 0 || msg.offerUpgrade) && (
                   <div className="mt-2 flex flex-wrap gap-1">
-                    {msg.suggestions.map((s, i) => (
+                    {msg.suggestions?.map((s, i) => (
                       <Button
                         key={i}
                         variant="suggestion"
@@ -502,6 +599,16 @@ export function StudioChatPanel() {
                         {s}
                       </Button>
                     ))}
+                    {msg.offerUpgrade && (
+                      <Button
+                        variant="default"
+                        size="sm"
+                        className="text-xs"
+                        onClick={() => setSubscriptionModalOpen(true)}
+                      >
+                        Upgrade to Pro
+                      </Button>
+                    )}
                   </div>
                 )}
                 {msg.uiComponents && msg.uiComponents.length > 0 && (
@@ -549,9 +656,10 @@ export function StudioChatPanel() {
           </div>
         )}
         <div
+          ref={setChatInputDropRef}
           className={cn(
             "flex gap-2 rounded-md border border-transparent p-0 transition-colors",
-            isDragging && "border-primary bg-muted/50"
+            (isDragging || isChatInputDropOver) && "border-primary bg-muted/50"
           )}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
@@ -576,6 +684,12 @@ export function StudioChatPanel() {
           </Button>
         </div>
       </div>
+      <SubscriptionModal
+        isOpen={subscriptionModalOpen}
+        onClose={() => setSubscriptionModalOpen(false)}
+        currentTier={tier}
+        currentProductId={productId}
+      />
     </div>
   );
 }

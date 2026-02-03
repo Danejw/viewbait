@@ -2187,6 +2187,7 @@ export function StudioViewYouTube() {
                         priority={index < 6}
                         selected={youtubeStyleExtract.selectedVideoIds.has(video.videoId)}
                         onToggleSelect={youtubeStyleExtract.toggleSelectVideo}
+                        channel={channel ? { title: channel.title, description: channel.description } : null}
                       />
                     ))}
                   </div>

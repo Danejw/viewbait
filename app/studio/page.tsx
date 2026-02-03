@@ -11,6 +11,7 @@ import {
   StudioSettingsSidebar,
   StudioMobileFloatingNav,
 } from "@/components/studio";
+import { ChatDropHandlerProvider } from "@/components/studio/chat-drop-handler-context";
 import { StudioDndContext } from "@/components/studio/studio-dnd-context";
 import { ProcessCheckoutOnReturn } from "@/components/studio/process-checkout-return";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -58,12 +59,14 @@ function StudioPageContent() {
 export default function StudioPage() {
   return (
     <StudioProvider>
-      <StudioDndContext>
-        <Suspense fallback={null}>
-          <ProcessCheckoutOnReturn />
-        </Suspense>
-        <StudioPageContent />
-      </StudioDndContext>
+      <ChatDropHandlerProvider>
+        <StudioDndContext>
+          <Suspense fallback={null}>
+            <ProcessCheckoutOnReturn />
+          </Suspense>
+          <StudioPageContent />
+        </StudioDndContext>
+      </ChatDropHandlerProvider>
     </StudioProvider>
   );
 }

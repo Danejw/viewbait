@@ -8,8 +8,6 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
-import { callGeminiWithFunctionCalling } from '@/lib/services/ai-core'
-import { fetchImageAsBase64 } from '@/lib/utils/ai-helpers'
 import { requireAuth } from '@/lib/server/utils/auth'
 import {
   validationErrorResponse,
@@ -19,11 +17,12 @@ import {
   tierLimitResponse,
 } from '@/lib/server/utils/error-handler'
 import { getTierForUser } from '@/lib/server/utils/tier'
-import { SIGNED_URL_EXPIRY_ONE_YEAR_SECONDS } from '@/lib/server/utils/url-refresh'
 import { logError } from '@/lib/server/utils/logger'
-
-const MIN_IMAGES = 2
-const MAX_IMAGES = 10
+import {
+  extractStyleFromImageUrls,
+  MIN_IMAGES,
+  MAX_IMAGES,
+} from '@/lib/server/styles/extract-style-from-images'
 
 export interface ExtractFromYouTubeRequest {
   imageUrls: string[]
@@ -56,134 +55,33 @@ export async function POST(request: Request) {
       return configErrorResponse('AI service not configured')
     }
 
-    // 1. Fetch each URL as base64
-    const imagePayloads: Array<{ data: string; mimeType: string }> = []
-    for (let i = 0; i < imageUrls.length; i++) {
-      const payload = await fetchImageAsBase64(imageUrls[i])
-      if (!payload) {
-        return validationErrorResponse(`Failed to fetch image ${i + 1}. Check that the URL is accessible.`)
-      }
-      imagePayloads.push(payload)
-    }
-
-    // 2. Upload each image to style-references and collect signed URLs
-    const tempId = crypto.randomUUID()
-    const referenceImages: string[] = []
-
-    for (let i = 0; i < imagePayloads.length; i++) {
-      const payload = imagePayloads[i]
-      const ext = payload.mimeType === 'image/png' ? 'png' : 'jpg'
-      const storagePath = `${user.id}/${tempId}-${i}.${ext}`
-
-      const buffer = Buffer.from(payload.data, 'base64')
-      const { error: uploadError } = await supabase.storage
-        .from('style-references')
-        .upload(storagePath, buffer, {
-          cacheControl: '3600',
-          upsert: true,
-          contentType: payload.mimeType,
-        })
-
-      if (uploadError) {
-        logError(uploadError, {
-          route: 'POST /api/styles/extract-from-youtube',
-          userId: user.id,
-          operation: 'upload-thumbnail',
-          index: i,
-        })
-        return NextResponse.json(
-          { error: `Failed to save image ${i + 1}`, code: 'UPLOAD_ERROR' },
-          { status: 500 }
-        )
-      }
-
-      const { data: urlData } = await supabase.storage
-        .from('style-references')
-        .createSignedUrl(storagePath, SIGNED_URL_EXPIRY_ONE_YEAR_SECONDS)
-
-      if (urlData?.signedUrl) {
-        referenceImages.push(urlData.signedUrl)
-      } else {
-        referenceImages.push(`${storagePath}`)
-      }
-    }
-
-    // 3. Call Gemini with all images and multi-image "common style" prompt
-    const toolDefinition = {
-      name: 'extract_style_info',
-      description: 'Extract structured style information from the common visual style across the images',
-      parameters: {
-        type: 'object',
-        properties: {
-          name: {
-            type: 'string',
-            description:
-              'A catchy, memorable style name (2-4 words) like "Neon Cyberpunk", "Vintage Film Noir", "Bold Pop Art"',
-          },
-          description: {
-            type: 'string',
-            description: 'A brief 1-2 sentence description of what makes this style distinctive',
-          },
-          prompt: {
-            type: 'string',
-            description:
-              'A detailed generation prompt (100-200 words) describing the visual style for AI image generation, including colors, lighting, effects, composition, and mood',
-          },
-        },
-        required: ['name', 'description', 'prompt'],
-      },
-    }
-
-    const userPrompt = `You are an expert visual style analyst for thumbnails. I am providing ${imagePayloads.length} thumbnail images. Your task is to analyze them together and extract the COMMON visual style across all of them.
-
-Identify shared characteristics across these images:
-- Color palette and color grading
-- Lighting style (dramatic, soft, neon, natural)
-- Composition techniques
-- Typography/text treatment if visible (describe the styling, not the actual words)
-- Special effects (blur, glow, grain, gradients, etc.)
-- Overall mood and energy
-
-Produce a SINGLE style that captures what these thumbnails have in common:
-1. A catchy, memorable style name (2-4 words)
-2. A brief description (1-2 sentences) of what makes this style distinctive
-3. A detailed generation prompt (100-200 words) that would allow an AI to recreate this visual style for thumbnails
-
-Keep the description concise. DO NOT mention "YouTube". Start the description with "This style is a" and then describe the style.
-
-You MUST call the extract_style_info function with your analysis.`
-
-    let raw
-    try {
-      raw = await callGeminiWithFunctionCalling(
-        null,
-        userPrompt,
-        imagePayloads,
-        toolDefinition,
-        'extract_style_info',
-        'gemini-2.5-flash'
-      )
-    } catch (error) {
-      return aiServiceErrorResponse(error, 'Failed to extract style', {
-        route: 'POST /api/styles/extract-from-youtube',
-        userId: user.id,
-      })
-    }
-
-    const result = (raw as { functionCallResult?: { name?: string; description?: string; prompt?: string } })
-      .functionCallResult ?? {}
+    const result = await extractStyleFromImageUrls(supabase, user.id, imageUrls)
 
     return NextResponse.json({
-      name: result.name ?? '',
-      description: result.description ?? '',
-      prompt: result.prompt ?? '',
-      reference_images: referenceImages,
+      name: result.name,
+      description: result.description,
+      prompt: result.prompt,
+      reference_images: result.reference_images,
     })
   } catch (error) {
     if (error instanceof NextResponse) {
       return error
     }
-    return serverErrorResponse(error, 'Failed to extract style from YouTube', {
+    if (error instanceof Error) {
+      if (error.message.startsWith('Failed to fetch image')) {
+        return validationErrorResponse(error.message)
+      }
+      if (error.message.startsWith('Failed to save image')) {
+        return NextResponse.json(
+          { error: error.message, code: 'UPLOAD_ERROR' },
+          { status: 500 }
+        )
+      }
+    }
+    logError(error as Error, {
+      route: 'POST /api/styles/extract-from-youtube',
+    })
+    return serverErrorResponse(error as Error, 'Failed to extract style from YouTube', {
       route: 'POST /api/styles/extract-from-youtube',
     })
   }

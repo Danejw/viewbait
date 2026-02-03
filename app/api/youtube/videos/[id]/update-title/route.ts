@@ -7,6 +7,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { requireAuth } from '@/lib/server/utils/auth'
+import { getTierNameForUser } from '@/lib/server/utils/tier'
 import {
   validationErrorResponse,
   serverErrorResponse,
@@ -34,6 +35,18 @@ export async function POST(
     const supabase = await createClient()
     const user = await requireAuth(supabase)
     const { id: videoId } = await params
+
+    const tierName = await getTierNameForUser(supabase, user.id)
+    if (tierName !== 'pro') {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'YouTube integration is available on the Pro plan.',
+          code: 'TIER_REQUIRED',
+        },
+        { status: 403 }
+      )
+    }
 
     // Check if user has YouTube connected
     const connected = await isYouTubeConnected(user.id)

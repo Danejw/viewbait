@@ -73,7 +73,7 @@ export const RecentThumbnailsStrip = memo(function RecentThumbnailsStrip() {
                   <ThumbnailCard
                     thumbnail={thumbnail}
                     priority={index === 0}
-                    draggable={false}
+                    draggable={true}
                   />
                 </div>
               ))}

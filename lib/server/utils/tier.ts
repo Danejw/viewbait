@@ -6,8 +6,8 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { getTierByProductId } from '@/lib/server/data/subscription-tiers'
-import type { TierConfig } from '@/lib/constants/subscription-tiers'
+import { getTierByProductId, getTierNameByProductId } from '@/lib/server/data/subscription-tiers'
+import type { TierConfig, TierName } from '@/lib/constants/subscription-tiers'
 
 /**
  * Get tier configuration for a user by their user ID.
@@ -32,4 +32,29 @@ export async function getTierForUser(
   }
 
   return getTierByProductId(subscription.product_id ?? null)
+}
+
+/**
+ * Get stable tier name (TierName) for a user by their user ID.
+ * Use this for capability checks (e.g. YouTube = Pro only); do not use TierConfig.name (display name).
+ *
+ * @param supabase - Supabase client (typically from createClient() so RLS applies)
+ * @param userId - Authenticated user's ID
+ * @returns TierName e.g. 'free' | 'starter' | 'advanced' | 'pro'
+ */
+export async function getTierNameForUser(
+  supabase: SupabaseClient,
+  userId: string
+): Promise<TierName> {
+  const { data: subscription, error } = await supabase
+    .from('user_subscriptions')
+    .select('product_id')
+    .eq('user_id', userId)
+    .maybeSingle()
+
+  if (error || !subscription?.product_id) {
+    return 'free'
+  }
+
+  return getTierNameByProductId(subscription.product_id)
 }

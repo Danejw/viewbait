@@ -60,6 +60,8 @@ export interface YouTubeVideoCardProps {
   selected?: boolean;
   /** Called when user toggles selection; when provided, card click toggles selection instead of opening YouTube */
   onToggleSelect?: (videoId: string) => void;
+  /** Optional channel context (e.g. when on My channel) for video analytics summary */
+  channel?: { title: string; description?: string } | null;
 }
 
 const YOUTUBE_WATCH_URL = "https://www.youtube.com/watch?v=";
@@ -126,6 +128,7 @@ export const YouTubeVideoCard = memo(function YouTubeVideoCard({
   priority = false,
   selected = false,
   onToggleSelect,
+  channel = null,
 }: YouTubeVideoCardProps) {
   const { videoId, title, thumbnailUrl, viewCount, likeCount } = video;
   const hasStats = viewCount != null || likeCount != null;
@@ -245,13 +248,12 @@ export const YouTubeVideoCard = memo(function YouTubeVideoCard({
   const handleVideoAnalytics = useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation();
-      actions.onRequestVideoAnalytics?.({
-        videoId,
-        title,
-        thumbnailUrl,
-      });
+      actions.onRequestVideoAnalytics?.(
+        { videoId, title, thumbnailUrl },
+        channel ?? undefined
+      );
     },
-    [actions.onRequestVideoAnalytics, videoId, title, thumbnailUrl]
+    [actions.onRequestVideoAnalytics, videoId, title, thumbnailUrl, channel]
   );
 
   const actionBar = (

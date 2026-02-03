@@ -20,6 +20,7 @@
   import { toast } from "sonner";
   import { OnboardingProvider } from "@/lib/contexts/onboarding-context";
   import { StudioProvider, StudioDndContext, useStudio } from "@/components/studio";
+  import { ChatDropHandlerProvider } from "@/components/studio/chat-drop-handler-context";
   import {
     StudioGeneratorThumbnailText,
     StudioGeneratorFaces,
@@ -648,9 +649,11 @@
       <OnboardingProvider isOnboarding>
         <TooltipProvider delayDuration={0}>
           <StudioProvider>
-            <StudioDndContext>
-              <OnboardingFlow />
-            </StudioDndContext>
+            <ChatDropHandlerProvider>
+              <StudioDndContext>
+                <OnboardingFlow />
+              </StudioDndContext>
+            </ChatDropHandlerProvider>
           </StudioProvider>
         </TooltipProvider>
       </OnboardingProvider>

@@ -10,6 +10,7 @@ import { NextResponse } from 'next/server'
 import { callGeminiWithYouTubeVideoAndStructuredOutput } from '@/lib/services/ai-core'
 import { requireAuth } from '@/lib/server/utils/auth'
 import { createClient } from '@/lib/supabase/server'
+import { getTierNameForUser } from '@/lib/server/utils/tier'
 import {
   validationErrorResponse,
   configErrorResponse,
@@ -60,7 +61,19 @@ export interface YouTubeVideoAnalytics {
 export async function POST(request: Request) {
   try {
     const supabase = await createClient()
-    await requireAuth(supabase)
+    const user = await requireAuth(supabase)
+
+    const tierName = await getTierNameForUser(supabase, user.id)
+    if (tierName !== 'pro') {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'YouTube integration is available on the Pro plan.',
+          code: 'TIER_REQUIRED',
+        },
+        { status: 403 }
+      )
+    }
 
     const body: AnalyzeYouTubeVideoRequest = await request.json()
     const videoId = typeof body.videoId === 'string' ? body.videoId.trim() : ''

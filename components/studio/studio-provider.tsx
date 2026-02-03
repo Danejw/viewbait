@@ -141,7 +141,9 @@ export interface StudioState {
   /** Video ids currently being analyzed (drives spinners and effect) */
   videoAnalyticsLoadingVideoIds: string[];
   /** Metadata for each loading id so completion can set modal video */
-  videoAnalyticsLoadingVideos: Record<string, { videoId: string; title: string; thumbnailUrl: string }>;
+  videoAnalyticsLoadingVideos: Record<string, { videoId: string; title: string; thumbnailUrl: string; channel?: { title: string; description?: string } }>;
+  /** Channel context for the analytics modal (set when opening from YouTube My channel). */
+  videoAnalyticsChannelContext: { title: string; description?: string } | null;
   /** Cache of thumbnail style descriptions by imageUrl or thumbnailId; session-only, avoids re-analyzing */
   thumbnailStyleAnalysisCache: Record<string, string>;
   /** Character snapshots from video frame extraction (FFmpeg.wasm); session-only, keyed by videoId */
@@ -235,8 +237,19 @@ export interface StudioActions {
   onViewSnapshot: (data: SnapshotToView) => void;
   closeSnapshotViewModal: () => void;
   // YouTube video analytics (Gemini video understanding)
-  onRequestVideoAnalytics: (video: { videoId: string; title: string; thumbnailUrl: string }) => void;
+  onRequestVideoAnalytics: (
+    video: { videoId: string; title: string; thumbnailUrl: string },
+    channel?: { title: string; description?: string } | null
+  ) => void;
+  /** Open the Video Analytics modal with pre-fetched result (e.g. from chat youtube_analyze_video). */
+  openVideoAnalyticsWithResult: (
+    video: { videoId: string; title?: string; thumbnailUrl?: string },
+    analytics: YouTubeVideoAnalytics,
+    channel?: { title: string; description?: string } | null
+  ) => void;
   closeVideoAnalyticsModal: () => void;
+  /** Append video understanding context block to custom instructions (key: "video understanding context"). */
+  appendToCustomInstructions: (summary: string) => void;
   /** Set character snapshots for a video (from FFmpeg frame extraction) */
   setCharacterSnapshots: (videoId: string, snapshots: Array<{ characterName: string; imageBlobUrl: string; blob: Blob }>) => void;
   /** Clear character snapshots for a video */
@@ -480,6 +493,7 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
     videoAnalyticsCache: {},
     videoAnalyticsLoadingVideoIds: [],
     videoAnalyticsLoadingVideos: {},
+    videoAnalyticsChannelContext: null,
     thumbnailStyleAnalysisCache: {},
     characterSnapshotsByVideoId: {},
     placeSnapshotsByVideoId: {},
@@ -1054,8 +1068,12 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const onRequestVideoAnalytics = useCallback(
-    (video: { videoId: string; title: string; thumbnailUrl: string }) => {
+    (
+      video: { videoId: string; title: string; thumbnailUrl: string },
+      channel?: { title: string; description?: string } | null
+    ) => {
       const vid = video.videoId;
+      const channelContext = channel ?? null;
       setState((s) => {
         const cached = s.videoAnalyticsCache[vid];
         const loadingThis = s.videoAnalyticsLoadingVideoIds.includes(vid);
@@ -1074,6 +1092,7 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
             videoAnalyticsLoading: false,
             videoAnalyticsError: null,
             videoAnalyticsModalOpen: true,
+            videoAnalyticsChannelContext: channelContext,
           };
         }
 
@@ -1086,10 +1105,14 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
         }
 
         // 3) Not cached and not loading: add to loading sets; modal opens when analysis completes
+        const loadingEntry = channel
+          ? { ...video, channel }
+          : video;
         return {
           ...s,
           videoAnalyticsLoadingVideoIds: [...s.videoAnalyticsLoadingVideoIds, vid],
-          videoAnalyticsLoadingVideos: { ...s.videoAnalyticsLoadingVideos, [vid]: video },
+          videoAnalyticsLoadingVideos: { ...s.videoAnalyticsLoadingVideos, [vid]: loadingEntry },
+          videoAnalyticsChannelContext: channelContext,
           videoAnalyticsLoading: true,
           videoAnalyticsModalOpen: false,
         };
@@ -1129,6 +1152,7 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
             videoAnalyticsData: analytics ?? null,
             videoAnalyticsError: error?.message ?? null,
             videoAnalyticsModalOpen: true,
+            videoAnalyticsChannelContext: videoMeta?.channel ?? s.videoAnalyticsChannelContext,
           };
           if (analytics) {
             next.videoAnalyticsCache = { ...s.videoAnalyticsCache, [id]: analytics };
@@ -1144,8 +1168,33 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
   }, [state.videoAnalyticsLoadingVideoIds]);
 
   const closeVideoAnalyticsModal = useCallback(() => {
-    setState((s) => ({ ...s, videoAnalyticsModalOpen: false }));
+    setState((s) => ({ ...s, videoAnalyticsModalOpen: false, videoAnalyticsChannelContext: null }));
   }, []);
+
+  /** Open the Video Analytics modal with pre-fetched result (e.g. from chat youtube_analyze_video). */
+  const openVideoAnalyticsWithResult = useCallback(
+    (
+      video: { videoId: string; title?: string; thumbnailUrl?: string },
+      analytics: YouTubeVideoAnalytics,
+      channel?: { title: string; description?: string } | null
+    ) => {
+      setState((s) => ({
+        ...s,
+        videoAnalyticsVideo: {
+          videoId: video.videoId,
+          title: video.title ?? 'Video',
+          thumbnailUrl: video.thumbnailUrl ?? `https://img.youtube.com/vi/${video.videoId}/hqdefault.jpg`,
+        },
+        videoAnalyticsData: analytics,
+        videoAnalyticsLoading: false,
+        videoAnalyticsError: null,
+        videoAnalyticsModalOpen: true,
+        videoAnalyticsChannelContext: channel ?? null,
+        videoAnalyticsCache: { ...s.videoAnalyticsCache, [video.videoId]: analytics },
+      }));
+    },
+    []
+  );
 
   const clearError = useCallback(() => {
     setState((s) => ({ ...s, generationError: null }));
@@ -1299,6 +1348,14 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
     setThumbnailText: (text) => setState((s) => ({ ...s, thumbnailText: text })),
     setCustomInstructions: (instructions) =>
       setState((s) => ({ ...s, customInstructions: instructions })),
+    appendToCustomInstructions: (summary) =>
+      setState((s) => ({
+        ...s,
+        customInstructions:
+          (s.customInstructions || "").trimEnd() +
+          "\n\nvideo understanding context:\n" +
+          summary,
+      })),
     setIncludeFaces: (include) => setState((s) => ({ ...s, includeFaces: include })),
     toggleFace: (faceId) =>
       setState((s) => ({
@@ -1370,6 +1427,7 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
     onViewSnapshot,
     closeSnapshotViewModal,
     onRequestVideoAnalytics,
+    openVideoAnalyticsWithResult,
     closeVideoAnalyticsModal,
     setCharacterSnapshots: (videoId, snapshots) =>
       setState((s) => ({ ...s, characterSnapshotsByVideoId: { ...s.characterSnapshotsByVideoId, [videoId]: snapshots } })),
@@ -1610,6 +1668,8 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
         analytics={state.videoAnalyticsData}
         loading={state.videoAnalyticsLoading}
         error={state.videoAnalyticsError}
+        channelForContext={state.videoAnalyticsChannelContext}
+        onAppendToCustomInstructions={actions.appendToCustomInstructions}
         onSetCharacterSnapshots={actions.setCharacterSnapshots}
         onSetPlaceSnapshots={actions.setPlaceSnapshots}
       />

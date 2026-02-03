@@ -13,8 +13,11 @@ import { processGroundingCitations } from '@/lib/utils/citation-processor'
 import { logError } from '@/lib/server/utils/logger'
 import { submitFeedbackFromServer } from '@/lib/server/feedback'
 import { getExpressionValues, getPoseValues, formatExpressionsForPrompt, formatPosesForPrompt } from '@/lib/constants/face-options'
-import { getTierForUser } from '@/lib/server/utils/tier'
+import { getTierForUser, getTierNameForUser } from '@/lib/server/utils/tier'
 import { SIGNED_URL_EXPIRY_ONE_YEAR_SECONDS } from '@/lib/server/utils/url-refresh'
+import { parseYouTubeVideoId, parseYouTubeVideoIds } from '@/lib/utils/youtube'
+import { extractStyleFromImageUrls, MIN_IMAGES as EXTRACT_MIN_IMAGES, MAX_IMAGES as EXTRACT_MAX_IMAGES } from '@/lib/server/styles/extract-style-from-images'
+import type { StyleInsert } from '@/lib/types/database'
 
 const MAX_STYLE_REFERENCES = 10
 const STYLE_REFERENCES_BUCKET = 'style-references'
@@ -224,6 +227,19 @@ export interface AssistantChatResponse {
     selectedFaces?: string[]
   }
   suggestions?: string[]
+  /** When true, client shows an "Upgrade to Pro" chip and can open subscription modal. */
+  offer_upgrade?: boolean
+  /** Required tier for the requested action (e.g. 'pro'). Optional; used for analytics or future multi-tier upsells. */
+  required_tier?: string
+  /** When present, client opens the Video Analytics modal with this pre-fetched result (youtube_analyze_video tool). */
+  youtube_analytics?: {
+    videoId: string
+    title?: string
+    thumbnailUrl?: string
+    analytics: Record<string, unknown>
+  }
+  /** When present, a new style was created from YouTube thumbnails (youtube_extract_style tool). */
+  youtube_extract_style?: { styleId: string; styleName: string }
 }
 
 // Tool definition for structured output
@@ -341,6 +357,14 @@ const assistantToolDefinition = {
           type: 'string',
         },
       },
+      offer_upgrade: {
+        type: 'boolean',
+        description: 'Set to true when the user asked for something that requires a higher tier (e.g. YouTube features) and their current tier does not have access. The client will show an "Upgrade to Pro" suggestion chip.',
+      },
+      required_tier: {
+        type: 'string',
+        description: 'Optional. The tier required for the requested action (e.g. "pro"). Use when offer_upgrade is true.',
+      },
     },
     required: ['human_readable_message', 'ui_components'],
   },
@@ -375,8 +399,46 @@ const createFeedbackToolDefinition = {
   },
 }
 
-const assistantToolDefinitions = [assistantToolDefinition, createFeedbackToolDefinition]
-const assistantToolNames = ['generate_assistant_response', 'create_feedback']
+/** Tool: analyze a YouTube video (Pro only). Call when user asks to analyze a video by URL or ID. */
+const youtubeAnalyzeVideoToolDefinition = {
+  name: 'youtube_analyze_video',
+  description: 'Call when the user asks to analyze a YouTube video (e.g. "analyze this video", "run video analytics on ..."). Requires Pro. Extract the video ID from the user message (from a URL like youtube.com/watch?v=ID or youtu.be/ID, or a raw 11-character video ID).',
+  parameters: {
+    type: 'object',
+    properties: {
+      video_id: {
+        type: 'string',
+        description: 'YouTube video ID or full URL (e.g. youtube.com/watch?v=xyz or xyz).',
+      },
+    },
+    required: ['video_id'],
+  },
+}
+
+/** Tool: create a style from 2–10 YouTube thumbnails (Pro + can_create_custom). Call when user asks to create a style from videos. */
+const youtubeExtractStyleToolDefinition = {
+  name: 'youtube_extract_style',
+  description: 'Call when the user asks to create a new style from YouTube thumbnails (e.g. "extract a style from these videos", "create a style from my thumbnails"). Requires Pro and custom styles. Extract 2–10 video IDs from the user message (URLs or raw IDs).',
+  parameters: {
+    type: 'object',
+    properties: {
+      video_ids: {
+        type: 'array',
+        description: 'Array of 2–10 YouTube video IDs or URLs. Each entry can be a full URL or an 11-character video ID.',
+        items: { type: 'string' },
+      },
+    },
+    required: ['video_ids'],
+  },
+}
+
+const assistantToolDefinitions = [
+  assistantToolDefinition,
+  createFeedbackToolDefinition,
+  youtubeAnalyzeVideoToolDefinition,
+  youtubeExtractStyleToolDefinition,
+]
+const assistantToolNames = ['generate_assistant_response', 'create_feedback', 'youtube_analyze_video', 'youtube_extract_style']
 
 // Helper function to emit SSE event
 function emitSSE(controller: ReadableStreamDefaultController, event: string, data: any) {
@@ -415,6 +477,9 @@ export async function POST(request: Request) {
         { status: 400 }
       )
     }
+
+    const tierName = await getTierNameForUser(supabase, user.id)
+    const hasYouTube = tierName === 'pro'
 
     // Build system prompt
     const systemPrompt = `You are an expert an creating viral thumbnails with perfect, catchy simple titles. Your role is to guide users through the thumbnail creation process by reasoning about their intent from the conversation and surfacing appropriate UI components.
@@ -477,6 +542,9 @@ Available Expressions: ${formatExpressionsForPrompt()}
 AVAILABLE POSES:
 Available Poses: ${formatPosesForPrompt()}
 
+USER CAPABILITIES:
+- Tier: ${tierName}. YouTube integration: ${hasYouTube ? 'available.' : 'not available; suggest upgrade to Pro.'}
+
 INSTRUCTIONS:
 1. Analyze the conversation history to understand user intent. Reason holistically about what the user wants.
 2. Return only 1-2 ui_components that match what the user just asked for. For example: "Add my face" -> only IncludeFaceSection; "Pick a style" -> only StyleSelectionSection; "Set the title" -> only ThumbnailTextSection. Do NOT return many or all sections at once.
@@ -492,6 +560,8 @@ INSTRUCTIONS:
 6. Write a natural, conversational message that guides the user. Be helpful and friendly.
 7. When you extract form state values, mention them naturally in your message (e.g., "I've set the title to 'How to Build a Website' as you mentioned", "I've enabled face integration for you").
 8. Generate 2-3 relevant suggestions for what the user might want to do next.
+9. YOUTUBE: If the user asks for YouTube-related actions (connect or disconnect YouTube, view channel or list videos, set thumbnail for a video, update video title, video analytics, extract style from thumbnails) and their tier is not Pro (see USER CAPABILITIES above), respond with a helpful message explaining that YouTube integration is available on the Pro plan, set offer_upgrade to true, set required_tier to "pro", and include a suggestion like "Upgrade to Pro to unlock YouTube". If they have Pro, you can use the YouTube tools below for analyze and extract-style.
+10. YOUTUBE TOOLS (call only when USER CAPABILITIES shows "YouTube integration: available"): (a) When the user clearly asks to analyze a video (e.g. "analyze this video", "run video analytics on ...", "what's in this video"), call youtube_analyze_video with video_id set to the video ID or full URL from their message. (b) When the user clearly asks to create a style from 2–10 YouTube thumbnails (e.g. "extract a style from these videos", "create a style from my thumbnails", "make a style from video X and Y"), call youtube_extract_style with video_ids as an array of 2–10 video IDs or URLs parsed from their message. Parse video IDs from URLs like youtube.com/watch?v=ID or youtu.be/ID, or use raw 11-character IDs.
 
 PRE-FILL MAPPING (when surfacing these components, set these values):
 - IncludeFaceSection -> set includeFace: true when user wants to add their face. If the user has ATTACHED an image and asks to add it as their face (e.g. "add this as my face", "use this as my face"), also set add_attached_image_as_new_face: true and optionally new_face_name (e.g. "Me"); the backend will create a new face and upload the first attached image.
@@ -708,6 +778,184 @@ FEEDBACK FOR REQUESTS WE CAN'T DO:
               return
             }
 
+            // youtube_analyze_video: run analysis, return youtube_analytics for client to open modal
+            if (functionName === 'youtube_analyze_video') {
+              if (tierName !== 'pro') {
+                emitSSE(controller, 'complete', {
+                  human_readable_message: 'YouTube video analysis is available on the Pro plan. Upgrade to analyze videos from the chat.',
+                  ui_components: [],
+                  form_state_updates: undefined,
+                  suggestions: ['Upgrade to Pro', 'Continue with thumbnail'],
+                  offer_upgrade: true,
+                  required_tier: 'pro',
+                })
+                controller.close()
+                return
+              }
+              const videoIdRaw = (functionCallResult as { video_id?: string })?.video_id
+              const videoId = typeof videoIdRaw === 'string' ? parseYouTubeVideoId(videoIdRaw.trim()) : null
+              if (!videoId) {
+                emitSSE(controller, 'complete', {
+                  human_readable_message: 'I couldn\'t find a valid YouTube video ID in that message. Please share a video link (e.g. youtube.com/watch?v=...) or the 11-character video ID.',
+                  ui_components: [],
+                  form_state_updates: undefined,
+                  suggestions: ['Try another video', 'Continue with thumbnail'],
+                })
+                controller.close()
+                return
+              }
+              try {
+                const origin = new URL(request.url).origin
+                const analyzeRes = await fetch(`${origin}/api/youtube/videos/analyze`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    Cookie: request.headers.get('cookie') ?? '',
+                  },
+                  body: JSON.stringify({ videoId }),
+                })
+                if (!analyzeRes.ok) {
+                  const errData = await analyzeRes.json().catch(() => ({}))
+                  const errMsg = errData?.error ?? 'Video analysis failed. The video may be private or unavailable.'
+                  emitSSE(controller, 'complete', {
+                    human_readable_message: errMsg,
+                    ui_components: [],
+                    form_state_updates: undefined,
+                    suggestions: ['Try another video', 'Continue with thumbnail'],
+                  })
+                  controller.close()
+                  return
+                }
+                const analyzeData = await analyzeRes.json()
+                const analytics = analyzeData?.analytics
+                if (!analytics) {
+                  emitSSE(controller, 'complete', {
+                    human_readable_message: 'Video analysis could not be completed. Try again or a different video.',
+                    ui_components: [],
+                    form_state_updates: undefined,
+                    suggestions: ['Try another video', 'Continue with thumbnail'],
+                  })
+                  controller.close()
+                  return
+                }
+                const thumbnailUrl = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
+                emitSSE(controller, 'complete', {
+                  human_readable_message: "I've analyzed the video. Opening the analytics panel with the summary, topic, key moments, and more.",
+                  ui_components: [],
+                  form_state_updates: undefined,
+                  suggestions: ['Analyze another video', 'Create a thumbnail', 'Continue with thumbnail'],
+                  youtube_analytics: {
+                    videoId,
+                    title: 'Video',
+                    thumbnailUrl,
+                    analytics,
+                  },
+                })
+                controller.close()
+                return
+              } catch (analyzeErr) {
+                logError(analyzeErr as Error, { route: 'POST /api/assistant/chat', operation: 'youtube_analyze_video' })
+                emitSSE(controller, 'complete', {
+                  human_readable_message: 'Something went wrong analyzing the video. Please try again.',
+                  ui_components: [],
+                  form_state_updates: undefined,
+                  suggestions: ['Try another video', 'Continue with thumbnail'],
+                })
+                controller.close()
+                return
+              }
+            }
+
+            // youtube_extract_style: extract style from thumbnails, create style, return form_state_updates
+            if (functionName === 'youtube_extract_style') {
+              if (tierName !== 'pro') {
+                emitSSE(controller, 'complete', {
+                  human_readable_message: 'Creating a style from YouTube thumbnails is available on the Pro plan. Upgrade to use this feature.',
+                  ui_components: [],
+                  form_state_updates: undefined,
+                  suggestions: ['Upgrade to Pro', 'Continue with thumbnail'],
+                  offer_upgrade: true,
+                  required_tier: 'pro',
+                })
+                controller.close()
+                return
+              }
+              const tier = await getTierForUser(supabase, user.id)
+              if (!tier.can_create_custom) {
+                emitSSE(controller, 'complete', {
+                  human_readable_message: 'Creating custom styles from YouTube thumbnails requires Starter or higher. Upgrade to unlock.',
+                  ui_components: [],
+                  form_state_updates: undefined,
+                  suggestions: ['Upgrade to unlock', 'Continue with thumbnail'],
+                  offer_upgrade: true,
+                  required_tier: 'pro',
+                })
+                controller.close()
+                return
+              }
+              const videoIdsRaw = (functionCallResult as { video_ids?: string[] })?.video_ids
+              const videoIds = parseYouTubeVideoIds(Array.isArray(videoIdsRaw) ? videoIdsRaw : [])
+              if (videoIds.length < EXTRACT_MIN_IMAGES || videoIds.length > EXTRACT_MAX_IMAGES) {
+                emitSSE(controller, 'complete', {
+                  human_readable_message: `Please provide between ${EXTRACT_MIN_IMAGES} and ${EXTRACT_MAX_IMAGES} YouTube video links or IDs to extract a common style.`,
+                  ui_components: [],
+                  form_state_updates: undefined,
+                  suggestions: ['Add more videos', 'Continue with thumbnail'],
+                })
+                controller.close()
+                return
+              }
+              try {
+                const thumbnailUrls = videoIds.map((id) => `https://img.youtube.com/vi/${id}/maxresdefault.jpg`)
+                const result = await extractStyleFromImageUrls(supabase, user.id, thumbnailUrls)
+                const styleData: StyleInsert = {
+                  user_id: user.id,
+                  name: result.name,
+                  description: result.description || null,
+                  prompt: result.prompt || null,
+                  reference_images: result.reference_images,
+                  colors: [],
+                  is_default: false,
+                }
+                const { data: style, error: insertError } = await supabase
+                  .from('styles')
+                  .insert(styleData)
+                  .select('id, name')
+                  .single()
+                if (insertError || !style) {
+                  logError(insertError as Error, { route: 'POST /api/assistant/chat', operation: 'youtube_extract_style_insert' })
+                  emitSSE(controller, 'complete', {
+                    human_readable_message: 'Style extraction succeeded but saving the style failed. Please try again.',
+                    ui_components: [],
+                    form_state_updates: undefined,
+                    suggestions: ['Try again', 'Continue with thumbnail'],
+                  })
+                  controller.close()
+                  return
+                }
+                emitSSE(controller, 'complete', {
+                  human_readable_message: `I've created a new style "${style.name}" from the thumbnails you chose. I've selected it for you—you can use it for your next generation.`,
+                  ui_components: ['StyleSelectionSection'],
+                  form_state_updates: { selectedStyle: style.id },
+                  suggestions: ['Generate a thumbnail', 'Change the style', 'Continue with thumbnail'],
+                  youtube_extract_style: { styleId: style.id, styleName: style.name ?? result.name },
+                })
+                controller.close()
+                return
+              } catch (extractErr) {
+                logError(extractErr as Error, { route: 'POST /api/assistant/chat', operation: 'youtube_extract_style' })
+                const msg = extractErr instanceof Error ? extractErr.message : 'Style extraction failed.'
+                emitSSE(controller, 'complete', {
+                  human_readable_message: msg.includes('fetch') ? 'Could not load one or more thumbnails. Check that the video IDs or URLs are valid and public.' : 'Something went wrong extracting the style. Please try again.',
+                  ui_components: [],
+                  form_state_updates: undefined,
+                  suggestions: ['Try different videos', 'Continue with thumbnail'],
+                })
+                controller.close()
+                return
+              }
+            }
+
             if (!functionCallResult || typeof functionCallResult !== 'object') {
               throw new Error('Invalid function call result from AI service')
             }
@@ -784,6 +1032,8 @@ FEEDBACK FOR REQUESTS WE CAN'T DO:
               suggestions: Array.isArray(functionCallResult.suggestions) 
                 ? functionCallResult.suggestions 
                 : [],
+              offer_upgrade: !!(functionCallResult as { offer_upgrade?: boolean }).offer_upgrade,
+              required_tier: (functionCallResult as { required_tier?: string }).required_tier,
             }
 
             console.log('[API] Final response form_state_updates:', response.form_state_updates);
@@ -937,6 +1187,178 @@ FEEDBACK FOR REQUESTS WE CAN'T DO:
       })
     }
 
+    // youtube_analyze_video (non-streaming): run analysis, return youtube_analytics for client to open modal
+    if (functionName === 'youtube_analyze_video') {
+      if (!user) {
+        return NextResponse.json({
+          human_readable_message: 'You need to be signed in to analyze a YouTube video.',
+          ui_components: [],
+          form_state_updates: undefined,
+          suggestions: ['Continue with thumbnail'],
+        })
+      }
+      const tierName = await getTierNameForUser(supabase, user.id)
+      if (tierName !== 'pro') {
+        return NextResponse.json({
+          human_readable_message: 'YouTube video analysis is available on the Pro plan. Upgrade to analyze videos from the chat.',
+          ui_components: [],
+          form_state_updates: undefined,
+          suggestions: ['Upgrade to Pro', 'Continue with thumbnail'],
+          offer_upgrade: true,
+          required_tier: 'pro',
+        })
+      }
+      const videoIdRaw = (functionCallResult as { video_id?: string })?.video_id
+      const videoId = typeof videoIdRaw === 'string' ? parseYouTubeVideoId(videoIdRaw.trim()) : null
+      if (!videoId) {
+        return NextResponse.json({
+          human_readable_message: 'I couldn\'t find a valid YouTube video ID in that message. Please share a video link (e.g. youtube.com/watch?v=...) or the 11-character video ID.',
+          ui_components: [],
+          form_state_updates: undefined,
+          suggestions: ['Try another video', 'Continue with thumbnail'],
+        })
+      }
+      try {
+        const origin = new URL(request.url).origin
+        const analyzeRes = await fetch(`${origin}/api/youtube/videos/analyze`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Cookie: request.headers.get('cookie') ?? '',
+          },
+          body: JSON.stringify({ videoId }),
+        })
+        if (!analyzeRes.ok) {
+          const errData = await analyzeRes.json().catch(() => ({}))
+          const errMsg = errData?.error ?? 'Video analysis failed. The video may be private or unavailable.'
+          return NextResponse.json({
+            human_readable_message: errMsg,
+            ui_components: [],
+            form_state_updates: undefined,
+            suggestions: ['Try another video', 'Continue with thumbnail'],
+          })
+        }
+        const analyzeData = await analyzeRes.json()
+        const analytics = analyzeData?.analytics
+        if (!analytics) {
+          return NextResponse.json({
+            human_readable_message: 'Video analysis could not be completed. Try again or a different video.',
+            ui_components: [],
+            form_state_updates: undefined,
+            suggestions: ['Try another video', 'Continue with thumbnail'],
+          })
+        }
+        const thumbnailUrl = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
+        return NextResponse.json({
+          human_readable_message: "I've analyzed the video. Opening the analytics panel with the summary, topic, key moments, and more.",
+          ui_components: [],
+          form_state_updates: undefined,
+          suggestions: ['Analyze another video', 'Create a thumbnail', 'Continue with thumbnail'],
+          youtube_analytics: {
+            videoId,
+            title: 'Video',
+            thumbnailUrl,
+            analytics,
+          },
+        })
+      } catch (analyzeErr) {
+        logError(analyzeErr as Error, { route: 'POST /api/assistant/chat', operation: 'youtube_analyze_video' })
+        return NextResponse.json({
+          human_readable_message: 'Something went wrong analyzing the video. Please try again.',
+          ui_components: [],
+          form_state_updates: undefined,
+          suggestions: ['Try another video', 'Continue with thumbnail'],
+        })
+      }
+    }
+
+    // youtube_extract_style (non-streaming): extract style from thumbnails, create style, return form_state_updates
+    if (functionName === 'youtube_extract_style') {
+      if (!user) {
+        return NextResponse.json({
+          human_readable_message: 'You need to be signed in to create a style from YouTube thumbnails.',
+          ui_components: [],
+          form_state_updates: undefined,
+          suggestions: ['Continue with thumbnail'],
+        })
+      }
+      const tierName = await getTierNameForUser(supabase, user.id)
+      if (tierName !== 'pro') {
+        return NextResponse.json({
+          human_readable_message: 'Creating a style from YouTube thumbnails is available on the Pro plan. Upgrade to use this feature.',
+          ui_components: [],
+          form_state_updates: undefined,
+          suggestions: ['Upgrade to Pro', 'Continue with thumbnail'],
+          offer_upgrade: true,
+          required_tier: 'pro',
+        })
+      }
+      const tier = await getTierForUser(supabase, user.id)
+      if (!tier.can_create_custom) {
+        return NextResponse.json({
+          human_readable_message: 'Creating custom styles from YouTube thumbnails requires Starter or higher. Upgrade to unlock.',
+          ui_components: [],
+          form_state_updates: undefined,
+          suggestions: ['Upgrade to unlock', 'Continue with thumbnail'],
+          offer_upgrade: true,
+          required_tier: 'pro',
+        })
+      }
+      const videoIdsRaw = (functionCallResult as { video_ids?: string[] })?.video_ids
+      const videoIds = parseYouTubeVideoIds(Array.isArray(videoIdsRaw) ? videoIdsRaw : [])
+      if (videoIds.length < EXTRACT_MIN_IMAGES || videoIds.length > EXTRACT_MAX_IMAGES) {
+        return NextResponse.json({
+          human_readable_message: `Please provide between ${EXTRACT_MIN_IMAGES} and ${EXTRACT_MAX_IMAGES} YouTube video links or IDs to extract a common style.`,
+          ui_components: [],
+          form_state_updates: undefined,
+          suggestions: ['Add more videos', 'Continue with thumbnail'],
+        })
+      }
+      try {
+        const thumbnailUrls = videoIds.map((id) => `https://img.youtube.com/vi/${id}/maxresdefault.jpg`)
+        const result = await extractStyleFromImageUrls(supabase, user.id, thumbnailUrls)
+        const styleData: StyleInsert = {
+          user_id: user.id,
+          name: result.name,
+          description: result.description || null,
+          prompt: result.prompt || null,
+          reference_images: result.reference_images,
+          colors: [],
+          is_default: false,
+        }
+        const { data: style, error: insertError } = await supabase
+          .from('styles')
+          .insert(styleData)
+          .select('id, name')
+          .single()
+        if (insertError || !style) {
+          logError(insertError as Error, { route: 'POST /api/assistant/chat', operation: 'youtube_extract_style_insert' })
+          return NextResponse.json({
+            human_readable_message: 'Style extraction succeeded but saving the style failed. Please try again.',
+            ui_components: [],
+            form_state_updates: undefined,
+            suggestions: ['Try again', 'Continue with thumbnail'],
+          })
+        }
+        return NextResponse.json({
+          human_readable_message: `I've created a new style "${style.name}" from the thumbnails you chose. I've selected it for you—you can use it for your next generation.`,
+          ui_components: ['StyleSelectionSection'],
+          form_state_updates: { selectedStyle: style.id },
+          suggestions: ['Generate a thumbnail', 'Change the style', 'Continue with thumbnail'],
+          youtube_extract_style: { styleId: style.id, styleName: style.name ?? result.name },
+        })
+      } catch (extractErr) {
+        logError(extractErr as Error, { route: 'POST /api/assistant/chat', operation: 'youtube_extract_style' })
+        const msg = extractErr instanceof Error ? extractErr.message : 'Style extraction failed.'
+        return NextResponse.json({
+          human_readable_message: msg.includes('fetch') ? 'Could not load one or more thumbnails. Check that the video IDs or URLs are valid and public.' : 'Something went wrong extracting the style. Please try again.',
+          ui_components: [],
+          form_state_updates: undefined,
+          suggestions: ['Try different videos', 'Continue with thumbnail'],
+        })
+      }
+    }
+
     if (!functionCallResult || typeof functionCallResult !== 'object') {
       throw new Error('Invalid function call result from AI service')
     }
@@ -1004,6 +1426,8 @@ FEEDBACK FOR REQUESTS WE CAN'T DO:
       suggestions: Array.isArray(functionCallResult.suggestions) 
         ? functionCallResult.suggestions 
         : [],
+      offer_upgrade: !!(functionCallResult as { offer_upgrade?: boolean }).offer_upgrade,
+      required_tier: (functionCallResult as { required_tier?: string }).required_tier,
     }
 
     console.log('[API] Final response form_state_updates:', response.form_state_updates);

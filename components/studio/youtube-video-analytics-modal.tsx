@@ -10,7 +10,7 @@
  */
 
 import React, { useRef, useCallback, useState } from "react";
-import { BarChart3, ExternalLink, ChevronDown, Film } from "lucide-react";
+import { BarChart3, ExternalLink, ChevronDown, Film, Copy, FileText } from "lucide-react";
 import {
   Modal,
   ModalContent,
@@ -28,7 +28,9 @@ import { cn } from "@/lib/utils";
 import type { YouTubeVideoAnalytics } from "@/lib/services/youtube-video-analyze";
 import { getRepresentativeSecondsForCharacter, getRepresentativeSecondsForPlace } from "@/lib/utils/timestamp-parse";
 import { extractFramesAt } from "@/lib/services/ffmpeg-frame-extract";
+import { buildVideoUnderstandingSummary } from "@/lib/utils/video-context-summary";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 
 const YOUTUBE_WATCH_URL = "https://www.youtube.com/watch?v=";
 
@@ -61,6 +63,10 @@ export interface YouTubeVideoAnalyticsModalProps {
   onSetCharacterSnapshots?: (videoId: string, snapshots: CharacterSnapshotItem[]) => void;
   /** When provided and analytics has places, "Extract place snapshots" is shown */
   onSetPlaceSnapshots?: (videoId: string, snapshots: PlaceSnapshotItem[]) => void;
+  /** Optional channel context for the summary (e.g. when opened from My channel). */
+  channelForContext?: { title: string; description?: string } | null;
+  /** When provided, "Add to custom instructions" appends the summary with key "video understanding context". */
+  onAppendToCustomInstructions?: (summary: string) => void;
 }
 
 function RubricRow({
@@ -124,6 +130,8 @@ export function YouTubeVideoAnalyticsModal({
   error = null,
   onSetCharacterSnapshots,
   onSetPlaceSnapshots,
+  channelForContext = null,
+  onAppendToCustomInstructions,
 }: YouTubeVideoAnalyticsModalProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const placeFileInputRef = useRef<HTMLInputElement | null>(null);
@@ -340,6 +348,46 @@ export function YouTubeVideoAnalyticsModal({
 
           {!loading && !error && analytics && (
             <div className="flex min-w-0 flex-col gap-3">
+              <div className="flex min-w-0 flex-wrap items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  onClick={() => {
+                    const summary = buildVideoUnderstandingSummary(
+                      analytics,
+                      video.title,
+                      channelForContext ?? undefined
+                    );
+                    navigator.clipboard
+                      .writeText(summary)
+                      .then(() => toast.success("Context copied to clipboard"))
+                      .catch(() => toast.error("Could not copy to clipboard"));
+                  }}
+                >
+                  <Copy className="h-4 w-4" />
+                  Copy context to clipboard
+                </Button>
+                {onAppendToCustomInstructions && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-2"
+                    onClick={() => {
+                      const summary = buildVideoUnderstandingSummary(
+                        analytics,
+                        video.title,
+                        channelForContext ?? undefined
+                      );
+                      onAppendToCustomInstructions(summary);
+                      toast.success("Added to Custom Instructions");
+                    }}
+                  >
+                    <FileText className="h-4 w-4" />
+                    Add to custom instructions
+                  </Button>
+                )}
+              </div>
               <CollapsibleSection
                 label="Summary"
                 defaultOpen={true}
