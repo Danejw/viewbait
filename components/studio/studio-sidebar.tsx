@@ -19,7 +19,9 @@ import {
   PanelLeftOpen,
   Settings,
   Newspaper,
+  MessageSquare,
 } from "lucide-react";
+import Link from "next/link";
 import { ThemeToggleSimple } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import {
@@ -47,6 +49,10 @@ export interface NavItem {
   locked?: boolean;
   /** When true, tab is unlocked when tier === 'pro'; when locked, click opens subscription modal */
   unlockWithPro?: boolean;
+  /** When set, navigate to this URL instead of setView. Pro-gated when unlockWithPro. */
+  href?: string;
+  /** Nested items shown under this one (e.g. Assistant under YouTube). */
+  children?: NavItem[];
 }
 
 export const navItems: NavItem[] = [
@@ -58,8 +64,27 @@ export const navItems: NavItem[] = [
   { label: "Palettes", view: "palettes", icon: Droplets },
   { label: "Faces", view: "faces", icon: User },
   { label: "Notifications", view: "updates", icon: Newspaper },
-  { label: "YouTube", view: "youtube", icon: Youtube, locked: true, unlockWithPro: true },
+  {
+    label: "YouTube",
+    view: "youtube",
+    icon: Youtube,
+    locked: true,
+    unlockWithPro: true,
+    children: [
+      {
+        label: "Assistant",
+        view: "assistant",
+        icon: MessageSquare,
+        locked: true,
+        unlockWithPro: true,
+      },
+    ],
+  },
 ];
+
+function navItemKey(item: NavItem): string {
+  return item.href ?? item.view;
+}
 
 /**
  * StudioSidebarNav
@@ -75,63 +100,89 @@ export function StudioSidebarNav() {
   const { tier, productId } = useSubscription();
   const [subscriptionModalOpen, setSubscriptionModalOpen] = useState(false);
 
+  const renderItem = (item: NavItem, isChild = false) => {
+    const Icon = item.icon;
+    const isActive = item.href ? false : currentView === item.view;
+    const isLocked =
+      item.locked && !(item.unlockWithPro && tier === "pro");
+    const openModalOnClick = isLocked && item.unlockWithPro;
+    const canNavigate = item.href && !isLocked;
+
+    const buttonContent = canNavigate ? (
+      <Link
+        href={item.href!}
+        className={cn(
+          "flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+          leftSidebarCollapsed ? "justify-center shrink-0" : "justify-start text-left",
+          "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+        )}
+      >
+        <Icon className="h-4 w-4 shrink-0" />
+        {!leftSidebarCollapsed && <span>{item.label}</span>}
+      </Link>
+    ) : (
+      <Button
+        type="button"
+        variant={isActive ? "ghost" : "side"}
+        size={leftSidebarCollapsed ? "icon-sm" : "sm"}
+        onClick={() => {
+          if (openModalOnClick) {
+            setSubscriptionModalOpen(true);
+          } else if (!isLocked && !item.href) {
+            setView(item.view);
+          }
+        }}
+        disabled={isLocked && !openModalOnClick}
+        className={cn(
+          "w-full",
+          leftSidebarCollapsed ? "shrink-0 justify-center" : "justify-start text-left gap-3",
+          isActive
+            ? "bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary hover:text-sidebar-primary-foreground"
+            : "text-sidebar-foreground",
+          isLocked && !openModalOnClick && "opacity-50 cursor-not-allowed"
+        )}
+      >
+        <Icon className="h-4 w-4 shrink-0" />
+        {!leftSidebarCollapsed && (
+          <>
+            <span>{item.label}</span>
+            {isLocked && <Lock className="ml-auto h-3 w-3" />}
+          </>
+        )}
+      </Button>
+    );
+
+    const wrapped = leftSidebarCollapsed ? (
+      <Tooltip>
+        <TooltipTrigger asChild>{buttonContent}</TooltipTrigger>
+        <TooltipContent side="right" className="flex items-center gap-2">
+          {item.label}
+          {isLocked && <Lock className="h-3 w-3" />}
+        </TooltipContent>
+      </Tooltip>
+    ) : (
+      buttonContent
+    );
+
+    return (
+      <div key={navItemKey(item)} className={cn(isChild && "pl-6")}>
+        {wrapped}
+      </div>
+    );
+  };
+
   return (
     <TooltipProvider delayDuration={0}>
       <nav className={cn("flex flex-col gap-1", leftSidebarCollapsed ? "p-2" : "p-4")}>
-        {navItems.map((item) => {
-          const Icon = item.icon;
-          const isActive = currentView === item.view;
-          const isLocked =
-            item.locked && !(item.unlockWithPro && tier === "pro");
-          const openModalOnClick = isLocked && item.unlockWithPro;
-
-          const buttonContent = (
-            <Button
-              key={item.view}
-              type="button"
-              variant={isActive ? "ghost" : "side"}
-              size={leftSidebarCollapsed ? "icon-sm" : "sm"}
-              onClick={() => {
-                if (openModalOnClick) {
-                  setSubscriptionModalOpen(true);
-                } else if (!isLocked) {
-                  setView(item.view);
-                }
-              }}
-              disabled={isLocked && !openModalOnClick}
-              className={cn(
-                "w-full",
-                leftSidebarCollapsed ? "shrink-0 justify-center" : "justify-start text-left gap-3",
-                isActive
-                  ? "bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary hover:text-sidebar-primary-foreground"
-                  : "text-sidebar-foreground",
-                isLocked && !openModalOnClick && "opacity-50 cursor-not-allowed"
-              )}
-            >
-              <Icon className="h-4 w-4 shrink-0" />
-              {!leftSidebarCollapsed && (
-                <>
-                  <span>{item.label}</span>
-                  {isLocked && <Lock className="ml-auto h-3 w-3" />}
-                </>
-              )}
-            </Button>
-          );
-
-          if (leftSidebarCollapsed) {
-            return (
-              <Tooltip key={item.view}>
-                <TooltipTrigger asChild>{buttonContent}</TooltipTrigger>
-                <TooltipContent side="right" className="flex items-center gap-2">
-                  {item.label}
-                  {isLocked && <Lock className="h-3 w-3" />}
-                </TooltipContent>
-              </Tooltip>
-            );
-          }
-
-          return buttonContent;
-        })}
+        {navItems.map((item) => (
+          <React.Fragment key={navItemKey(item)}>
+            {renderItem(item)}
+            {item.children?.map((child) => renderItem(child, true))}
+            {(item.view === "browse" || item.view === "updates") && (
+              <div className="border-t border-sidebar-border my-2" aria-hidden />
+            )}
+          </React.Fragment>
+        ))}
       </nav>
       <SubscriptionModal
         isOpen={subscriptionModalOpen}
@@ -497,6 +548,7 @@ export function StudioSidebar({ onCloseRequested }: { onCloseRequested?: () => v
               </Button>
       </div>
       <StudioSidebarCredits />
+      <div className="border-t border-sidebar-border" aria-hidden />
       <StudioSidebarNav />
       <StudioSidebarUser />
       {/* <StudioSidebarToggle /> */}

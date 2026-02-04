@@ -186,3 +186,9 @@ export {
   StudioViewYouTube,
 } from "@/components/studio/studio-views";
 export { StudioViewUpdates } from "@/components/studio/studio-view-updates";
+export {
+  StudioAssistantPanel,
+  AssistantDataCard,
+  type AssistantMessage,
+  type StudioAssistantPanelProps,
+} from "@/components/studio/studio-assistant-panel";

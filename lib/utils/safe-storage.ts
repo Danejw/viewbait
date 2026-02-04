@@ -13,16 +13,22 @@ export interface SetItemWithCapOptions {
    * Should return a string that is strictly smaller (e.g. drop oldest entries).
    */
   trim?: (payload: string) => string;
+  /** Storage backend; defaults to localStorage. Use sessionStorage for session-scoped cache. */
+  storage?: Storage;
 }
 
 /**
  * Returns the item or null on any error (storage unavailable, quota, parse, etc.).
  * Does not throw.
  */
-export function getItemSafe(key: string): string | null {
+export function getItemSafe(
+  key: string,
+  options?: { storage?: Storage }
+): string | null {
   if (typeof window === "undefined") return null;
   try {
-    return localStorage.getItem(key);
+    const storage = options?.storage ?? localStorage;
+    return storage.getItem(key);
   } catch {
     return null;
   }
@@ -39,7 +45,8 @@ export function setItemWithCap(
 ): void {
   if (typeof window === "undefined") return;
 
-  const { maxBytes, trim } = options;
+  const { maxBytes, trim, storage: storageOption } = options;
+  const storage = storageOption ?? localStorage;
   let toWrite = payload;
 
   if (maxBytes != null && trim && toWrite.length > maxBytes) {
@@ -53,7 +60,7 @@ export function setItemWithCap(
 
   const tryWrite = (value: string): boolean => {
     try {
-      localStorage.setItem(key, value);
+      storage.setItem(key, value);
       return true;
     } catch (e) {
       if (e instanceof DOMException && e.name === "QuotaExceededError") {

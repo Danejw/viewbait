@@ -373,6 +373,166 @@ export async function storeChannelData(
   return { success: true, error: null }
 }
 
+/**
+ * Video list item for "my channel" videos (uploads playlist).
+ */
+export interface MyChannelVideoItem {
+  videoId: string
+  title: string
+  publishedAt: string
+  thumbnailUrl: string
+  viewCount?: number
+  likeCount?: number
+}
+
+/**
+ * Fetch videos from the authenticated user's channel (uploads playlist).
+ * Uses OAuth; cap maxResults at 50 for agent use.
+ */
+export async function fetchMyChannelVideos(
+  userId: string,
+  maxResults: number = 10,
+  pageToken?: string
+): Promise<{
+  videos: MyChannelVideoItem[]
+  nextPageToken: string | null
+  error: string | null
+}> {
+  const accessToken = await ensureValidToken(userId)
+  if (!accessToken) {
+    return { videos: [], nextPageToken: null, error: 'Unable to get valid access token' }
+  }
+
+  try {
+    const urlChannels = new URL(`${YOUTUBE_DATA_API_BASE}/channels`)
+    urlChannels.searchParams.set('part', 'contentDetails')
+    urlChannels.searchParams.set('mine', 'true')
+    const resChannels = await fetch(urlChannels.toString(), {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })
+    if (!resChannels.ok) {
+      const err = await resChannels.json()
+      logError(new Error('YouTube API channels error'), {
+        service: 'youtube',
+        operation: 'fetchMyChannelVideos',
+        userId,
+        status: resChannels.status,
+        error: (err as { error?: { message?: string } })?.error?.message,
+      })
+      return {
+        videos: [],
+        nextPageToken: null,
+        error: (err as { error?: { message?: string } })?.error?.message || 'Failed to get channel',
+      }
+    }
+    const dataChannels = (await resChannels.json()) as {
+      items?: Array<{ contentDetails?: { relatedPlaylists?: { uploads?: string } } }>
+    }
+    const uploadsPlaylistId = dataChannels.items?.[0]?.contentDetails?.relatedPlaylists?.uploads
+    if (!uploadsPlaylistId) {
+      return { videos: [], nextPageToken: null, error: 'No uploads playlist found' }
+    }
+
+    const urlPlaylist = new URL(`${YOUTUBE_DATA_API_BASE}/playlistItems`)
+    urlPlaylist.searchParams.set('part', 'snippet,contentDetails')
+    urlPlaylist.searchParams.set('playlistId', uploadsPlaylistId)
+    urlPlaylist.searchParams.set('maxResults', String(Math.min(Math.max(1, maxResults), 50)))
+    if (pageToken) urlPlaylist.searchParams.set('pageToken', pageToken)
+    const resPlaylist = await fetch(urlPlaylist.toString(), {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })
+    if (!resPlaylist.ok) {
+      const err = await resPlaylist.json()
+      logError(new Error('YouTube API playlistItems error'), {
+        service: 'youtube',
+        operation: 'fetchMyChannelVideos',
+        userId,
+        status: resPlaylist.status,
+        error: (err as { error?: { message?: string } })?.error?.message,
+      })
+      return {
+        videos: [],
+        nextPageToken: null,
+        error: (err as { error?: { message?: string } })?.error?.message || 'Failed to get playlist',
+      }
+    }
+
+    const dataPlaylist = (await resPlaylist.json()) as {
+      items?: Array<{
+        contentDetails?: { videoId?: string }
+        snippet?: {
+          title?: string
+          publishedAt?: string
+          thumbnails?: Record<string, { url?: string }>
+        }
+      }>
+      nextPageToken?: string
+    }
+
+    const videos: MyChannelVideoItem[] = []
+    for (const item of dataPlaylist.items ?? []) {
+      const videoId = item.contentDetails?.videoId
+      if (!videoId) continue
+      const snippet = item.snippet ?? {}
+      const thumbnails = snippet.thumbnails ?? {}
+      videos.push({
+        videoId,
+        title: snippet.title ?? 'Untitled',
+        publishedAt: snippet.publishedAt ?? '',
+        thumbnailUrl: thumbnails.high?.url ?? thumbnails.medium?.url ?? thumbnails.default?.url ?? '',
+      })
+    }
+
+    if (videos.length > 0) {
+      const ids = videos.map((v) => v.videoId).join(',')
+      const urlStats = new URL(`${YOUTUBE_DATA_API_BASE}/videos`)
+      urlStats.searchParams.set('part', 'statistics')
+      urlStats.searchParams.set('id', ids)
+      const resStats = await fetch(urlStats.toString(), {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      })
+      if (resStats.ok) {
+        const dataStats = (await resStats.json()) as {
+          items?: Array<{ id?: string; statistics?: { viewCount?: string; likeCount?: string } }>
+        }
+        const byId = new Map(
+          (dataStats.items ?? []).map((i) => [
+            i.id,
+            {
+              viewCount: i.statistics?.viewCount != null ? parseInt(i.statistics.viewCount, 10) : undefined,
+              likeCount: i.statistics?.likeCount != null ? parseInt(i.statistics.likeCount, 10) : undefined,
+            },
+          ])
+        )
+        for (const v of videos) {
+          const s = byId.get(v.videoId)
+          if (s) {
+            v.viewCount = s.viewCount
+            v.likeCount = s.likeCount
+          }
+        }
+      }
+    }
+
+    return {
+      videos,
+      nextPageToken: dataPlaylist.nextPageToken ?? null,
+      error: null,
+    }
+  } catch (error) {
+    logError(error, {
+      service: 'youtube',
+      operation: 'fetchMyChannelVideos',
+      userId,
+    })
+    return {
+      videos: [],
+      nextPageToken: null,
+      error: error instanceof Error ? error.message : 'Failed to fetch channel videos',
+    }
+  }
+}
+
 // ============================================================================
 // YouTube Analytics API
 // ============================================================================
@@ -946,5 +1106,294 @@ export async function fetchVideoImpressions(
     })
     // Return null values rather than failing
     return { impressions: null, impressionsClickThroughRate: null }
+  }
+}
+
+// ============================================================================
+// Search API (uses API key; public data)
+// ============================================================================
+
+export interface SearchVideoItem {
+  videoId: string
+  title: string
+  thumbnailUrl: string
+  publishedAt: string
+  channelId: string
+  channelTitle: string
+  viewCount?: number
+  likeCount?: number
+}
+
+/**
+ * Search YouTube videos by query using Data API search.list.
+ * Uses YOUTUBE_DATA_API_KEY (server-side). Max 50 results per request.
+ */
+export async function searchVideos(
+  query: string,
+  maxResults: number = 10,
+  order: 'relevance' | 'date' | 'viewCount' | 'rating' = 'relevance'
+): Promise<{ items: SearchVideoItem[]; nextPageToken: string | null; error: string | null }> {
+  const apiKey = process.env.YOUTUBE_DATA_API_KEY
+  if (!apiKey) {
+    return { items: [], nextPageToken: null, error: 'YOUTUBE_DATA_API_KEY not configured' }
+  }
+
+  try {
+    const url = new URL(`${YOUTUBE_DATA_API_BASE}/search`)
+    url.searchParams.set('part', 'snippet')
+    url.searchParams.set('type', 'video')
+    url.searchParams.set('q', query)
+    url.searchParams.set('maxResults', String(Math.min(Math.max(1, maxResults), 50)))
+    url.searchParams.set('order', order)
+    url.searchParams.set('key', apiKey)
+
+    const response = await fetch(url.toString())
+    if (!response.ok) {
+      const errorData = await response.json()
+      logError(new Error('YouTube search API error'), {
+        service: 'youtube',
+        operation: 'searchVideos',
+        status: response.status,
+        error: (errorData as { error?: { message?: string } })?.error?.message,
+      })
+      return {
+        items: [],
+        nextPageToken: null,
+        error: (errorData as { error?: { message?: string } })?.error?.message || 'Search failed',
+      }
+    }
+
+    const data = (await response.json()) as {
+      items?: Array<{
+        id?: { videoId?: string }
+        snippet?: {
+          title?: string
+          publishedAt?: string
+          channelId?: string
+          channelTitle?: string
+          thumbnails?: Record<string, { url?: string }>
+        }
+      }>
+      nextPageToken?: string
+    }
+
+    const items: SearchVideoItem[] = []
+    for (const item of data.items ?? []) {
+      const videoId = item.id?.videoId
+      if (!videoId) continue
+      const snippet = item.snippet ?? {}
+      const thumbnails = snippet.thumbnails ?? {}
+      items.push({
+        videoId,
+        title: snippet.title ?? 'Untitled',
+        thumbnailUrl: thumbnails.high?.url ?? thumbnails.medium?.url ?? thumbnails.default?.url ?? '',
+        publishedAt: snippet.publishedAt ?? '',
+        channelId: snippet.channelId ?? '',
+        channelTitle: snippet.channelTitle ?? '',
+      })
+    }
+
+    return {
+      items,
+      nextPageToken: data.nextPageToken ?? null,
+      error: null,
+    }
+  } catch (error) {
+    logError(error, {
+      service: 'youtube',
+      operation: 'searchVideos',
+    })
+    return {
+      items: [],
+      nextPageToken: null,
+      error: error instanceof Error ? error.message : 'Search failed',
+    }
+  }
+}
+
+/**
+ * Playlist video item (public playlist by ID).
+ */
+export interface PlaylistVideoItem {
+  videoId: string
+  title: string
+  thumbnailUrl: string
+  publishedAt: string
+  viewCount?: number
+  likeCount?: number
+}
+
+/**
+ * Fetch videos from a playlist by playlist ID using Data API playlistItems.list.
+ * Uses YOUTUBE_DATA_API_KEY (public playlists).
+ */
+export async function fetchPlaylistVideosByPlaylistId(
+  playlistId: string,
+  maxResults: number = 20,
+  pageToken?: string
+): Promise<{ items: PlaylistVideoItem[]; nextPageToken: string | null; error: string | null }> {
+  const apiKey = process.env.YOUTUBE_DATA_API_KEY
+  if (!apiKey) {
+    return { items: [], nextPageToken: null, error: 'YOUTUBE_DATA_API_KEY not configured' }
+  }
+
+  try {
+    const url = new URL(`${YOUTUBE_DATA_API_BASE}/playlistItems`)
+    url.searchParams.set('part', 'snippet,contentDetails')
+    url.searchParams.set('playlistId', playlistId)
+    url.searchParams.set('maxResults', String(Math.min(Math.max(1, maxResults), 50)))
+    if (pageToken) url.searchParams.set('pageToken', pageToken)
+    url.searchParams.set('key', apiKey)
+
+    const response = await fetch(url.toString())
+    if (!response.ok) {
+      const errorData = await response.json()
+      logError(new Error('YouTube playlistItems API error'), {
+        service: 'youtube',
+        operation: 'fetchPlaylistVideosByPlaylistId',
+        playlistId,
+        status: response.status,
+        error: (errorData as { error?: { message?: string } })?.error?.message,
+      })
+      return {
+        items: [],
+        nextPageToken: null,
+        error: (errorData as { error?: { message?: string } })?.error?.message || 'Failed to fetch playlist',
+      }
+    }
+
+    const data = (await response.json()) as {
+      items?: Array<{
+        contentDetails?: { videoId?: string }
+        snippet?: {
+          title?: string
+          publishedAt?: string
+          thumbnails?: Record<string, { url?: string }>
+        }
+      }>
+      nextPageToken?: string
+    }
+
+    const items: PlaylistVideoItem[] = []
+    for (const item of data.items ?? []) {
+      const videoId = item.contentDetails?.videoId
+      if (!videoId) continue
+      const snippet = item.snippet ?? {}
+      const thumbnails = snippet.thumbnails ?? {}
+      items.push({
+        videoId,
+        title: snippet.title ?? 'Untitled',
+        thumbnailUrl: thumbnails.high?.url ?? thumbnails.medium?.url ?? thumbnails.default?.url ?? '',
+        publishedAt: snippet.publishedAt ?? '',
+      })
+    }
+
+    return {
+      items,
+      nextPageToken: data.nextPageToken ?? null,
+      error: null,
+    }
+  } catch (error) {
+    logError(error, {
+      service: 'youtube',
+      operation: 'fetchPlaylistVideosByPlaylistId',
+      playlistId,
+    })
+    return {
+      items: [],
+      nextPageToken: null,
+      error: error instanceof Error ? error.message : 'Failed to fetch playlist',
+    }
+  }
+}
+
+// ============================================================================
+// Comments API (uses OAuth)
+// ============================================================================
+
+export interface VideoCommentItem {
+  id: string
+  text: string
+  likeCount: number
+  authorDisplayName: string
+  publishedAt: string
+}
+
+/**
+ * Fetch top-level comments for a video using commentThreads.list.
+ * Requires OAuth access token with YouTube scope.
+ */
+export async function fetchVideoComments(
+  videoId: string,
+  accessToken: string,
+  maxResults: number = 20
+): Promise<{ items: VideoCommentItem[]; error: string | null }> {
+  try {
+    const url = new URL(`${YOUTUBE_DATA_API_BASE}/commentThreads`)
+    url.searchParams.set('part', 'snippet')
+    url.searchParams.set('videoId', videoId)
+    url.searchParams.set('maxResults', String(Math.min(Math.max(1, maxResults), 100)))
+    url.searchParams.set('order', 'relevance')
+    url.searchParams.set('textFormat', 'plainText')
+
+    const response = await fetch(url.toString(), {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json()
+      logError(new Error('YouTube commentThreads API error'), {
+        service: 'youtube',
+        operation: 'fetchVideoComments',
+        videoId,
+        status: response.status,
+        error: (errorData as { error?: { message?: string } })?.error?.message,
+      })
+      return {
+        items: [],
+        error: (errorData as { error?: { message?: string } })?.error?.message || 'Failed to fetch comments',
+      }
+    }
+
+    const data = (await response.json()) as {
+      items?: Array<{
+        id?: string
+        snippet?: {
+          topLevelComment?: {
+            snippet?: {
+              textDisplay?: string
+              likeCount?: number
+              authorDisplayName?: string
+              publishedAt?: string
+            }
+          }
+        }
+      }>
+    }
+
+    const items: VideoCommentItem[] = []
+    for (const item of data.items ?? []) {
+      const top = item.snippet?.topLevelComment?.snippet
+      if (!top) continue
+      items.push({
+        id: item.id ?? '',
+        text: (top.textDisplay ?? '').replace(/<[^>]*>/g, '').trim(),
+        likeCount: top.likeCount ?? 0,
+        authorDisplayName: top.authorDisplayName ?? '',
+        publishedAt: top.publishedAt ?? '',
+      })
+    }
+
+    return { items, error: null }
+  } catch (error) {
+    logError(error, {
+      service: 'youtube',
+      operation: 'fetchVideoComments',
+      videoId,
+    })
+    return {
+      items: [],
+      error: error instanceof Error ? error.message : 'Failed to fetch comments',
+    }
   }
 }

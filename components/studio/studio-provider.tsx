@@ -57,6 +57,7 @@ export type StudioView =
   | "palettes"
   | "faces"
   | "youtube"
+  | "assistant"
   | "updates";
 
 /**

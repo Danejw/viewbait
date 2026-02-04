@@ -9,9 +9,10 @@
  */
 
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useDraggable } from "@dnd-kit/core";
 import { motion } from "framer-motion";
-import { Copy, ExternalLink, Eye, ThumbsUp, BarChart3, ScanLine } from "lucide-react";
+import { Copy, ExternalLink, Eye, ThumbsUp, BarChart3, ScanLine, Thermometer } from "lucide-react";
 import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -33,8 +34,13 @@ import { useIntersectionObserver } from "@/lib/hooks/useIntersectionObserver";
 import { ActionBarIcon, ActionButton } from "@/components/studio/action-bar-icon";
 import { ViewBaitLogo } from "@/components/ui/viewbait-logo";
 import { useStudio } from "@/components/studio/studio-provider";
+import { useSubscription } from "@/lib/hooks/useSubscription";
+import { fetchImageAsBase64Client } from "@/lib/utils/fetch-image-as-base64-client";
+import { generateThumbnailHeatmap } from "@/lib/services/thumbnail-heatmap";
 import type { DragData } from "@/components/studio/studio-dnd-context";
 import type { Thumbnail } from "@/lib/types/database";
+
+const HEATMAP_QUERY_KEY = "thumbnail-heatmap" as const;
 
 export interface YouTubeVideoCardVideo {
   videoId: string;
@@ -94,7 +100,37 @@ export const YouTubeVideoCard = memo(function YouTubeVideoCard({
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [showStyleSuccessBorder, setShowStyleSuccessBorder] = useState(false);
   const [showAnalyticsSuccessBorder, setShowAnalyticsSuccessBorder] = useState(false);
+  const [showHeatmapOverlay, setShowHeatmapOverlay] = useState(false);
   const wasLoadingAnalytics = useRef(false);
+
+  const { tier } = useSubscription();
+  const canUseHeatmap = tier === "advanced" || tier === "pro";
+  const queryClient = useQueryClient();
+  const cachedHeatmapDataUrl = useQuery({
+    queryKey: [HEATMAP_QUERY_KEY, videoId],
+    enabled: false,
+  }).data as string | undefined;
+
+  const heatmapMutation = useMutation({
+    mutationFn: async () => {
+      const payload = await fetchImageAsBase64Client(thumbnailUrl);
+      if (payload) {
+        return generateThumbnailHeatmap({
+          imageData: payload.data,
+          mimeType: payload.mimeType,
+        });
+      }
+      return generateThumbnailHeatmap({ imageUrl: thumbnailUrl });
+    },
+    onSuccess: (result) => {
+      queryClient.setQueryData([HEATMAP_QUERY_KEY, videoId], result.dataUrl);
+      setShowHeatmapOverlay(true);
+    },
+    onError: (err) => {
+      toast.error(err instanceof Error ? err.message : "Failed to generate heatmap");
+    },
+  });
+
   const [ref, isIntersecting] = useIntersectionObserver({
     rootMargin: "200px",
   });
@@ -104,7 +140,7 @@ export const YouTubeVideoCard = memo(function YouTubeVideoCard({
   const watchUrl = `${YOUTUBE_WATCH_URL}${videoId}`;
   const selectionMode = onToggleSelect != null;
   const isAnalyzingOrLoading =
-    isAnalyzing || isVideoAnalyticsLoading;
+    isAnalyzing || isVideoAnalyticsLoading || heatmapMutation.isPending;
 
   // Track when analytics loading completes and we have cache → show success border briefly
   useEffect(() => {
@@ -210,6 +246,19 @@ export const YouTubeVideoCard = memo(function YouTubeVideoCard({
     [actions.onRequestVideoAnalytics, videoId, title, thumbnailUrl, channel]
   );
 
+  const handleHeatmapClick = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (!canUseHeatmap) return;
+      if (cachedHeatmapDataUrl) {
+        setShowHeatmapOverlay((prev) => !prev);
+      } else {
+        heatmapMutation.mutate();
+      }
+    },
+    [canUseHeatmap, cachedHeatmapDataUrl, heatmapMutation]
+  );
+
   const actionBar = (
     <motion.div
       className="flex items-center justify-center gap-1"
@@ -238,6 +287,16 @@ export const YouTubeVideoCard = memo(function YouTubeVideoCard({
           hasAnalyticsCached && "text-primary"
         )}
       />
+      {canUseHeatmap && (
+        <ActionButton
+          icon={heatmapMutation.isPending ? ViewBaitLogo : Thermometer}
+          label={showHeatmapOverlay ? "Hide heatmap" : "Attention heatmap"}
+          onClick={handleHeatmapClick}
+          disabled={heatmapMutation.isPending}
+          active={showHeatmapOverlay}
+          iconClassName={heatmapMutation.isPending ? "animate-spin" : undefined}
+        />
+      )}
     </motion.div>
   );
 
@@ -285,7 +344,7 @@ export const YouTubeVideoCard = memo(function YouTubeVideoCard({
                   <div className="studio-analyzing-status">
                     <div className="studio-analyzing-status-dot" aria-hidden />
                     <span className="studio-analyzing-status-text">
-                      ANALYZING
+                      {heatmapMutation.isPending ? "HEATMAP" : "ANALYZING"}
                     </span>
                   </div>
                   <div className="studio-analyzing-title">
@@ -313,6 +372,18 @@ export const YouTubeVideoCard = memo(function YouTubeVideoCard({
                         )}
                       />
                     </div>
+                    {showHeatmapOverlay && cachedHeatmapDataUrl && (
+                      <div
+                        className="absolute inset-0 z-10 pointer-events-none"
+                        aria-hidden
+                      >
+                        <img
+                          src={cachedHeatmapDataUrl}
+                          alt=""
+                          className="h-full w-full object-cover opacity-60"
+                        />
+                      </div>
+                    )}
                   </>
                 )}
                 {selectionMode && (

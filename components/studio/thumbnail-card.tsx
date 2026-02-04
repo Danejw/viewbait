@@ -18,9 +18,11 @@
  */
 
 import React, { memo, useCallback, useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useDraggable } from "@dnd-kit/core";
 import { motion } from "framer-motion";
-import { Heart, Download, Copy, Pencil, Trash2, FolderPlus, AlertCircle, ScanLine } from "lucide-react";
+import { toast } from "sonner";
+import { Heart, Download, Copy, Pencil, Trash2, FolderPlus, AlertCircle, ScanLine, Thermometer } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -48,8 +50,12 @@ import { useSubscription } from "@/lib/hooks/useSubscription";
 import { useThumbnailActions } from "@/components/studio/studio-provider";
 import { ActionBarIcon, ActionButton } from "@/components/studio/action-bar-icon";
 import { ViewBaitLogo } from "@/components/ui/viewbait-logo";
+import { fetchImageAsBase64Client } from "@/lib/utils/fetch-image-as-base64-client";
+import { generateThumbnailHeatmap } from "@/lib/services/thumbnail-heatmap";
 import type { Thumbnail } from "@/lib/types/database";
 import type { DragData } from "./studio-dnd-context";
+
+const HEATMAP_QUERY_KEY = "thumbnail-heatmap" as const;
 
 /**
  * Resolution badge display - positioned top-right, shown on hover
@@ -301,7 +307,8 @@ export const ThumbnailCard = memo(function ThumbnailCard({
     projectId,
   } = thumbnail;
 
-  const { hasWatermark } = useSubscription();
+  const { hasWatermark, tier } = useSubscription();
+  const canUseHeatmap = tier === "advanced" || tier === "pro";
   const { url: watermarkedUrl } = useWatermarkedImage(imageUrl, {
     enabled: hasWatermark(),
   });
@@ -333,6 +340,32 @@ export const ThumbnailCard = memo(function ThumbnailCard({
   const [projectDropdownOpen, setProjectDropdownOpen] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [showAnalysisSuccessBorder, setShowAnalysisSuccessBorder] = useState(false);
+  const [showHeatmapOverlay, setShowHeatmapOverlay] = useState(false);
+
+  const queryClient = useQueryClient();
+  const cachedHeatmapDataUrl = useQuery({
+    queryKey: [HEATMAP_QUERY_KEY, id],
+    enabled: false,
+  }).data as string | undefined;
+
+  const heatmapMutation = useMutation({
+    mutationFn: async () => {
+      const payload = await fetchImageAsBase64Client(displaySrc);
+      if (!payload) throw new Error("Could not load image");
+      return generateThumbnailHeatmap({
+        imageData: payload.data,
+        mimeType: payload.mimeType,
+        thumbnailId: id,
+      });
+    },
+    onSuccess: (result) => {
+      queryClient.setQueryData([HEATMAP_QUERY_KEY, id], result.dataUrl);
+      setShowHeatmapOverlay(true);
+    },
+    onError: (err) => {
+      toast.error(err instanceof Error ? err.message : "Failed to generate heatmap");
+    },
+  });
 
   // CRT overlay stays until the image has loaded (continuous visual feedback after generation)
   const [imageLoaded, setImageLoaded] = useState(false);
@@ -427,6 +460,19 @@ export const ThumbnailCard = memo(function ThumbnailCard({
     [id, displaySrc, onAnalyzeThumbnailForInstructions, isAnalyzing]
   );
 
+  const handleHeatmapClick = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (!canUseHeatmap) return;
+      if (cachedHeatmapDataUrl) {
+        setShowHeatmapOverlay((prev) => !prev);
+      } else {
+        heatmapMutation.mutate();
+      }
+    },
+    [canUseHeatmap, cachedHeatmapDataUrl, heatmapMutation]
+  );
+
   const handleClick = useCallback(() => {
     onView(thumbnail);
   }, [thumbnail, onView]);
@@ -468,6 +514,16 @@ export const ThumbnailCard = memo(function ThumbnailCard({
         disabled={isAnalyzing}
         iconClassName={isAnalyzing ? "animate-spin" : undefined}
       />
+      {canUseHeatmap && (
+        <ActionButton
+          icon={heatmapMutation.isPending ? ViewBaitLogo : Thermometer}
+          label={showHeatmapOverlay ? "Hide heatmap" : "Attention heatmap"}
+          onClick={handleHeatmapClick}
+          disabled={heatmapMutation.isPending}
+          active={showHeatmapOverlay}
+          iconClassName={heatmapMutation.isPending ? "animate-spin" : undefined}
+        />
+      )}
       {isOwner && (
         <DropdownMenu open={projectDropdownOpen} onOpenChange={setProjectDropdownOpen}>
           <Tooltip>
@@ -546,47 +602,95 @@ export const ThumbnailCard = memo(function ThumbnailCard({
             "hover:ring-2 hover:ring-primary/50 hover:shadow-lg",
             isDragging && "opacity-50 ring-2 ring-primary cursor-grabbing",
             draggable && !isDragging && "cursor-grab",
-            isAnalyzing && "thumbnail-card-border-loading",
+            (isAnalyzing || heatmapMutation.isPending) && "thumbnail-card-border-loading",
             showAnalysisSuccessBorder && "thumbnail-card-border-success"
           )}
           onClick={handleClick}
           {...listeners}
           {...attributes}
         >
-          <div className="relative h-full w-full overflow-hidden bg-muted">
-            {/* Image with scale animation on hover */}
-            <div className="h-full w-full transition-transform duration-300 group-hover:scale-105">
-              <ProgressiveImage
-                src={displaySrc}
-                src400w={display400w}
-                src800w={display800w}
-                alt={name}
-                priority={priority}
-                onLoad={handleImageLoad}
-              />
-            </div>
-            {/* CRT overlay until image has loaded (continuous visual feedback after generation) */}
-            {!imageLoaded && displaySrc && (
-              <div className="absolute inset-0 z-10">
-                <CRTLoadingEffect className="h-full w-full !aspect-auto rounded-lg" />
+          {isAnalyzing || heatmapMutation.isPending ? (
+            <div className={cn("studio-analyzing-wrapper", "is-analyzing")}>
+              <div className="studio-analyzing-card">
+                {displaySrc && (
+                  <img
+                    src={displaySrc}
+                    alt={name}
+                    className="studio-analyzing-thumbnail"
+                  />
+                )}
+                {!displaySrc && (
+                  <div className="absolute inset-0 bg-muted" aria-hidden />
+                )}
+                <div className="studio-analyzing-scanlines" aria-hidden />
+                <div className="studio-analyzing-scan-line" aria-hidden />
+                <div className="studio-analyzing-rgb" aria-hidden />
+                <div className="studio-analyzing-vignette" aria-hidden />
+                <div className="studio-analyzing-corner tl" aria-hidden />
+                <div className="studio-analyzing-corner tr" aria-hidden />
+                <div className="studio-analyzing-corner bl" aria-hidden />
+                <div className="studio-analyzing-corner br" aria-hidden />
+                <div className="studio-analyzing-status">
+                  <div className="studio-analyzing-status-dot" aria-hidden />
+                  <span className="studio-analyzing-status-text">
+                    {heatmapMutation.isPending ? "HEATMAP" : "ANALYZING"}
+                  </span>
+                </div>
+                <div className="studio-analyzing-title">
+                  <div className="studio-analyzing-title-text">{name}</div>
+                </div>
               </div>
-            )}
-
-            {/* Top overlay - Title (left) and Resolution (right); smooth in/out from top */}
-            <div
-              className={cn(
-                "absolute inset-x-0 top-0 flex items-start justify-between p-2",
-                "bg-gradient-to-b from-black/60 to-transparent",
-                "opacity-0 -translate-y-2 transition-all duration-200 ease-out",
-                "group-hover:opacity-100 group-hover:translate-y-0"
-              )}
-            >
-              <p className="max-w-[70%] truncate text-sm font-medium text-white drop-shadow-sm">
-                {name}
-              </p>
-              <ResolutionBadge resolution={resolution} />
             </div>
-          </div>
+          ) : (
+            <div className="relative h-full w-full overflow-hidden bg-muted">
+              {/* Image with scale animation on hover */}
+              <div className="h-full w-full transition-transform duration-300 group-hover:scale-105">
+                <ProgressiveImage
+                  src={displaySrc}
+                  src400w={display400w}
+                  src800w={display800w}
+                  alt={name}
+                  priority={priority}
+                  onLoad={handleImageLoad}
+                />
+              </div>
+              {/* CRT overlay until image has loaded (continuous visual feedback after generation) */}
+              {!imageLoaded && displaySrc && (
+                <div className="absolute inset-0 z-10">
+                  <CRTLoadingEffect className="h-full w-full !aspect-auto rounded-lg" />
+                </div>
+              )}
+
+              {/* Heatmap overlay (Advanced/Pro): toggle on/off to compare attention areas */}
+              {showHeatmapOverlay && cachedHeatmapDataUrl && (
+                <div
+                  className="absolute inset-0 z-10 pointer-events-none"
+                  aria-hidden
+                >
+                  <img
+                    src={cachedHeatmapDataUrl}
+                    alt=""
+                    className="h-full w-full object-cover opacity-60"
+                  />
+                </div>
+              )}
+
+              {/* Top overlay - Title (left) and Resolution (right); smooth in/out from top */}
+              <div
+                className={cn(
+                  "absolute inset-x-0 top-0 flex items-start justify-between p-2",
+                  "bg-gradient-to-b from-black/60 to-transparent",
+                  "opacity-0 -translate-y-2 transition-all duration-200 ease-out",
+                  "group-hover:opacity-100 group-hover:translate-y-0"
+                )}
+              >
+                <p className="max-w-[70%] truncate text-sm font-medium text-white drop-shadow-sm">
+                  {name}
+                </p>
+                <ResolutionBadge resolution={resolution} />
+              </div>
+            </div>
+          )}
         </Card>
       </HoverCardTrigger>
       {/* Action bar in pop-up above thumbnail - icons only, no card background; smooth in/out */}

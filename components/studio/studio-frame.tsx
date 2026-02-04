@@ -117,10 +117,12 @@ export function StudioLayoutResponsive({
     );
   }
 
+  const { state: { currentView } } = useStudio();
+
   return (
     <StudioLayout>
       {left}
-      <StudioMainPanel>{main}</StudioMainPanel>
+      <StudioMainPanel contentView={currentView}>{main}</StudioMainPanel>
       <StudioSettingsPanel>{right}</StudioSettingsPanel>
     </StudioLayout>
   );
@@ -213,18 +215,38 @@ export function StudioSidebar({
 
 /**
  * StudioMainPanel
- * Center panel - main content area (gallery/results)
+ * Center panel - main content area (gallery/results).
+ * When contentView is "assistant", uses a non-scrolling flex container so the assistant
+ * panel can fill height and pin its input to the bottom; other views keep scrolling here.
  */
 export function StudioMainPanel({
   children,
   className,
+  contentView,
 }: {
   children: React.ReactNode;
   className?: string;
+  /** When "assistant", inner area is overflow-hidden and flex so the child controls scroll (input fixed at bottom). */
+  contentView?: string;
 }) {
+  const isAssistant = contentView === "assistant";
+
   return (
-    <main className={cn("flex-1 overflow-y-auto bg-muted/30 hide-scrollbar", className)}>
-      <div className="p-6">{children}</div>
+    <main
+      className={cn(
+        "flex-1 bg-muted/30 hide-scrollbar",
+        isAssistant ? "flex min-h-0 flex-col overflow-hidden" : "overflow-y-auto",
+        className
+      )}
+    >
+      <div
+        className={cn(
+          "p-6",
+          isAssistant && "flex min-h-0 flex-1 flex-col overflow-hidden"
+        )}
+      >
+        {children}
+      </div>
     </main>
   );
 }

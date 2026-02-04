@@ -186,3 +186,5 @@ export function StudioViewUpdates() {
     </div>
   );
 }
+
+export default StudioViewUpdates;

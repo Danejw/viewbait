@@ -84,6 +84,12 @@ A powerful style management system:
 - **AI Edit** — Make post-generation adjustments with prompts
 - Edit existing thumbnails without regenerating from scratch
 
+### 9. Attention Heatmap (Advanced & Pro only)
+- **Visual attention heatmap** — For any thumbnail (generated or YouTube), generate a heatmap showing where viewers are most likely to look first.
+- Available on **thumbnail cards** (gallery/generator) and **YouTube video cards** (e.g. My Channel).
+- **Flow:** Click the heatmap icon on a card → AI generates a heatmap image from the exact thumbnail shown → toggle overlay on/off to compare.
+- **Tier gating:** This feature is available only for **Advanced** and **Pro** subscribers. Free and Starter users do not see the heatmap action. Use this as the reference pattern when adding other tier-gated features (see [Subscription Tiers](#subscription-tiers)).
+
 ---
 
 ## User Flows
@@ -127,6 +133,8 @@ A powerful style management system:
 
 ## Subscription Tiers
 
+When implementing new features that depend on subscription tier, use this section as the single source of truth. Gate in the UI (e.g. hide action for tiers that don’t have access) and enforce in the API (e.g. return 403 with an upgrade message when a lower tier calls a gated endpoint).
+
 | Feature | Free | Starter ($19.99) | Advanced ($49.99) | Pro ($99.99) |
 |---------|------|------------------|-------------------|--------------|
 | Credits/month | 10 | 100 | 300 | 700 |
@@ -136,6 +144,7 @@ A powerful style management system:
 | Storage | 30 days | Permanent | Permanent | Permanent |
 | Priority Generation | No | No | Yes | Yes |
 | Early Access | No | No | No | Yes |
+| **Attention heatmap** | No | No | **Yes** | **Yes** |
 | Generate cooldown | 12 s | 8 s | 4 s | 2 s |
 
 ### Credit System
@@ -166,6 +175,9 @@ Allowed aspect ratios for image generation, by subscription tier (used for tier-
 | **Pro** | `1:1`, `2:3`, `3:2`, `3:4`, `4:3`, `4:5`, `5:4`, `9:16`, `16:9`, `21:9` |
 
 Full set of supported ratios (in display order by unlock tier): **16:9** (Free) → **1:1**, **3:2**, **3:4**, **9:16** (Starter) → **2:3**, **4:3**, **4:5**, **5:4**, **21:9** (Advanced/Pro).
+
+### Tier-gated features reference
+- **Attention heatmap** — **Advanced & Pro only.** Generate a visual attention heatmap for thumbnails (our thumbnails or YouTube). UI: heatmap icon on thumbnail/YouTube cards; only shown when `tier === 'advanced' || tier === 'pro'`. API: `POST /api/thumbnails/heatmap` returns 403 with an upgrade message if tier is not Advanced or Pro. Use this pattern (UI check + API enforcement) for future tier-gated features.
 
 ---
 
