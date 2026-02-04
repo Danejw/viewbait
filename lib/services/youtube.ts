@@ -1397,3 +1397,96 @@ export async function fetchVideoComments(
     }
   }
 }
+
+// ============================================================================
+// Set video thumbnail from image URL (used by agent apply_thumbnail_to_video)
+// ============================================================================
+
+const MAX_THUMBNAIL_SIZE = 2 * 1024 * 1024 // 2MB
+const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/jpg', 'image/png']
+
+/**
+ * Set a YouTube video's custom thumbnail from a fetchable image URL.
+ * Used by the agent tool apply_thumbnail_to_video and by the set-thumbnail API route.
+ */
+export async function setVideoThumbnailFromUrl(
+  userId: string,
+  videoId: string,
+  imageUrl: string
+): Promise<{ success: boolean; error?: string }> {
+  const accessToken = await ensureValidToken(userId)
+  if (!accessToken) {
+    return { success: false, error: 'Unable to get valid access token' }
+  }
+
+  let imageResponse: Response
+  try {
+    imageResponse = await fetch(imageUrl)
+    if (!imageResponse.ok) {
+      throw new Error(`Failed to fetch image: ${imageResponse.statusText}`)
+    }
+  } catch (error) {
+    logError(error, {
+      service: 'youtube',
+      operation: 'setVideoThumbnailFromUrl',
+      userId,
+      videoId,
+    })
+    return { success: false, error: 'Failed to fetch image from URL' }
+  }
+
+  const contentLength = imageResponse.headers.get('content-length')
+  if (contentLength && parseInt(contentLength, 10) > MAX_THUMBNAIL_SIZE) {
+    return { success: false, error: 'Image size exceeds 2MB limit' }
+  }
+
+  const imageBuffer = await imageResponse.arrayBuffer()
+  const imageSize = imageBuffer.byteLength
+  if (imageSize > MAX_THUMBNAIL_SIZE) {
+    return { success: false, error: 'Image size exceeds 2MB limit' }
+  }
+
+  const contentType = imageResponse.headers.get('content-type') || ''
+  let mimeType = contentType
+  if (!mimeType || !ALLOWED_MIME_TYPES.includes(mimeType.toLowerCase())) {
+    const urlLower = imageUrl.toLowerCase()
+    mimeType = urlLower.includes('.png') ? 'image/png' : 'image/jpeg'
+  }
+
+  const uploadUrl = new URL(`${YOUTUBE_DATA_API_BASE}/thumbnails/set`)
+  uploadUrl.searchParams.set('videoId', videoId)
+  const formData = new FormData()
+  const blob = new Blob([imageBuffer], { type: mimeType })
+  formData.append('media', blob)
+
+  const uploadResponse = await fetch(uploadUrl.toString(), {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${accessToken}` },
+    body: formData,
+  })
+
+  if (!uploadResponse.ok) {
+    const errorData = await uploadResponse.json().catch(() => ({}))
+    logError(new Error('YouTube API thumbnail upload error'), {
+      service: 'youtube',
+      operation: 'setVideoThumbnailFromUrl',
+      userId,
+      videoId,
+      status: uploadResponse.status,
+      error: (errorData as { error?: { message?: string } })?.error?.message || uploadResponse.statusText,
+    })
+    return {
+      success: false,
+      error: (errorData as { error?: { message?: string } })?.error?.message || 'Failed to upload thumbnail',
+    }
+  }
+
+  logInfo('Video thumbnail set successfully', {
+    service: 'youtube',
+    operation: 'setVideoThumbnailFromUrl',
+    userId,
+    videoId,
+    imageSize,
+  })
+  return { success: true }
+}

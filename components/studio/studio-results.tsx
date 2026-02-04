@@ -1,8 +1,10 @@
 "use client";
 
-import React, { useCallback, memo } from "react";
+import React, { useCallback, memo, useMemo } from "react";
 import { useStudio } from "./studio-provider";
 import { ThumbnailGrid } from "./thumbnail-grid";
+import { getCombinedThumbnailsList } from "@/lib/utils/studio-thumbnails";
+import { getClickRankBorderMap } from "@/lib/utils/click-rank-borders";
 import type { Thumbnail } from "@/lib/types/database";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -10,16 +12,55 @@ import { AlertCircle, RefreshCw } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ViewBaitLogo } from "@/components/ui/viewbait-logo";
 import { LoadMoreButton } from "@/components/studio/load-more-button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
+const RESULTS_SORT_OPTIONS = [
+  { value: "newest", label: "Newest First", orderBy: "created_at" as const, orderDirection: "desc" as const },
+  { value: "oldest", label: "Oldest First", orderBy: "created_at" as const, orderDirection: "asc" as const },
+  { value: "most-clicks", label: "Most Clicks", orderBy: "share_click_count" as const, orderDirection: "desc" as const },
+  { value: "title-asc", label: "Title A-Z", orderBy: "title" as const, orderDirection: "asc" as const },
+  { value: "title-desc", label: "Title Z-A", orderBy: "title" as const, orderDirection: "desc" as const },
+];
+
+function getResultsSortValue(
+  orderBy: string | undefined,
+  orderDirection: string | undefined
+): string {
+  const option = RESULTS_SORT_OPTIONS.find(
+    (o) => o.orderBy === (orderBy ?? "created_at") && o.orderDirection === (orderDirection ?? "desc")
+  );
+  return option?.value ?? "newest";
+}
 
 /**
  * StudioResultsHeader
- * Header for results panel with refresh button.
+ * Header for results panel with refresh button and sort dropdown.
  * Project selection is in the right-hand sidebar above Manual/Chat tabs.
  */
 export const StudioResultsHeader = memo(function StudioResultsHeader() {
-  const { data, state } = useStudio();
+  const { data, state, actions } = useStudio();
   const { refreshThumbnails, thumbnailsLoading } = data;
-  const { isGenerating } = state;
+  const { isGenerating, resultsOrderBy, resultsOrderDirection } = state;
+  const { setResultsSort } = actions;
+
+  const sortValue = useMemo(
+    () => getResultsSortValue(resultsOrderBy, resultsOrderDirection),
+    [resultsOrderBy, resultsOrderDirection]
+  );
+
+  const handleSortChange = useCallback(
+    (value: string) => {
+      const option = RESULTS_SORT_OPTIONS.find((o) => o.value === value);
+      if (option) setResultsSort(option.orderBy, option.orderDirection);
+    },
+    [setResultsSort]
+  );
 
   const handleRefresh = useCallback(() => {
     refreshThumbnails();
@@ -27,22 +68,36 @@ export const StudioResultsHeader = memo(function StudioResultsHeader() {
 
   return (
     <div className="mb-6 flex flex-col gap-3">
-      <div className="flex items-center justify-left">
-        <h2 className="mb-2 text-2xl font-bold">Create Thumbnails</h2>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={handleRefresh}
-          disabled={thumbnailsLoading}
-          title="Refresh"
-          className="h-9 w-9 shrink-0 p-0 sm:h-auto sm:w-auto sm:gap-2 sm:px-3 sm:py-2"
-        >
-          {thumbnailsLoading ? (
-            <ViewBaitLogo className="h-4 w-4 animate-spin" />
-          ) : (
-            <RefreshCw className="h-4 w-4 shrink-0" />
-          )}
-        </Button>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <h2 className="mb-2 text-2xl font-bold">Create Thumbnails</h2>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleRefresh}
+            disabled={thumbnailsLoading}
+            title="Refresh"
+            className="h-9 w-9 shrink-0 p-0 sm:h-auto sm:w-auto sm:gap-2 sm:px-3 sm:py-2"
+          >
+            {thumbnailsLoading ? (
+              <ViewBaitLogo className="h-4 w-4 animate-spin" />
+            ) : (
+              <RefreshCw className="h-4 w-4 shrink-0" />
+            )}
+          </Button>
+        </div>
+        <Select value={sortValue} onValueChange={handleSortChange}>
+          <SelectTrigger className="w-[180px]" aria-label="Sort results">
+            <SelectValue placeholder="Sort" />
+          </SelectTrigger>
+          <SelectContent>
+            {RESULTS_SORT_OPTIONS.map((opt) => (
+              <SelectItem key={opt.value} value={opt.value}>
+                {opt.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
     </div>
   );
@@ -159,6 +214,15 @@ export const StudioResultsGrid = memo(function StudioResultsGrid() {
   const showEmptySlots =
     thumbnails.length === 0 && effectiveGeneratingItems.size === 0;
 
+  const combinedList = useMemo(
+    () => getCombinedThumbnailsList(thumbnails, effectiveGeneratingItems),
+    [thumbnails, effectiveGeneratingItems]
+  );
+  const clickRankBorderById = useMemo(
+    () => getClickRankBorderMap(combinedList),
+    [combinedList]
+  );
+
   return (
     <ThumbnailGrid
       thumbnails={thumbnails}
@@ -166,6 +230,7 @@ export const StudioResultsGrid = memo(function StudioResultsGrid() {
       isLoading={thumbnailsLoading}
       minSlots={12}
       showEmptySlots={showEmptySlots}
+      clickRankBorderById={clickRankBorderById}
     />
   );
 });

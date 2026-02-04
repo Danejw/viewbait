@@ -37,7 +37,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const limit = parseInt(searchParams.get('limit') || '24', 10)
     const cursor = searchParams.get('cursor') // Cursor for pagination (created_at timestamp or id)
-    const orderBy = (searchParams.get('orderBy') || 'created_at') as 'created_at' | 'title'
+    const orderBy = (searchParams.get('orderBy') || 'created_at') as 'created_at' | 'title' | 'share_click_count'
     const orderDirection = searchParams.get('orderDirection') || 'desc'
     const favoritesOnly = searchParams.get('favoritesOnly') === 'true'
     const projectId = searchParams.get('projectId') || null

@@ -59,7 +59,8 @@ export type StudioView =
   | "youtube"
   | "assistant"
   | "updates"
-  | "admin";
+  | "admin"
+  | "roadmap";
 
 /**
  * Studio State Interface
@@ -167,6 +168,12 @@ export interface StudioState {
   lastGeneratedThumbnail: Thumbnail | null;
   /** Selected notification id for Updates view (article detail); null = list view */
   selectedUpdateId: string | null;
+  /** Assistant "focus on this video" context (videoId + title for handoff and agent context) */
+  focusedVideoId: string | null;
+  focusedVideoTitle: string | null;
+  /** Results panel sort (Create tab) */
+  resultsOrderBy?: "created_at" | "title" | "share_click_count";
+  resultsOrderDirection?: "asc" | "desc";
 }
 
 /**
@@ -280,6 +287,12 @@ export interface StudioActions {
   saveProjectSettings: () => Promise<void>;
   /** Clear lastGeneratedThumbnail after onboarding consumes it */
   clearLastGeneratedThumbnail: () => void;
+  /** Set the video the user is focused on in the assistant (for "Generate thumbnail" / agent context) */
+  setFocusedVideo: (video: { videoId: string; title?: string } | null) => void;
+  /** Open the generator pre-filled for this video (title, optional thumbnail as style reference) and set focused video */
+  openGeneratorForVideo: (video: { videoId: string; title?: string; thumbnailUrl?: string }) => void;
+  /** Set sort for Results panel (Create tab) */
+  setResultsSort: (orderBy: "created_at" | "title" | "share_click_count", orderDirection: "asc" | "desc") => void;
 }
 
 /**
@@ -515,10 +528,14 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
       activeProjectId,
       lastGeneratedThumbnail: null,
       selectedUpdateId: null,
+      focusedVideoId: null,
+      focusedVideoTitle: null,
+      resultsOrderBy: undefined,
+      resultsOrderDirection: undefined,
     };
   });
 
-  // Thumbnails data hook (React Query); filter by activeProjectId when set
+  // Thumbnails data hook (React Query); filter by activeProjectId when set; sort from state for Create tab
   const {
     thumbnails,
     isLoading: thumbnailsLoading,
@@ -536,6 +553,8 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
     enabled: isAuthenticated,
     limit: 24,
     projectId: state.activeProjectId,
+    orderBy: state.resultsOrderBy ?? "created_at",
+    orderDirection: state.resultsOrderDirection ?? "desc",
   });
 
   // Faces data hook (React Query)
@@ -1471,6 +1490,27 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
     saveProjectSettings,
     clearLastGeneratedThumbnail: () =>
       setState((s) => ({ ...s, lastGeneratedThumbnail: null })),
+    setFocusedVideo: (video) =>
+      setState((s) => ({
+        ...s,
+        focusedVideoId: video?.videoId ?? null,
+        focusedVideoTitle: video?.title ?? null,
+      })),
+    openGeneratorForVideo: (video) => {
+      setState((s) => ({
+        ...s,
+        currentView: 'generator',
+        thumbnailText: video.title ?? '',
+        focusedVideoId: video.videoId,
+        focusedVideoTitle: video.title ?? null,
+        includeStyleReferences: video.thumbnailUrl ? true : s.includeStyleReferences,
+        styleReferences: video.thumbnailUrl
+          ? [...s.styleReferences, video.thumbnailUrl].slice(-10)
+          : s.styleReferences,
+      }))
+    },
+    setResultsSort: (orderBy, orderDirection) =>
+      setState((s) => ({ ...s, resultsOrderBy: orderBy, resultsOrderDirection: orderDirection })),
     applyFormStateUpdates: (updates) => {
       setState((s) => {
         const newState = { ...s };

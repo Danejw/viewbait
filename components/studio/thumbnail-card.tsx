@@ -17,12 +17,12 @@
  * @see vercel-react-best-practices for optimization patterns
  */
 
-import React, { memo, useCallback, useMemo, useState } from "react";
+import React, { memo, useCallback, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useDraggable } from "@dnd-kit/core";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
-import { Heart, Download, Copy, Pencil, Trash2, FolderPlus, AlertCircle, ScanLine, Thermometer } from "lucide-react";
+import { Heart, Download, Copy, Pencil, Trash2, FolderPlus, AlertCircle, ScanLine, Thermometer, Crown, Medal } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -56,6 +56,21 @@ import type { Thumbnail } from "@/lib/types/database";
 import type { DragData } from "./studio-dnd-context";
 
 const HEATMAP_QUERY_KEY = "thumbnail-heatmap" as const;
+
+/**
+ * Approval score badge (share gallery clicks) - shown on hover when present
+ */
+function ApprovalScoreBadge({ count }: { count: number }) {
+  if (count <= 0) return null;
+  return (
+    <span
+      className="rounded px-1.5 py-0.5 text-xs font-medium text-white shadow-sm bg-emerald-600"
+      title="Clicks from shared gallery"
+    >
+      {count} click{count !== 1 ? "s" : ""}
+    </span>
+  );
+}
 
 /**
  * Resolution badge display - positioned top-right, shown on hover
@@ -187,11 +202,22 @@ export function ThumbnailCardEmpty() {
   );
 }
 
+/** Border and/or shading for click-rank. Medals use className; rank 4+ use shadingClass only. */
+export type ClickRankBorderStyle = {
+  className?: string;
+  style?: Record<string, string | number>;
+  shadingClass?: string;
+};
+
 export interface ThumbnailCardProps {
   thumbnail: Thumbnail;
   priority?: boolean;
   /** Whether drag-and-drop is enabled (default: true) */
   draggable?: boolean;
+  /** Optional click-rank border (wrapper layer); does not override hover/drag ring on Card */
+  clickRankBorder?: ClickRankBorderStyle;
+  /** Whether to show the share-gallery clicks badge on hover (default: true). Set false e.g. in recent creations strip. */
+  showClicksBadge?: boolean;
 }
 
 /**
@@ -277,6 +303,8 @@ export const ThumbnailCard = memo(function ThumbnailCard({
   thumbnail,
   priority = false,
   draggable = true,
+  clickRankBorder,
+  showClicksBadge = true,
 }: ThumbnailCardProps) {
   // Get all actions and currentUserId from context
   const {
@@ -305,6 +333,7 @@ export const ThumbnailCard = memo(function ThumbnailCard({
     resolution,
     authorId,
     projectId,
+    shareClickCount,
   } = thumbnail;
 
   const { hasWatermark, tier } = useSubscription();
@@ -341,6 +370,8 @@ export const ThumbnailCard = memo(function ThumbnailCard({
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [showAnalysisSuccessBorder, setShowAnalysisSuccessBorder] = useState(false);
   const [showHeatmapOverlay, setShowHeatmapOverlay] = useState(false);
+  const [rankBorderMousePosition, setRankBorderMousePosition] = useState<{ x: number; y: number } | null>(null);
+  const rankBorderWrapperRef = useRef<HTMLDivElement>(null);
 
   const queryClient = useQueryClient();
   const cachedHeatmapDataUrl = useQuery({
@@ -477,6 +508,18 @@ export const ThumbnailCard = memo(function ThumbnailCard({
     onView(thumbnail);
   }, [thumbnail, onView]);
 
+  const handleRankBorderMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    const el = rankBorderWrapperRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    setRankBorderMousePosition({ x, y });
+  }, []);
+  const handleRankBorderMouseLeave = useCallback(() => {
+    setRankBorderMousePosition(null);
+  }, []);
+
   const projectActionLabel = projectId == null ? "Add to project" : "Move to project";
   const hasProjects = projects && projects.length > 0;
 
@@ -587,17 +630,21 @@ export const ThumbnailCard = memo(function ThumbnailCard({
     </motion.div>
   );
 
-  return (
-    <HoverCard
-      open={hoverOpen}
-      onOpenChange={handleHoverCardOpenChange}
-      openDelay={150}
-      closeDelay={100}
-    >
-      <HoverCardTrigger asChild>
-        <Card
-          ref={setNodeRef}
-          className={cn(
+  /** Medal tier for overlay (gold = King/Crown, silver/bronze = Medal icon + aura). */
+  const medalTier =
+    clickRankBorder?.className?.includes("click-rank-border-gold")
+      ? "gold"
+      : clickRankBorder?.className?.includes("click-rank-border-silver")
+        ? "silver"
+        : clickRankBorder?.className?.includes("click-rank-border-bronze")
+          ? "bronze"
+          : null;
+
+  /* Rank border is applied on a wrapper layer so Card keeps hover:ring and drag ring intact. */
+  const cardContent = (
+    <Card
+      ref={setNodeRef}
+      className={cn(
             "group relative aspect-video w-full cursor-pointer overflow-hidden p-0 transition-all",
             "hover:ring-2 hover:ring-primary/50 hover:shadow-lg",
             isDragging && "opacity-50 ring-2 ring-primary cursor-grabbing",
@@ -675,10 +722,35 @@ export const ThumbnailCard = memo(function ThumbnailCard({
                 </div>
               )}
 
-              {/* Top overlay - Title (left) and Resolution (right); smooth in/out from top */}
+              {/* Rank medal overlay: aura, ring, and King/Medal icon (gold/silver/bronze only) */}
+              {medalTier && (
+                <div
+                  className={cn("rank-medal-overlay", `rank-medal-overlay-${medalTier}`)}
+                  aria-hidden
+                >
+                  <div className="rank-medal-corner tr" aria-hidden />
+                  <div className="rank-medal-corner tl" aria-hidden />
+                  <div className="rank-medal-corner bl" aria-hidden />
+                  <div className="rank-medal-corner br" aria-hidden />
+                  <div className="rank-medal-badge" title={medalTier === "gold" ? "Most clicked in this project" : medalTier === "silver" ? "2nd most clicked" : "3rd most clicked"}>
+                    {medalTier === "gold" ? (
+                      <Crown className="h-6 w-6 shrink-0" />
+                    ) : (
+                      <Medal className="h-6 w-6 shrink-0" />
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Rank shading overlay (rank 4+ only; no border, no icon) */}
+              {clickRankBorder?.shadingClass && (
+                <div className={clickRankBorder.shadingClass} aria-hidden />
+              )}
+
+              {/* Top overlay - Title (left) and Resolution / Approval score (right); smooth in/out from top */}
               <div
                 className={cn(
-                  "absolute inset-x-0 top-0 flex items-start justify-between p-2",
+                  "absolute inset-x-0 top-0 flex items-start justify-between gap-2 p-2",
                   "bg-gradient-to-b from-black/60 to-transparent",
                   "opacity-0 -translate-y-2 transition-all duration-200 ease-out",
                   "group-hover:opacity-100 group-hover:translate-y-0"
@@ -687,11 +759,41 @@ export const ThumbnailCard = memo(function ThumbnailCard({
                 <p className="max-w-[70%] truncate text-sm font-medium text-white drop-shadow-sm">
                   {name}
                 </p>
-                <ResolutionBadge resolution={resolution} />
+                <div className="flex flex-wrap items-center justify-end gap-1">
+                  {showClicksBadge && <ApprovalScoreBadge count={shareClickCount ?? 0} />}
+                  <ResolutionBadge resolution={resolution} />
+                </div>
               </div>
             </div>
           )}
         </Card>
+  );
+
+  return (
+    <HoverCard
+      open={hoverOpen}
+      onOpenChange={handleHoverCardOpenChange}
+      openDelay={150}
+      closeDelay={100}
+    >
+      <HoverCardTrigger asChild>
+        {clickRankBorder?.className ? (
+          <div
+            ref={rankBorderWrapperRef}
+            className={cn("rounded-lg", clickRankBorder.className)}
+            style={{
+              ...clickRankBorder.style,
+              "--rank-mouse-x": rankBorderMousePosition ? `${rankBorderMousePosition.x}%` : "-100%",
+              "--rank-mouse-y": rankBorderMousePosition ? `${rankBorderMousePosition.y}%` : "-100%",
+            } as React.CSSProperties}
+            onMouseMove={handleRankBorderMouseMove}
+            onMouseLeave={handleRankBorderMouseLeave}
+          >
+            {cardContent}
+          </div>
+        ) : (
+          cardContent
+        )}
       </HoverCardTrigger>
       {/* Action bar in pop-up above thumbnail - icons only, no card background; smooth in/out */}
       <HoverCardContent

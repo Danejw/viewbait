@@ -73,6 +73,22 @@
   --chart-4: oklch(0.514 0.222 16.935);
   --chart-5: oklch(0.455 0.188 13.697);
   --radius: 0.45rem;
+  --click-rank-gold: #d4af37;
+  --click-rank-silver: #c0c0c0;
+  --click-rank-bronze: #cd7f32;
+  /* Metallic stops for gradient borders */
+  --click-rank-gold-dark: #b8860b;
+  --click-rank-gold-mid: #d4af37;
+  --click-rank-gold-light: #f4e4bc;
+  --click-rank-silver-dark: #8a8a8a;
+  --click-rank-silver-mid: #c0c0c0;
+  --click-rank-silver-light: #f0f0f0;
+  --click-rank-bronze-dark: #8b4513;
+  --click-rank-bronze-mid: #cd7f32;
+  --click-rank-bronze-light: #e8b896;
+  --click-rank-gradient-orange: #f97316;
+  --click-rank-gradient-green: #22c55e;
+  --click-rank-gradient-none: transparent;
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: oklch(0.628 0.258 29.234);
@@ -260,6 +276,406 @@ a:focus-visible {
   .thumbnail-card-border-success {
     animation: none;
   }
+}
+
+/* ============================================
+   Click-rank border scale (thumbnail approval score)
+   Gold / silver / bronze: metallic gradient border + optional glow.
+   Gold has rotating shine animation; silver/bronze static.
+   ============================================ */
+
+@property --click-rank-gold-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+/* Shared: wrapper positions pseudo-element border */
+.click-rank-border-gold,
+.click-rank-border-silver,
+.click-rank-border-bronze {
+  position: relative;
+}
+
+/* Gold: conic gradient border with rotating highlight + soft glow */
+.click-rank-border-gold::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 0.5rem;
+  padding: 2px;
+  background: conic-gradient(
+    from var(--click-rank-gold-angle),
+    var(--click-rank-gold-light) 0%,
+    var(--click-rank-gold-light) 12%,
+    var(--click-rank-gold-dark) 12%,
+    var(--click-rank-gold-mid) 40%,
+    var(--click-rank-gold-dark) 70%,
+    var(--click-rank-gold-mid) 88%,
+    var(--click-rank-gold-dark) 88%,
+    var(--click-rank-gold-dark) 100%
+  );
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  pointer-events: none;
+  animation: click-rank-gold-rotate 5s linear infinite;
+}
+.click-rank-border-gold {
+  box-shadow: 0 0 16px rgba(212, 175, 55, 0.45);
+}
+/* Mouse-following glimmer on border */
+.click-rank-border-gold::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 0.5rem;
+  padding: 2px;
+  background: radial-gradient(
+    circle at var(--rank-mouse-x, -100%) var(--rank-mouse-y, -100%),
+    rgba(255, 255, 255, 0.55) 0%,
+    transparent 35%
+  );
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* Silver: static metallic conic gradient border + soft glow */
+.click-rank-border-silver::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 0.5rem;
+  padding: 2px;
+  background: conic-gradient(
+    from 135deg,
+    var(--click-rank-silver-dark),
+    var(--click-rank-silver-mid) 25%,
+    var(--click-rank-silver-light) 50%,
+    var(--click-rank-silver-mid) 75%,
+    var(--click-rank-silver-dark)
+  );
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  pointer-events: none;
+}
+.click-rank-border-silver {
+  box-shadow: 0 0 16px rgba(192, 192, 192, 0.45);
+}
+.click-rank-border-silver::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 0.5rem;
+  padding: 2px;
+  background: radial-gradient(
+    circle at var(--rank-mouse-x, -100%) var(--rank-mouse-y, -100%),
+    rgba(255, 255, 255, 0.55) 0%,
+    transparent 35%
+  );
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* Bronze: static metallic conic gradient border + soft glow */
+.click-rank-border-bronze::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 0.5rem;
+  padding: 2px;
+  background: conic-gradient(
+    from 135deg,
+    var(--click-rank-bronze-dark),
+    var(--click-rank-bronze-mid) 25%,
+    var(--click-rank-bronze-light) 50%,
+    var(--click-rank-bronze-mid) 75%,
+    var(--click-rank-bronze-dark)
+  );
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  pointer-events: none;
+}
+.click-rank-border-bronze {
+  box-shadow: 0 0 16px rgba(205, 127, 50, 0.45);
+}
+.click-rank-border-bronze::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 0.5rem;
+  padding: 2px;
+  background: radial-gradient(
+    circle at var(--rank-mouse-x, -100%) var(--rank-mouse-y, -100%),
+    rgba(255, 255, 255, 0.55) 0%,
+    transparent 35%
+  );
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+@keyframes click-rank-gold-rotate {
+  0% { --click-rank-gold-angle: 0deg; }
+  100% { --click-rank-gold-angle: 360deg; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .click-rank-border-gold::before {
+    animation: none;
+    background: conic-gradient(
+      from 135deg,
+      var(--click-rank-gold-dark),
+      var(--click-rank-gold-mid) 25%,
+      var(--click-rank-gold-light) 50%,
+      var(--click-rank-gold-mid) 75%,
+      var(--click-rank-gold-dark)
+    );
+  }
+}
+
+/* ============================================
+   Rank medal overlay (gold/silver/bronze)
+   Aura, ring, corners, and King/Medal icon – inspired by analyzing effect.
+   ============================================ */
+
+.rank-medal-overlay {
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  pointer-events: none;
+  z-index: 5;
+  overflow: hidden;
+}
+
+.rank-medal-overlay::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  padding: 2px;
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+.rank-medal-overlay::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  z-index: -1;
+  pointer-events: none;
+}
+
+/* Gold: rotating ring + aura, King (Crown) icon */
+.rank-medal-overlay-gold::before {
+  background: conic-gradient(
+    from var(--click-rank-gold-angle, 0deg),
+    transparent 0%,
+    transparent 8%,
+    var(--click-rank-gold-light) 12%,
+    var(--click-rank-gold-mid) 18%,
+    var(--click-rank-gold-light) 24%,
+    transparent 28%,
+    transparent 100%
+  );
+  animation: click-rank-gold-rotate 5s linear infinite;
+}
+
+.rank-medal-overlay-gold::after {
+  background: radial-gradient(
+    ellipse at 50% 50%,
+    rgba(212, 175, 55, 0.15) 0%,
+    transparent 60%
+  );
+  box-shadow: inset 0 0 40px rgba(212, 175, 55, 0.12);
+}
+
+.rank-medal-overlay-gold .rank-medal-corner {
+  border-color: var(--click-rank-gold-mid);
+  filter: drop-shadow(0 0 4px rgba(212, 175, 55, 0.8));
+}
+
+.rank-medal-overlay-gold .rank-medal-badge {
+  background: rgba(0, 0, 0, 0.75);
+  border: 1px solid var(--click-rank-gold-mid);
+  color: var(--click-rank-gold-light);
+  box-shadow: 0 0 12px rgba(212, 175, 55, 0.5);
+}
+
+/* Silver: static ring + aura, Medal icon */
+.rank-medal-overlay-silver::before {
+  background: conic-gradient(
+    from 135deg,
+    var(--click-rank-silver-dark),
+    var(--click-rank-silver-mid) 25%,
+    var(--click-rank-silver-light) 50%,
+    var(--click-rank-silver-mid) 75%,
+    var(--click-rank-silver-dark)
+  );
+}
+
+.rank-medal-overlay-silver::after {
+  background: radial-gradient(
+    ellipse at center,
+    rgba(192, 192, 192, 0.35) 0%,
+    transparent 70%
+  );
+}
+
+.rank-medal-overlay-silver .rank-medal-corner {
+  border-color: var(--click-rank-silver-mid);
+  filter: drop-shadow(0 0 4px rgba(192, 192, 192, 0.8));
+}
+
+.rank-medal-overlay-silver .rank-medal-badge {
+  background: rgba(0, 0, 0, 0.75);
+  border: 1px solid var(--click-rank-silver-mid);
+  color: var(--click-rank-silver-light);
+  box-shadow: 0 0 12px rgba(192, 192, 192, 0.5);
+}
+
+/* Bronze: static ring + aura, Medal icon */
+.rank-medal-overlay-bronze::before {
+  background: conic-gradient(
+    from 135deg,
+    var(--click-rank-bronze-dark),
+    var(--click-rank-bronze-mid) 25%,
+    var(--click-rank-bronze-light) 50%,
+    var(--click-rank-bronze-mid) 75%,
+    var(--click-rank-bronze-dark)
+  );
+}
+
+.rank-medal-overlay-bronze::after {
+  background: radial-gradient(
+    ellipse at center,
+    rgba(205, 127, 50, 0.35) 0%,
+    transparent 70%
+  );
+}
+
+.rank-medal-overlay-bronze .rank-medal-corner {
+  border-color: var(--click-rank-bronze-mid);
+  filter: drop-shadow(0 0 4px rgba(205, 127, 50, 0.8));
+}
+
+.rank-medal-overlay-bronze .rank-medal-badge {
+  background: rgba(0, 0, 0, 0.75);
+  border: 1px solid var(--click-rank-bronze-mid);
+  color: var(--click-rank-bronze-light);
+  box-shadow: 0 0 12px rgba(205, 127, 50, 0.5);
+}
+
+/* Corner brackets (like analyzing) */
+.rank-medal-corner {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border-style: solid;
+  border-width: 0;
+  z-index: 6;
+  pointer-events: none;
+}
+
+.rank-medal-corner.tl {
+  top: 8px;
+  left: 8px;
+  border-top-width: 2px;
+  border-left-width: 2px;
+}
+
+.rank-medal-corner.tr {
+  top: 8px;
+  right: 8px;
+  border-top-width: 2px;
+  border-right-width: 2px;
+}
+
+.rank-medal-corner.bl {
+  bottom: 8px;
+  left: 8px;
+  border-bottom-width: 2px;
+  border-left-width: 2px;
+}
+
+.rank-medal-corner.br {
+  bottom: 8px;
+  right: 8px;
+  border-bottom-width: 2px;
+  border-right-width: 2px;
+}
+
+/* Badge at top-right with icon */
+.rank-medal-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  backdrop-filter: blur(8px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rank-medal-overlay-gold::before {
+    animation: none;
+    background: conic-gradient(
+      from 135deg,
+      var(--click-rank-gold-dark),
+      var(--click-rank-gold-mid) 25%,
+      var(--click-rank-gold-light) 50%,
+      var(--click-rank-gold-mid) 75%,
+      var(--click-rank-gold-dark)
+    );
+  }
+}
+
+/* Rank shading (rank 4+ only; no border). Band 0 = strongest, band 5 = minimal. */
+.rank-shading {
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  pointer-events: none;
+  z-index: 5;
+}
+.rank-shading-0 {
+  background: rgba(255, 255, 255, 0.16);
+}
+.rank-shading-1 {
+  background: rgba(255, 255, 255, 0.12);
+}
+.rank-shading-2 {
+  background: rgba(255, 255, 255, 0.08);
+}
+.rank-shading-3 {
+  background: rgba(255, 255, 255, 0.05);
+}
+.rank-shading-4 {
+  background: rgba(255, 255, 255, 0.03);
+}
+.rank-shading-5 {
+  background: rgba(255, 255, 255, 0.02);
 }
 
 /* ============================================

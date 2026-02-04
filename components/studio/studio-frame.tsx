@@ -54,7 +54,7 @@ export function StudioLayout({
   className?: string;
 }) {
   return (
-    <div className={cn("flex flex-1 overflow-hidden", className)}>
+    <div className={cn("flex min-h-0 flex-1 overflow-hidden", className)}>
       {children}
     </div>
   );
@@ -120,11 +120,13 @@ export function StudioLayoutResponsive({
   const { state: { currentView } } = useStudio();
 
   return (
-    <StudioLayout>
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <StudioLayout className="min-h-0 flex-1">
       {left}
       <StudioMainPanel contentView={currentView}>{main}</StudioMainPanel>
       <StudioSettingsPanel>{right}</StudioSettingsPanel>
     </StudioLayout>
+    </div>
   );
 }
 
@@ -234,14 +236,14 @@ export function StudioMainPanel({
   return (
     <main
       className={cn(
-        "flex-1 bg-muted/30 hide-scrollbar",
-        isAssistant ? "flex min-h-0 flex-col overflow-hidden" : "overflow-y-auto",
+        "min-h-0 min-w-0 flex-1 overflow-x-hidden bg-muted/30 hide-scrollbar",
+        isAssistant ? "flex flex-col overflow-hidden" : "overflow-y-auto",
         className
       )}
     >
       <div
         className={cn(
-          "p-6",
+          "p-6 min-w-0 overflow-x-hidden",
           isAssistant && "flex min-h-0 flex-1 flex-col overflow-hidden"
         )}
       >

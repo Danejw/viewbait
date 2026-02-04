@@ -5,10 +5,10 @@
  *
  * Displays a project's gallery by share slug. View-only; no edit/delete actions.
  * Refetches periodically so new thumbnails added by the owner appear.
- * Clicking a thumbnail opens ImageModal for full-size view.
+ * Clicking a thumbnail opens ImageModal for full-size view and records the click (approval score).
  */
 
-import React, { useState } from "react";
+import React, { useState, useCallback, useRef } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { ArrowLeft, ImageIcon } from "lucide-react";
@@ -17,6 +17,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ImageModal } from "@/components/ui/modal";
 import { useSharedProjectGallery } from "@/lib/hooks/useProjects";
 import { SharedGalleryCard, SharedGalleryCardSkeleton } from "@/components/studio/shared-gallery-card";
+import { recordSharedProjectClick } from "@/lib/services/projects";
 import type { PublicThumbnailData } from "@/lib/types/database";
 
 export default function SharedProjectGalleryPage() {
@@ -24,6 +25,24 @@ export default function SharedProjectGalleryPage() {
   const slug = typeof params?.slug === "string" ? params.slug : null;
   const { data, isLoading, error, refetch } = useSharedProjectGallery(slug);
   const [selectedThumbnail, setSelectedThumbnail] = useState<PublicThumbnailData | null>(null);
+  /** One click per 1 second per thumbnail (different thumbnails can be recorded without waiting). */
+  const lastRecordedByThumbIdRef = useRef<Record<string, number>>({});
+  const CLICK_COOLDOWN_MS = 1000;
+
+  /** Open full-size modal and record click (approval score) at most once per 1s per thumbnail. */
+  const handleThumbnailClick = useCallback(
+    (thumbnail: PublicThumbnailData) => {
+      setSelectedThumbnail(thumbnail);
+      if (!slug) return;
+      const now = Date.now();
+      const last = lastRecordedByThumbIdRef.current[thumbnail.id] ?? 0;
+      if (now - last >= CLICK_COOLDOWN_MS) {
+        lastRecordedByThumbIdRef.current[thumbnail.id] = now;
+        void recordSharedProjectClick(slug, thumbnail.id);
+      }
+    },
+    [slug]
+  );
 
   if (!slug) {
     return (
@@ -109,7 +128,7 @@ export default function SharedProjectGalleryPage() {
                 <SharedGalleryCard
                   key={thumb.id}
                   thumbnail={thumb}
-                  onClick={(t) => setSelectedThumbnail(t)}
+                  onClick={handleThumbnailClick}
                 />
               ))}
             </div>

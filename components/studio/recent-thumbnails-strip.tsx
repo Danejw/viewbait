@@ -57,7 +57,7 @@ export const RecentThumbnailsStrip = memo(function RecentThumbnailsStrip() {
           ) : (
             <div
               className={cn(
-                "flex gap-2 overflow-x-auto pb-1",
+                "flex gap-2 overflow-x-auto p-1",
                 "hide-scrollbar"
               )}
               role="list"
@@ -74,6 +74,7 @@ export const RecentThumbnailsStrip = memo(function RecentThumbnailsStrip() {
                     thumbnail={thumbnail}
                     priority={index === 0}
                     draggable={true}
+                    showClicksBadge={false}
                   />
                 </div>
               ))}

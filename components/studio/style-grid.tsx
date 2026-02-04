@@ -83,7 +83,7 @@ const GridItem = memo(function GridItem({
  */
 export function StyleGridSkeleton({ count = 8 }: { count?: number }) {
   return (
-    <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+    <div className="grid grid-cols-2 gap-4 p-1 md:grid-cols-3 lg:grid-cols-4">
       {Array.from({ length: count }).map((_, i) => (
         <StyleThumbnailCardSkeleton key={`skeleton-${i}`} />
       ))}
@@ -154,7 +154,7 @@ export const StyleGrid = memo(function StyleGrid({
   return (
     <div
       className={cn(
-        "grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4",
+        "grid grid-cols-2 gap-4 p-1 md:grid-cols-3 lg:grid-cols-4",
         gridClassName
       )}
     >

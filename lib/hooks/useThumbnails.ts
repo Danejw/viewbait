@@ -21,7 +21,7 @@ import type { DbThumbnail, Thumbnail } from "@/lib/types/database";
 /**
  * Sorting options type
  */
-export type ThumbnailSortOption = 'created_at' | 'title';
+export type ThumbnailSortOption = 'created_at' | 'title' | 'share_click_count';
 export type SortDirection = 'asc' | 'desc';
 
 /**

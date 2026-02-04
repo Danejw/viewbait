@@ -285,7 +285,7 @@ export default function StudioViewYouTube() {
               )}
 
               {showSkeleton && (
-                <div className="grid w-full gap-3 grid-cols-[repeat(auto-fill,minmax(200px,1fr))]">
+                <div className="grid w-full gap-3 p-1 grid-cols-[repeat(auto-fill,minmax(200px,1fr))]">
                   {Array.from({ length: 12 }).map((_, i) => (
                     <YouTubeVideoCardSkeleton key={`skeleton-${i}`} />
                   ))}
@@ -307,7 +307,7 @@ export default function StudioViewYouTube() {
 
               {showVideos && filteredVideos.length > 0 && (
                 <>
-                  <div className="grid w-full gap-3 grid-cols-[repeat(auto-fill,minmax(200px,1fr))]">
+                  <div className="grid w-full gap-3 p-1 grid-cols-[repeat(auto-fill,minmax(200px,1fr))]">
                     {filteredVideos.map((video, index) => (
                       <YouTubeVideoCard
                         key={video.videoId}

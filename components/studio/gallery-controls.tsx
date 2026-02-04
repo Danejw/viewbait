@@ -37,6 +37,7 @@ interface SortOption {
 const SORT_OPTIONS: SortOption[] = [
   { value: "newest", label: "Newest First", orderBy: "created_at", orderDirection: "desc" },
   { value: "oldest", label: "Oldest First", orderBy: "created_at", orderDirection: "asc" },
+  { value: "most-clicks", label: "Most Clicks", orderBy: "share_click_count", orderDirection: "desc" },
   { value: "title-asc", label: "Title A-Z", orderBy: "title", orderDirection: "asc" },
   { value: "title-desc", label: "Title Z-A", orderBy: "title", orderDirection: "desc" },
 ];

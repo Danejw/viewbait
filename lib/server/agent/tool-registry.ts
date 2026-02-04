@@ -17,8 +17,10 @@ import {
   fetchYouTubeChannel,
   ensureValidToken,
   getDateRangeForLastNDays,
+  setVideoThumbnailFromUrl,
 } from '@/lib/services/youtube'
 import { parseYouTubeVideoId } from '@/lib/utils/youtube'
+import { getThumbnailImageUrlForUser } from '@/lib/server/data/thumbnails'
 
 export interface AgentToolContext {
   tier: string
@@ -78,6 +80,25 @@ const getVideoAnalyticsSchema = z.object({
 })
 
 const checkYoutubeConnectionSchema = z.object({})
+
+const getChannelPulseSchema = z.object({
+  days: z.number().min(1).max(14).optional().default(7),
+  recentVideosCount: z.number().min(1).max(10).optional().default(5),
+})
+
+const getUnderperformingVideosSchema = z.object({
+  days: z.number().min(1).max(90).optional().default(28),
+  maxVideosToCheck: z.number().min(1).max(20).optional().default(10),
+})
+
+const applyThumbnailToVideoSchema = z.object({
+  video_id: z.string().min(1),
+  thumbnail_id: z.string().min(1),
+})
+
+const getUploadRhythmSchema = z.object({
+  lastN: z.number().min(1).max(50).optional().default(20),
+})
 
 export const AGENT_TOOL_REGISTRY: Record<string, ToolEntry> = {
   check_youtube_connection: {
@@ -216,6 +237,110 @@ export const AGENT_TOOL_REGISTRY: Record<string, ToolEntry> = {
       const result = await fetchYouTubeChannel(userId)
       if (result.error) throw new Error(result.error)
       return result.data
+    },
+  },
+
+  // --- Sub-agent: Channel pulse (runs channel info + analytics + recent videos in parallel)
+  get_channel_pulse: {
+    schema: getChannelPulseSchema,
+    requiresYouTube: true,
+    handler: async (userId, params) => {
+      const { days, recentVideosCount } = params as z.infer<typeof getChannelPulseSchema>
+      const range = getDateRangeForLastNDays(days)
+      const [channelResult, analyticsResult, videosResult] = await Promise.all([
+        fetchYouTubeChannel(userId),
+        fetchYouTubeAnalytics(userId, range.startDate, range.endDate),
+        fetchMyChannelVideos(userId, recentVideosCount),
+      ])
+      return {
+        channel: channelResult.error ? null : channelResult.data,
+        analytics: analyticsResult.error ? null : { ...analyticsResult.data, startDate: range.startDate, endDate: range.endDate },
+        recentVideos: videosResult.error ? [] : videosResult.videos,
+        errors: [channelResult.error, analyticsResult.error, videosResult.error].filter(Boolean),
+      }
+    },
+  },
+
+  // --- Sub-agent: Underperforming videos (below average views in period)
+  get_underperforming_videos: {
+    schema: getUnderperformingVideosSchema,
+    requiresYouTube: true,
+    handler: async (userId, params) => {
+      const { days, maxVideosToCheck } = params as z.infer<typeof getUnderperformingVideosSchema>
+      const range = getDateRangeForLastNDays(days)
+      const videosResult = await fetchMyChannelVideos(userId, maxVideosToCheck)
+      if (videosResult.error || !videosResult.videos.length) {
+        return { videos: [], averageViews: 0, startDate: range.startDate, endDate: range.endDate }
+      }
+      const token = await ensureValidToken(userId)
+      if (!token) throw new Error('Unable to get valid access token')
+      const withViews: Array<{ videoId: string; title: string; thumbnailUrl: string; views: number }> = []
+      for (const v of videosResult.videos) {
+        const agg = await fetchPerVideoAnalytics(v.videoId, token, range.startDate, range.endDate)
+        withViews.push({
+          videoId: v.videoId,
+          title: v.title,
+          thumbnailUrl: v.thumbnailUrl,
+          views: agg?.views ?? 0,
+        })
+      }
+      const totalViews = withViews.reduce((s, x) => s + x.views, 0)
+      const averageViews = withViews.length ? totalViews / withViews.length : 0
+      const underperforming = averageViews > 0
+        ? withViews.filter((x) => x.views < averageViews).sort((a, b) => a.views - b.views)
+        : []
+      return {
+        videos: underperforming,
+        averageViews: Math.round(averageViews),
+        startDate: range.startDate,
+        endDate: range.endDate,
+      }
+    },
+  },
+
+  // --- Sub-agent: Apply thumbnail to YouTube video
+  apply_thumbnail_to_video: {
+    schema: applyThumbnailToVideoSchema,
+    requiresYouTube: true,
+    handler: async (userId, params) => {
+      const { video_id, thumbnail_id } = params as z.infer<typeof applyThumbnailToVideoSchema>
+      const videoId = parseYouTubeVideoId(video_id) ?? video_id
+      const { imageUrl, error: urlError } = await getThumbnailImageUrlForUser(userId, thumbnail_id)
+      if (urlError || !imageUrl) throw new Error(urlError ?? 'Thumbnail not found or access denied')
+      const result = await setVideoThumbnailFromUrl(userId, videoId, imageUrl)
+      if (!result.success) throw new Error(result.error ?? 'Failed to set thumbnail')
+      return { success: true, videoId, message: 'Thumbnail applied successfully' }
+    },
+  },
+
+  // --- Sub-agent: Upload rhythm (recent upload dates + summary)
+  get_upload_rhythm: {
+    schema: getUploadRhythmSchema,
+    requiresYouTube: true,
+    handler: async (userId, params) => {
+      const { lastN } = params as z.infer<typeof getUploadRhythmSchema>
+      const result = await fetchMyChannelVideos(userId, lastN)
+      if (result.error) return { uploadDates: [], summary: result.error }
+      const uploadDates = result.videos.map((v) => ({ videoId: v.videoId, title: v.title, publishedAt: v.publishedAt }))
+      const dayNames = uploadDates.map((d) => {
+        const date = new Date(d.publishedAt)
+        return date.toLocaleDateString('en-US', { weekday: 'short' })
+      })
+      const countByDay = dayNames.reduce<Record<string, number>>((acc, day) => {
+        acc[day] = (acc[day] ?? 0) + 1
+        return acc
+      }, {})
+      const topDays = Object.entries(countByDay)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3)
+        .map(([day, count]) => `${day} (${count})`)
+      return {
+        uploadDates,
+        totalInPeriod: uploadDates.length,
+        summary: topDays.length
+          ? `Last ${uploadDates.length} uploads; most often on: ${topDays.join(', ')}`
+          : 'No recent uploads in this range.',
+      }
     },
   },
 }

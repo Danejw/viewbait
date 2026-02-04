@@ -21,7 +21,7 @@ import { useAuth } from "@/lib/hooks/useAuth";
 import { useStudio } from "@/components/studio/studio-provider";
 
 /**
- * Syncs ?view=admin from URL to studio view when user is admin (for /admin redirect and bookmarks).
+ * Syncs ?view=admin and ?view=roadmap from URL to studio view when user is admin (for /admin redirect and bookmarks).
  */
 function StudioViewFromQuery() {
   const searchParams = useSearchParams();
@@ -32,9 +32,14 @@ function StudioViewFromQuery() {
   useEffect(() => {
     if (applied.current) return;
     const view = searchParams.get("view");
-    if (view === "admin" && role === "admin") {
-      applied.current = true;
-      setView("admin");
+    if (role === "admin") {
+      if (view === "admin") {
+        applied.current = true;
+        setView("admin");
+      } else if (view === "roadmap") {
+        applied.current = true;
+        setView("roadmap");
+      }
     }
   }, [searchParams, role, setView]);
 

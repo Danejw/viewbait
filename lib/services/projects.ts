@@ -187,3 +187,22 @@ export async function getSharedProjectGallery(slug: string): Promise<{
     }
   }
 }
+
+/**
+ * Record a thumbnail click on a shared project gallery (public, no auth).
+ * Fire-and-forget: does not throw; use for analytics only.
+ */
+export async function recordSharedProjectClick(
+  slug: string,
+  thumbnailId: string
+): Promise<void> {
+  try {
+    await fetch(`/api/projects/share/${encodeURIComponent(slug)}/click`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ thumbnailId }),
+    })
+  } catch {
+    // Fire-and-forget: do not surface errors to the user
+  }
+}

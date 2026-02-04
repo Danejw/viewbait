@@ -30,9 +30,15 @@ The assistant lets Pro users ask questions about their YouTube channel, videos, 
 ### POST /api/agent/chat
 
 - **Auth:** Required. **Tier:** Pro only (403 `TIER_REQUIRED` otherwise).
-- **Body:** `{ messages: Array<{ role: 'user' | 'assistant', content: string }> }`.
-- **Response:** `{ success: true, message: string, toolResults?: Array<{ tool: string, result: unknown }> }` or `{ success: false, error?, message?, code? }`.
-- **Behavior:** Builds a system instruction with user context (tier, YouTube connected). Sends conversation to Gemini with agent tool declarations. On model function call, runs the corresponding registry handler and continues the conversation until the model returns text or max rounds. Returns the last text and any tool results for the client to render as data cards.
+- **Body:**
+  - **Required:** `messages: Array<{ role: 'user' | 'assistant', content: string }>`.
+  - **Optional (YouTube + thumbnail help):**  
+    `focusedVideoId?: string`, `focusedVideoTitle?: string`, `runChannelPulse?: boolean` (when true with empty conversation, server runs channel-pulse flow and returns a summary).  
+    **Optional (thumbnail help):** `formState?: object` (current generator form: thumbnailText, includeFace, selectedFaces, expression, pose, styleReferences, selectedStyle, selectedColor, selectedAspectRatio, selectedResolution, variations, customInstructions, includeStyleReferences), `availableStyles?: Array<{ id: string, name?: string }>`, `availablePalettes?: Array<{ id: string, name?: string }>`.
+- **Response:**  
+  - **Base:** `{ success: true, message: string, toolResults?: Array<{ tool: string, result: unknown }> }` or `{ success: false, error?, message?, code? }`.  
+  - **When thumbnail help is used** (model calls `thumbnail_assistant_response`): response also includes `form_state_updates?: object`, `ui_components?: string[]`, `suggestions?: string[]`, `offer_upgrade?: boolean`. The client applies form_state_updates (after resolving style/palette names to IDs), renders generator sections via DynamicUIRenderer for `ui_components`, and shows suggestion/upgrade chips.
+- **Behavior:** Builds a system instruction with user context (tier, YouTube connected) and optional thumbnail-help guidance. Sends conversation to Gemini with agent tool declarations **and** the special tool `thumbnail_assistant_response` (see below). On model function call: if the call is `thumbnail_assistant_response`, the route handles it inline (resolves style/palette names to IDs, strips server-only keys) and does **not** dispatch to the registry; otherwise runs the corresponding registry handler. Continues until the model returns text or max rounds. Returns the last text, any tool results, and when applicable the thumbnail-help payload (form_state_updates, ui_components, suggestions, offer_upgrade).
 
 ### POST /api/agent/execute-tool
 
@@ -59,6 +65,14 @@ The assistant lets Pro users ask questions about their YouTube channel, videos, 
   `check_youtube_connection`, `list_my_videos`, `get_video_details`, `search_videos`, `get_playlist_videos`, `get_video_comments`, `get_channel_analytics`, `get_video_analytics`, `get_my_channel_info`.
 
 Adding a new tool: add an entry to the registry (schema + handler + `requiresYouTube`), and add the corresponding declaration to the agent chat route’s `agentToolDeclarations` (and to the Live API client config when voice is implemented).
+
+#### Thumbnail help: `thumbnail_assistant_response`
+
+The YouTube Assistant can help users with thumbnail creation in the same way as the sidebar settings chat. This is implemented via a **special tool** that is **not** in the registry:
+
+- **Declaration:** In [app/api/agent/chat/route.ts](viewbait/app/api/agent/chat/route.ts), `thumbnail_assistant_response` is declared in `agentToolDeclarations` with the same schema shape as the sidebar’s `generate_assistant_response`: `human_readable_message`, `ui_components` (enum of allowed section names, e.g. ThumbnailTextSection, StyleSelectionSection, AspectRatioSection), `form_state_updates` (thumbnailText, selectedStyle, selectedColor, selectedAspectRatio, selectedResolution, variations, includeFace, expression, pose, customInstructions, includeStyleReferences, styleReferences), `suggestions`, `offer_upgrade`, `required_tier`. Attachment-related fields (e.g. add image as style reference / new face) are omitted or simplified for the agent.
+- **Handling:** When the model calls `thumbnail_assistant_response`, the chat route parses the args, resolves `selectedStyle` / `selectedColor` by name to ID using `availableStyles` / `availablePalettes` from the request body, strips server-only keys, and stores the result. It appends a function response (e.g. `{ received: true }`) and continues the loop. When building the final JSON response, if this payload exists, the route adds `form_state_updates`, `ui_components`, `suggestions`, `offer_upgrade` to the response and may set `message` from `human_readable_message`.
+- **System instruction:** The agent is instructed to call `thumbnail_assistant_response` when the user asks for thumbnail help (e.g. “set title to X”, “use 16:9”, “3 variations”, “add my face”, “pick a style”) or “help me make a thumbnail for this video”. When a focused video is set, the assistant can pre-fill `thumbnailText` from the video title. Allowed `ui_components` and form field names match [DynamicUIRenderer](viewbait/components/studio/dynamic-ui-renderer.tsx) and [applyFormStateUpdates](viewbait/components/studio/studio-provider.tsx) (e.g. `selectedColor` in the API maps to `selectedPalette` in studio state).
 
 ---
 

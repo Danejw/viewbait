@@ -228,7 +228,7 @@ export const ChannelImportTab = memo(function ChannelImportTab({
       )}
 
       {isLoading && videos.length === 0 && (
-        <div className="grid w-full gap-3 grid-cols-[repeat(auto-fill,minmax(200px,1fr))]">
+        <div className="grid w-full gap-3 p-1 grid-cols-[repeat(auto-fill,minmax(200px,1fr))]">
           {Array.from({ length: 12 }).map((_, i) => (
             <YouTubeVideoCardSkeleton key={`skeleton-${i}`} />
           ))}
@@ -278,7 +278,7 @@ export const ChannelImportTab = memo(function ChannelImportTab({
               </CardContent>
             </Card>
           ) : (
-          <div className="grid w-full gap-3 grid-cols-[repeat(auto-fill,minmax(200px,1fr))]">
+          <div className="grid w-full gap-3 p-1 grid-cols-[repeat(auto-fill,minmax(200px,1fr))]">
             {filteredAndSortedVideos.map((video: ChannelVideo, index: number) => (
               <YouTubeVideoCard
                 key={video.videoId}

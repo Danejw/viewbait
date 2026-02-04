@@ -25,6 +25,13 @@ import type { Thumbnail } from "@/lib/types/database";
 
 const DEFAULT_MIN_SLOTS = 12;
 
+/** Border and/or shading for click-rank. Medals use className; rank 4+ use shadingClass only. */
+export type ClickRankBorderStyle = {
+  className?: string;
+  style?: Record<string, string | number>;
+  shadingClass?: string;
+};
+
 export interface ThumbnailGridProps {
   /** Thumbnails from database */
   thumbnails: Thumbnail[];
@@ -38,6 +45,8 @@ export interface ThumbnailGridProps {
   gridClassName?: string;
   /** Loading state for initial fetch */
   isLoading?: boolean;
+  /** Optional map: thumbnail id → border class/style for click-rank display */
+  clickRankBorderById?: Map<string, ClickRankBorderStyle>;
 }
 
 /**
@@ -76,7 +85,7 @@ const GridItem = memo(function GridItem({
  */
 export function ThumbnailGridSkeleton({ count = 6 }: { count?: number }) {
   return (
-    <div className="grid w-full gap-3 grid-cols-[repeat(auto-fill,minmax(200px,1fr))]">
+    <div className="grid w-full gap-3 p-1 grid-cols-[repeat(auto-fill,minmax(200px,1fr))]">
       {Array.from({ length: count }).map((_, i) => (
         <ThumbnailCardSkeleton key={`skeleton-${i}`} />
       ))}
@@ -95,6 +104,7 @@ export const ThumbnailGrid = memo(function ThumbnailGrid({
   showEmptySlots = true,
   gridClassName,
   isLoading = false,
+  clickRankBorderById,
 }: ThumbnailGridProps) {
   const combinedItems = useMemo(
     () => getCombinedThumbnailsList(thumbnails, generatingItems),
@@ -111,7 +121,7 @@ export const ThumbnailGrid = memo(function ThumbnailGrid({
   return (
     <div
       className={cn(
-        "grid w-full gap-3 grid-cols-[repeat(auto-fill,minmax(200px,1fr))]",
+        "grid w-full gap-3 p-1 grid-cols-[repeat(auto-fill,minmax(200px,1fr))]",
         gridClassName
       )}
     >
@@ -120,8 +130,8 @@ export const ThumbnailGrid = memo(function ThumbnailGrid({
         <GridItem key={thumbnail.id} index={index}>
           <ThumbnailCard
             thumbnail={thumbnail}
-            // First 6 items are above the fold - priority load
             priority={index < 6}
+            clickRankBorder={clickRankBorderById?.get(thumbnail.id)}
           />
         </GridItem>
       ))}

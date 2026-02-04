@@ -17,6 +17,7 @@ const StudioViewYouTube = lazy(() => import("@/components/studio/views/StudioVie
 const StudioViewAssistant = lazy(() => import("@/components/studio/views/StudioViewAssistant"));
 const StudioViewUpdates = lazy(() => import("@/components/studio/studio-view-updates"));
 const StudioViewAdmin = lazy(() => import("@/components/studio/views/StudioViewAdmin"));
+const StudioViewRoadmap = lazy(() => import("@/components/studio/views/StudioViewRoadmap"));
 
 /**
  * StudioMainContent
@@ -38,7 +39,10 @@ export function StudioMainContent() {
   return (
     <StudioViewErrorBoundary onRetry={() => setRetryKey((k) => k + 1)}>
       <Suspense fallback={<StudioViewSkeleton />}>
-        <div key={`${currentView}-${retryKey}`}>
+        <div
+          key={`${currentView}-${retryKey}`}
+          className="min-h-0 flex-1 flex flex-col overflow-hidden"
+        >
           {currentView === "gallery" && <StudioViewGallery />}
           {currentView === "browse" && <StudioViewBrowse />}
           {currentView === "projects" && <StudioViewProjects />}
@@ -49,6 +53,7 @@ export function StudioMainContent() {
           {currentView === "assistant" && <StudioViewAssistant />}
           {currentView === "updates" && <StudioViewUpdates />}
           {currentView === "admin" && <StudioViewAdmin />}
+          {currentView === "roadmap" && <StudioViewRoadmap />}
         </div>
       </Suspense>
     </StudioViewErrorBoundary>
@@ -83,6 +88,7 @@ export function StudioView() {
           {currentView === "assistant" && <StudioViewAssistant />}
           {currentView === "updates" && <StudioViewUpdates />}
           {currentView === "admin" && <StudioViewAdmin />}
+          {currentView === "roadmap" && <StudioViewRoadmap />}
         </div>
       </Suspense>
     </StudioViewErrorBoundary>

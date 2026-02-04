@@ -109,6 +109,7 @@ export interface DbThumbnail {
   is_public: boolean
   created_at: string
   like_count?: number // Favorite count (added by API)
+  share_click_count?: number // Clicks when viewed via shared project gallery link
 }
 
 export interface DbProject {
@@ -135,6 +136,7 @@ export interface PublicThumbnailData {
   liked: boolean
   created_at: string
   resolution: string | null
+  share_click_count?: number
 }
 
 export interface DbStyle {
@@ -984,6 +986,8 @@ export interface Thumbnail {
   authorName?: string    // from profiles join
   resolution?: string | null // maps to resolution (1K, 2K, 4K)
   projectId?: string | null // maps to project_id
+  /** Clicks when viewed via shared project gallery (approval score) */
+  shareClickCount?: number
 }
 
 /**
@@ -1056,6 +1060,7 @@ export function mapDbThumbnailToThumbnail(db: DbThumbnail): Thumbnail {
     resolution: db.resolution || undefined,
     likeCount: db.like_count || 0,
     projectId: db.project_id ?? null,
+    shareClickCount: db.share_click_count ?? 0,
   }
 }
 

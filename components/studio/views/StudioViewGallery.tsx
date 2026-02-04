@@ -16,6 +16,7 @@ import { Grid3x3, RefreshCw } from "lucide-react";
 import { useThumbnails } from "@/lib/hooks/useThumbnails";
 import { useProjects } from "@/lib/hooks/useProjects";
 import { useAuth } from "@/lib/hooks/useAuth";
+import { getClickRankBorderMap } from "@/lib/utils/click-rank-borders";
 import type { ThumbnailSortOption, SortDirection } from "@/lib/hooks/useThumbnails";
 
 const GALLERY_PROJECT_NONE = "__none__";
@@ -24,6 +25,7 @@ const GALLERY_PROJECT_ALL = "all";
 const GALLERY_SORT_OPTIONS: SortOption[] = [
   { value: "newest", label: "Newest First" },
   { value: "oldest", label: "Oldest First" },
+  { value: "most-clicks", label: "Most Clicks" },
   { value: "title-asc", label: "Title A-Z" },
   { value: "title-desc", label: "Title Z-A" },
 ];
@@ -32,6 +34,8 @@ function parseGallerySortValue(value: string): { orderBy: ThumbnailSortOption; o
   switch (value) {
     case "oldest":
       return { orderBy: "created_at", orderDirection: "asc" };
+    case "most-clicks":
+      return { orderBy: "share_click_count", orderDirection: "desc" };
     case "title-asc":
       return { orderBy: "title", orderDirection: "asc" };
     case "title-desc":
@@ -94,6 +98,11 @@ function StudioViewGallery() {
       (t) => t.name?.toLowerCase().includes(query) || t.prompt?.toLowerCase().includes(query)
     );
   }, [allThumbnails, searchQuery]);
+
+  const clickRankBorderById = useMemo(
+    () => getClickRankBorderMap(thumbnails),
+    [thumbnails]
+  );
 
   const handleSortChange = useCallback((value: string) => setSortValue(value), []);
   const handleFavoritesToggle = useCallback((newFavoritesOnly: boolean) => setFavoritesOnly(newFavoritesOnly), []);
@@ -171,6 +180,7 @@ function StudioViewGallery() {
             isLoading={isLoading}
             minSlots={12}
             showEmptySlots={false}
+            clickRankBorderById={clickRankBorderById}
           />
           {hasNextPage && (
             <LoadMoreButton

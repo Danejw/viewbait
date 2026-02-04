@@ -1,22 +1,29 @@
 # Type: Technical Solutions Brainstorm
 
 **Product:** ViewBait — AI thumbnail studio (Next.js 16, React 19, Supabase, Stripe, Gemini)  
-**Date:** 2025-02-03  
+**Date:** 2025-02-04  
 **Scope:** Innovative and robust technical solutions for significant technical challenges—each with 2–3 distinct approaches, architectural implications, benefits, complexity, and risks.
 
-This document is grounded in the [System Understanding](../system_understanding.md), the [Vision & Feature Roadmap](../audit_vision_feature_roadmap.md), and the [Tech Debt / Duplicate Code Analysis](../critiques/tech_debt_duplicate_code_analysis.md). Solutions are chosen to be pragmatic for current engineering capacity and aligned with long-term maintainability and scalability.
-
-**Document status:**  
-- **Challenge 1 (Studio UI)** — Implemented (view-based split + lazy loading per plan).  
-- **Challenge 2 (Client API error handling)** — Proposed below.
+This document is grounded in the [System Understanding](../system_understanding.md), the [Vision & Feature Roadmap](../audits/audit_vision_feature_roadmap.md), and the [Architecture & Code Health Audit](../audits/audit_architecture_code_health.md). Solutions are chosen to be pragmatic for current engineering capacity and aligned with long-term maintainability and scalability.
 
 ---
 
-# Challenge 1: Studio center view complexity (implemented)
+## Overview
+
+| # | Challenge / Approach | Problem | Complexity | Benefits | Status |
+|---|----------------------|---------|------------|----------|--------|
+| 1 | Studio center view complexity | Single ~2.3k-line file; multiple views + routers in one place | M (view split); M–H with lazy load | ✅ Maintainability, scalability, smaller bundles | ✔ |
+| 2 | Client API error handling | Inconsistent error extraction and display across client code | L–M (convention) to M (wrapper) | ✅ Single contract; consistent UX; future codes/retry | \|_\| |
+
+*Status: **✔** Done / implemented · **❌** Not doing / rejected · **\|_\|** To be / planned*
+
+---
+
+## ✔ Challenge 1: Studio center view complexity (implemented)
 
 ## Problem Statement
 
-**Studio center view logic lives in a single file (`studio-views.tsx`) that has grown to ~2,300 lines**, well above the project guideline of 1,600 lines per file. The file contains:
+🔴 **Studio center view logic lives in a single file (`studio-views.tsx`) that has grown to ~2,300 lines**, well above the project guideline of 1,600 lines per file. The file contains:
 
 - **Multiple view components:** `StudioViewGallery`, `StudioViewBrowse`, `StudioViewProjects`, `StudioViewStyles`, `StudioViewPalettes`, `StudioViewFaces`, `StudioViewYouTube`, `StudioViewAssistant`, `StudioViewUpdates`, plus the generator/results wiring.
 - **Shared constants and helpers:** e.g. `GALLERY_PROJECT_*`, `GALLERY_SORT_OPTIONS`, `parseGallerySortValue`, and view-specific state patterns.
@@ -53,8 +60,8 @@ Extract each `StudioView*` component into its own file under a dedicated directo
 
 ### Benefits
 
-- **Maintainability:** One file per view (~150–400 lines each) and a small router (~50–80 lines); easier to locate and change logic.
-- **Scalability:** New views (e.g. experiments dashboard) are added as new files and one branch in the router.
+- **Maintainability:** One file per view (~150–400 lines each) and a small router (~50–80 lines); easier to locate and change logic. ✅
+- **Scalability:** New views (e.g. experiments dashboard) are added as new files and one branch in the router. 💡
 - **Collaboration:** Fewer merge conflicts; multiple developers can work on different views in parallel.
 - **Incremental:** Can be done view-by-view (e.g. Gallery first, then Browse, etc.) with no big-bang release.
 
@@ -64,7 +71,7 @@ Extract each `StudioView*` component into its own file under a dedicated directo
 |--------|------------|
 | **Complexity** | Medium. Mostly mechanical extraction; care needed with shared constants and import paths. |
 | **Time** | 1–2 sprints if done view-by-view with tests and lint. |
-| **Risks** | (1) **Circular imports:** Views must not import the router or provider in a way that pulls in other views. Prefer views importing only hooks, UI, and types. (2) **Shared state:** Any state currently shared between views (e.g. via provider) must stay in the provider; moving it into a view would hide it from others. (3) **Regression:** Full smoke test of each view (gallery sort/filter, styles CRUD, YouTube tab, assistant, etc.) after each extraction. |
+| **Risks** | (1) ⚠️ **Circular imports:** Views must not import the router or provider in a way that pulls in other views. Prefer views importing only hooks, UI, and types. (2) **Shared state:** Any state currently shared between views (e.g. via provider) must stay in the provider; moving it into a view would hide it from others. (3) **Regression:** Full smoke test of each view (gallery sort/filter, styles CRUD, YouTube tab, assistant, etc.) after each extraction. |
 | **Rollback** | Straightforward: move code back into `studio-views.tsx` and revert the new files. |
 
 ---
@@ -168,23 +175,25 @@ Keep view-based extraction (Approach 1 or 2), but **derive the active view from 
 
 ---
 
-# Challenge 2: Unifying client-side API error handling and user-facing error display
+## \|_\| Challenge 2: Unifying client-side API error handling and user-facing error display
 
 ## Problem Statement
 
-**API error handling on the client is inconsistent.** The server already returns a standardized shape (`{ error: string, code: string }` from `lib/server/utils/error-handler.ts`), but client code:
+🔴 **API error handling on the client is inconsistent.** The server already returns a standardized shape (`{ error: string, code: string }` from `lib/server/utils/error-handler.ts`), but client code:
 
 - **Extracts messages inconsistently:** The pattern `err instanceof Error ? err.message : "fallback"` (or similar) appears in many components and hooks. A client-safe helper `getErrorMessage(error, fallback)` exists in `lib/utils/error.ts` but is not used everywhere (~54+ inline usages noted in tech debt).
 - **Parses API responses ad hoc:** After `fetch()` or in mutation handlers, some code reads `data?.error`, others `data?.message`, or only `err.message`, so the same API error can surface differently in different parts of the UI.
 - **No single contract for “API failure → display string”:** Adding sanitization or logging later would require touching many call sites.
 
-**Consequences:** Duplication, risk of leaking internal messages if one call site forgets to sanitize, and harder-to-reason-about user feedback when something fails. Onboarding and maintenance cost increase as the number of API calls grows.
+**Consequences:** Duplication, ⚠️ risk of leaking internal messages if one call site forgets to sanitize, and harder-to-reason-about user feedback when something fails. Onboarding and maintenance cost increase as the number of API calls grows.
 
 **Goal:** One clear contract for “turn an API failure (or thrown error) into a safe, user-facing message,” and use it everywhere so behavior and future improvements (e.g. codes, retry hints) are centralized.
 
 ---
 
 ## Approach 1: Convention + codemod (getErrorMessage + parseApiError)
+
+🟢 **Lowest-risk option:** add helpers and migrate call sites incrementally.
 
 ### Description
 
@@ -203,8 +212,8 @@ Keep view-based extraction (Approach 1 or 2), but **derive the active view from 
 ### Benefits
 
 - **Low risk:** Add one small function and migrate call sites incrementally.
-- **Single place** to later add mapping of `code` to user-friendly copy or retry hints.
-- **Consistency:** Same error from the API shows the same message everywhere.
+- **Single place** to later add mapping of `code` to user-friendly copy or retry hints. 💡
+- **Consistency:** Same error from the API shows the same message everywhere. ✅
 
 ### Implementation complexity and risks
 
@@ -218,6 +227,8 @@ Keep view-based extraction (Approach 1 or 2), but **derive the active view from 
 ---
 
 ## Approach 2: Client API wrapper that throws typed errors
+
+🟡 **Medium effort:** one network layer for all API calls and typed errors.
 
 ### Description
 
@@ -237,8 +248,8 @@ Components and hooks then only need to `catch (e) { setError(e instanceof ApiErr
 
 ### Benefits
 
-- **Single place** for “how we call APIs and interpret failures”; new endpoints automatically get consistent behavior.
-- **Typed errors** make it easier to branch on `code` (e.g. show “Upgrade” for 403) in the future.
+- **Single place** for “how we call APIs and interpret failures”; new endpoints automatically get consistent behavior. ✅
+- **Typed errors** make it easier to branch on `code` (e.g. show “Upgrade” for 403) in the future. 💡
 - **Testability:** Mock the wrapper to simulate API failures in tests.
 
 ### Implementation complexity and risks
@@ -247,12 +258,14 @@ Components and hooks then only need to `catch (e) { setError(e instanceof ApiErr
 |--------|------------|
 | **Complexity** | Medium. Requires refactoring services/hooks to use the wrapper and deciding how to integrate with React Query (mutationFn vs. manual fetch). |
 | **Time** | 2–4 days for wrapper + migration of main flows; remaining call sites can be migrated incrementally. |
-| **Risks** | (1) Some endpoints (e.g. file upload, streaming) may not fit the same wrapper; allow escape hatches. (2) Duplication if both raw fetch and wrapper coexist for long; plan to deprecate raw fetch for app routes. |
+| **Risks** | (1) ⚠️ Some endpoints (e.g. file upload, streaming) may not fit the same wrapper; allow escape hatches. (2) Duplication if both raw fetch and wrapper coexist for long; plan to deprecate raw fetch for app routes. |
 | **Rollback** | Keep wrapper optional; services can switch back to fetch while keeping the type and helper for those who use it. |
 
 ---
 
 ## Approach 3: Global mutation error handler + local fallback
+
+🟡 **Minimal refactor:** centralize handling without a new network layer.
 
 ### Description
 
@@ -271,7 +284,7 @@ Keep **no single “API client”**, but standardize **where** errors are turned
 ### Benefits
 
 - **Minimal refactor:** No wrapper; just a global handler and a convention for non-Query calls.
-- **Consistent UX:** Users see toasts for API failures unless the screen explicitly shows an inline error.
+- **Consistent UX:** Users see toasts for API failures unless the screen explicitly shows an inline error. ✅
 - **Incremental:** Add the handler and `parseApiErrorResponse` first; migrate call sites to use the parser over time.
 
 ### Implementation complexity and risks
@@ -280,7 +293,7 @@ Keep **no single “API client”**, but standardize **where** errors are turned
 |--------|------------|
 | **Complexity** | Medium. Requires React Query setup change and discipline so one-off fetches don’t bypass the convention. |
 | **Time** | 1–2 days for handler + parser; 1–2 days to adjust mutations that need local error state. |
-| **Risks** | (1) Double toast if both global and local handlers run; design so local takes precedence when it handles the error. (2) Not all errors should toast (e.g. background refresh); filter by mutation meta or route. |
+| **Risks** | (1) ⚠️ Double toast if both global and local handlers run; design so local takes precedence when it handles the error. (2) Not all errors should toast (e.g. background refresh); filter by mutation meta or route. |
 | **Rollback** | Remove global handler; keep parser and convention for local use. |
 
 ---

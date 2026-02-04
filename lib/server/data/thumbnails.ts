@@ -8,7 +8,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { requireAuth } from '@/lib/server/utils/auth'
-import { refreshThumbnailUrls } from '@/lib/server/utils/url-refresh'
+import { refreshThumbnailUrls, SIGNED_URL_EXPIRY_ONE_YEAR_SECONDS } from '@/lib/server/utils/url-refresh'
 import type { DbThumbnail, PublicThumbnailData } from '@/lib/types/database'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { User } from '@supabase/supabase-js'
@@ -16,7 +16,7 @@ import { QueryPatterns } from '@/lib/server/utils/query-builder'
 
 export interface BuildThumbnailsQueryOptions {
   favoritesOnly?: boolean
-  orderBy?: 'created_at' | 'title'
+  orderBy?: 'created_at' | 'title' | 'share_click_count'
   orderDirection?: 'asc' | 'desc'
   /** When set, filter thumbnails by this project. Omit or null = All thumbnails */
   projectId?: string | null
@@ -25,7 +25,7 @@ export interface BuildThumbnailsQueryOptions {
 export interface FetchThumbnailsOptions {
   limit?: number
   offset?: number
-  orderBy?: 'created_at' | 'title'
+  orderBy?: 'created_at' | 'title' | 'share_click_count'
   orderDirection?: 'asc' | 'desc'
   favoritesOnly?: boolean
   projectId?: string | null
@@ -48,7 +48,7 @@ export interface FetchPublicThumbnailsResult {
  */
 // Note: thumbnail_400w_url and thumbnail_800w_url are optional columns that may not exist yet
 // They are handled as null in the mapping function, so we don't select them here to avoid query errors
-const THUMBNAIL_FIELDS = 'id,title,image_url,liked,is_public,created_at,resolution,user_id,style,palette,emotion,aspect_ratio,has_watermark'
+const THUMBNAIL_FIELDS = 'id,title,image_url,liked,is_public,created_at,resolution,user_id,style,palette,emotion,aspect_ratio,has_watermark,share_click_count'
 
 /**
  * Build a thumbnails query without executing it
@@ -360,7 +360,7 @@ export async function fetchThumbnailsForSharedProject(
 
     let query = supabase
       .from('thumbnails')
-      .select('id,title,image_url,style,palette,liked,created_at,resolution,user_id', { count: 'exact' })
+      .select('id,title,image_url,style,palette,liked,created_at,resolution,user_id,share_click_count', { count: 'exact' })
       .eq('project_id', projectId)
       .not('image_url', 'is', null)
       .order('created_at', { ascending: false })
@@ -431,6 +431,7 @@ export async function fetchThumbnailsForSharedProject(
       liked: thumb.liked,
       created_at: thumb.created_at,
       resolution: thumb.resolution,
+      share_click_count: (thumb as { share_click_count?: number }).share_click_count ?? 0,
     }))
 
     return { thumbnails: publicThumbnails, count: count ?? 0, error: null }
@@ -441,4 +442,53 @@ export async function fetchThumbnailsForSharedProject(
       error: err instanceof Error ? err : new Error('Failed to fetch shared project thumbnails'),
     }
   }
+}
+
+/**
+ * Get a signed image URL for a thumbnail owned by the user.
+ * Used by the agent apply_thumbnail_to_video tool to resolve thumbnail_id to a fetchable URL.
+ */
+export async function getThumbnailImageUrlForUser(
+  userId: string,
+  thumbnailId: string
+): Promise<{ imageUrl: string | null; error: string | null }> {
+  const supabase = createServiceClient()
+  const { data: thumbnail, error } = await supabase
+    .from('thumbnails')
+    .select('id, image_url')
+    .eq('id', thumbnailId)
+    .eq('user_id', userId)
+    .single()
+
+  if (error || !thumbnail) {
+    return { imageUrl: null, error: 'Thumbnail not found or access denied' }
+  }
+
+  let storagePath: string | null = null
+  if (thumbnail.image_url) {
+    const signedUrlMatch = (thumbnail.image_url as string).match(
+      /\/storage\/v1\/object\/sign\/thumbnails\/([^?]+)/
+    )
+    if (signedUrlMatch) storagePath = signedUrlMatch[1]
+  }
+  if (!storagePath) {
+    storagePath = `${userId}/${thumbnail.id}/thumbnail.png`
+  }
+
+  const { data: signedUrlData } = await supabase.storage
+    .from('thumbnails')
+    .createSignedUrl(storagePath, SIGNED_URL_EXPIRY_ONE_YEAR_SECONDS)
+
+  const url = signedUrlData?.signedUrl ?? null
+  if (url) return { imageUrl: url, error: null }
+
+  if (storagePath.endsWith('.png')) {
+    const jpgPath = storagePath.replace('.png', '.jpg')
+    const { data: jpgData } = await supabase.storage
+      .from('thumbnails')
+      .createSignedUrl(jpgPath, SIGNED_URL_EXPIRY_ONE_YEAR_SECONDS)
+    if (jpgData?.signedUrl) return { imageUrl: jpgData.signedUrl, error: null }
+  }
+
+  return { imageUrl: null, error: 'Could not generate thumbnail URL' }
 }

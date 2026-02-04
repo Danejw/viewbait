@@ -21,6 +21,7 @@ import {
   Newspaper,
   MessageSquare,
   LayoutDashboard,
+  MapPin,
 } from "lucide-react";
 import Link from "next/link";
 import { ThemeToggleSimple } from "@/components/theme-toggle";
@@ -197,16 +198,23 @@ export function StudioSidebarNav() {
             )}
           </React.Fragment>
         ))}
-        {role === "admin" && (
-          <>
-            <div className="border-t border-sidebar-border my-2" aria-hidden />
-            {renderItem({
-              label: "Admin",
-              view: "admin",
-              icon: LayoutDashboard,
-            })}
-          </>
-        )}
+        {role === "admin" && (() => {
+          const adminNavItem: NavItem = {
+            label: "Admin",
+            view: "admin",
+            icon: LayoutDashboard,
+            children: [
+              { label: "Roadmap", view: "roadmap", icon: MapPin },
+            ],
+          };
+          return (
+            <>
+              <div className="border-t border-sidebar-border my-2" aria-hidden />
+              {renderItem(adminNavItem)}
+              {adminNavItem.children?.map((child) => renderItem(child, true))}
+            </>
+          );
+        })()}
       </nav>
       <SubscriptionModal
         isOpen={subscriptionModalOpen}

@@ -183,7 +183,7 @@ function StudioViewPalettes() {
       <div>
         <ViewHeader title="My Palettes" description="Manage your saved color palettes" />
         <div className="mb-6 h-14 animate-pulse rounded-lg bg-muted" />
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="grid gap-4 p-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {Array.from({ length: 8 }).map((_, i) => (
             <PaletteCardManageSkeleton key={i} />
           ))}
@@ -245,7 +245,7 @@ function StudioViewPalettes() {
         className="mb-6"
       />
       {filteredPalettes.length > 0 ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="grid gap-4 p-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {filteredPalettes.map((palette) => (
             <PaletteCardManage
               key={palette.id}

@@ -1,10 +1,22 @@
 # Type: Marketing Strategy Brainstorm
 
 **Product:** ViewBait — AI thumbnail studio for YouTube and video creators  
-**Date:** 2025-02-03  
+**Date:** 2025-02-04  
 **Scope:** Actionable marketing strategy to increase visibility, user acquisition, and engagement, grounded in the current codebase, documentation, and product vision.
 
-This document draws on [Brand Identity](../brand_identity.md), [Vision & Feature Roadmap](../audit_vision_feature_roadmap.md), the landing page copy and structure (`app/page.tsx`), and the [Referral System](../referral_system.md) to propose initiatives that leverage existing strengths and address market opportunities.
+This document draws on [Brand Identity](../brand_identity.md), [Vision & Feature Roadmap](../audits/audit_vision_feature_roadmap.md), the landing page copy and structure (`app/page.tsx`), and the [Referral System](../referral_system.md) to propose initiatives that leverage existing strengths and address market opportunities.
+
+---
+
+## Overview
+
+| # | Initiative / Area | Objective | Key actions | Channels | Status |
+|---|-------------------|-----------|-------------|-----------|--------|
+| 1 | Proof-led content and social | Build trust and visibility with before/after and creator proof | Before/after content; creator spotlights; SEO for thumbnail intent | Blog, Creators page, YouTube Shorts, TikTok, X, Reels, Reddit | \|_\| |
+| 2 | Referral and community flywheel | Turn sharing into acquisition; own creator communities | Referral-first campaigns; community presence; micro-influencer partnerships | In-app, email, X, Discord, Reddit, YouTube collabs | \|_\| |
+| 3 | “First thumbnail in 60 seconds” activation campaign | Increase signups and first-generation rate | “60 seconds” messaging; paid + organic short-form; landing alignment | Landing, paid (YouTube/X/TikTok/Meta), Reels/Shorts/TikTok | \|_\| |
+
+*Status: **✔** Done / in progress · **❌** Not doing / deprioritized · **\|_\|** To be / planned*
 
 ---
 
@@ -21,7 +33,7 @@ This document draws on [Brand Identity](../brand_identity.md), [Vision & Feature
 | Segment | Description | Where they are | What they need from marketing |
 |--------|--------------|----------------|--------------------------------|
 | **YouTube creators (hobby → full-time)** | Gaming, vlog, tutorial, reaction, education. Care about speed, quality, ease, consistency. | YouTube, X/Twitter, Discord, Reddit (r/YouTubeCreators, r/NewTubers), TikTok, creator newsletters. | Proof that thumbnails convert; “no design skills” message; fast time-to-value. |
-| **Content marketing teams** | Teams producing video; need consistent thumbnails at scale. | LinkedIn, industry newsletters, SEO ( “thumbnail generator”, “YouTube thumbnail tool”). | Professional positioning; consistency and brand control; team/volume use cases. |
+| **Content marketing teams** | Teams producing video; need consistent thumbnails at scale. | LinkedIn, industry newsletters, SEO (“thumbnail generator,” “YouTube thumbnail tool”). | Professional positioning; consistency and brand control; team/volume use cases. |
 | **Social / video managers** | Manage YouTube, Shorts, cross-platform; need speed and consistency. | LinkedIn, X, Slack communities, marketing podcasts. | Speed, templates/styles, “describe and get it.” |
 
 ### Secondary (expand after primary traction)
@@ -45,11 +57,9 @@ Supporting objectives: improve referral conversion (e.g. with `/auth?ref=CODE`);
 
 ---
 
-## Key Strategic Initiatives
+## \|_\| Initiative 1: Proof-led content and social (Content + social proof)
 
-### Initiative 1: Proof-led content and social (Content + social proof)
-
-**Rationale:** The product already uses “Trusted by 12,500+ creators” and “+340% CTR lift” in vision docs. Creators trust peers and results more than feature lists. Content that showcases **before/after**, **CTR outcomes**, and **real prompts → thumbnails** turns the product into the hero and builds trust.
+**Rationale:** The product already uses “Trusted by 12,500+ creators” and “+340% CTR lift” in vision docs. 🔴 Creators trust peers and results more than feature lists. Content that showcases **before/after**, **CTR outcomes**, and **real prompts → thumbnails** turns the product into the hero and builds trust.
 
 **What to do:**
 
@@ -57,15 +67,17 @@ Supporting objectives: improve referral conversion (e.g. with `/auth?ref=CODE`);
 - **Creator spotlights and micro-case studies:** 1–2 paragraph spotlights (with permission): niche (gaming, vlog, tutorial), problem (no time, no design skills), result (thumbnails in minutes, CTR lift if they share it). Publish on the site (e.g. “Creators” section), and repurpose as social posts and email. No need for heavy production; authenticity over polish.
 - **SEO and long-form:** Target queries such as “YouTube thumbnail maker,” “AI thumbnail generator,” “thumbnail ideas for [niche],” “how to make thumbnails without Photoshop.” Publish 2–4 articles or guides that answer intent and position ViewBait as the tool that “gets” creator intent and thumbnail psychology (mirror landing copy: “Our AI understands creator intent, thumbnail psychology, and what makes people click”).
 
-**Channels:** Owned (blog, “Creators” page, email if/when list exists), YouTube Shorts, TikTok, X/Twitter, Instagram Reels; optional Reddit (value-first, no spam). Use existing brand: dark, red accent, creator tone; avoid generic AI imagery.
+**Channels:** Owned (blog, “Creators” page, email if/when list exists), YouTube Shorts, TikTok, X/Twitter, Instagram Reels; 🟢 optional Reddit (value-first, no spam). Use existing brand: dark, red accent, creator tone; avoid generic AI imagery.
 
-**Dependencies:** Willingness to ask users for quotes/CTR; simple “Creators” or “Stories” page on the site; referral link (`/auth?ref=CODE`) so every piece can carry a trackable link.
+**Dependencies:** ⚠️ Willingness to ask users for quotes/CTR; simple “Creators” or “Stories” page on the site; referral link (`/auth?ref=CODE`) so every piece can carry a trackable link.
+
+**KPIs:** ✅ Organic search impressions/clicks; social reach and engagement; signups attributed to content (UTM + ref).
 
 ---
 
-### Initiative 2: Referral and community flywheel (Partnership + community)
+## \|_\| Initiative 2: Referral and community flywheel (Partnership + community)
 
-**Rationale:** Referral is already built (10 credits to referrer and referred on first purchase; shareable code). Growth comes from making sharing **easy, rewarding, and visible** and from showing up where creators already are.
+**Rationale:** Referral is already built (10 credits to referrer and referred on first purchase; shareable code). 💡 Growth comes from making sharing **easy, rewarding, and visible** and from showing up where creators already are.
 
 **What to do:**
 
@@ -73,15 +85,17 @@ Supporting objectives: improve referral conversion (e.g. with `/auth?ref=CODE`);
 - **Community presence:** Participate in creator and YouTube communities (Discord servers, Reddit, X spaces) as the “thumbnail studio” expert: answer “how do I make thumbnails?” and “what tool do you use?” with helpful advice and a soft ViewBait mention or link when relevant. No hard selling; consistency and value build trust.
 - **Micro-influencer / creator partnerships:** Identify small to mid YouTubers (e.g. 5K–50K subs) in gaming, vlog, tutorial, or education. Offer free Pro or credits in exchange for: one video or Short showing “how I make my thumbnails” with ViewBait, or a dedicated “tool I use” mention. Provide them a **unique referral code** and track signups; their audience is pre-qualified (creators who care about thumbnails).
 
-**Channels:** In-app (referral modal, post-gen CTA, notifications), email (if available), X, Discord, Reddit, YouTube (guest or collab). Track: referral link clicks, apply rate, qualified referrals per partner/campaign.
+**Channels:** In-app (referral modal, post-gen CTA, notifications), email (if available), X, Discord, Reddit, YouTube (guest or collab). ✅ Track: referral link clicks, apply rate, qualified referrals per partner/campaign.
 
-**Dependencies:** Referral link pre-fill live; optional “partner codes” or UTM + ref combo for attribution; lightweight process to onboard and track partner codes.
+**Dependencies:** ⚠️ Referral link pre-fill live; optional “partner codes” or UTM + ref combo for attribution; lightweight process to onboard and track partner codes.
+
+**KPIs:** ✅ Referral link clicks; referral apply rate; qualified referrals per referrer/partner.
 
 ---
 
-### Initiative 3: “First thumbnail in 60 seconds” activation campaign (Campaign)
+## \|_\| Initiative 3: “First thumbnail in 60 seconds” activation campaign (Campaign)
 
-**Rationale:** Vision doc calls out activation (signup → first generation) as a success metric; friction is “form has many options,” “no guided first-run.” Marketing can pre-sell the **speed** of the first win and pair it with product improvements (e.g. first-run wizard, prompt templates).
+**Rationale:** Vision doc calls out activation (signup → first generation) as a success metric; friction is “form has many options,” “no guided first-run.” 🔴 Marketing can pre-sell the **speed** of the first win and pair it with product improvements (e.g. first-run wizard, prompt templates).
 
 **What to do:**
 
@@ -89,9 +103,11 @@ Supporting objectives: improve referral conversion (e.g. with `/auth?ref=CODE`);
 - **Paid and organic:** If budget allows: small paid tests on YouTube (pre-roll or Skippable), X, TikTok, or Meta, targeting “YouTube creator,” “content creator,” “thumbnail” interests. Creative = 15–30s “first thumbnail in 60 seconds” demo; CTA = “Open Studio” or “Start Creating.” Organic: same creative as Reels/Shorts/TikTok; hook = “I made this thumbnail in 60 seconds with one sentence.”
 - **Landing alignment:** Ensure hero and first fold support “60 seconds” and “one prompt” (already close: “Describe your vision. Upload your face. Generate scroll-stopping thumbnails in seconds”). Add a single line or badge such as “First thumbnail in under a minute” if not present. Optionally, add a “Quick start” or “Try a prompt” that deep-links to Studio with a sample prompt pre-filled (when product supports it).
 
-**Channels:** Landing page, paid (YouTube, X, TikTok, Meta), organic short-form (Reels, Shorts, TikTok), email (if list exists). Measure: click-through to auth/studio, signup rate, and **first-generation rate** (activation) for campaign-attributed users (UTM + ref).
+**Channels:** Landing page, paid (YouTube, X, TikTok, Meta), organic short-form (Reels, Shorts, TikTok), email (if list exists). ✅ Measure: click-through to auth/studio, signup rate, and **first-generation rate** (activation) for campaign-attributed users (UTM + ref).
 
-**Dependencies:** UTM and ref params on all campaign links; optional first-run wizard or quick prompts in product to deliver on the “60 seconds” promise.
+**Dependencies:** ⚠️ UTM and ref params on all campaign links; optional first-run wizard or quick prompts in product to deliver on the “60 seconds” promise.
+
+**KPIs:** ✅ Signups per month; signup rate (visit → signup); % signups who complete first generation within 24h/7d (activation) by source.
 
 ---
 
