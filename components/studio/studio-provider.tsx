@@ -58,7 +58,8 @@ export type StudioView =
   | "faces"
   | "youtube"
   | "assistant"
-  | "updates";
+  | "updates"
+  | "admin";
 
 /**
  * Studio State Interface

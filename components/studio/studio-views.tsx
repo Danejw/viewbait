@@ -16,6 +16,7 @@ const StudioViewProjects = lazy(() => import("@/components/studio/views/StudioVi
 const StudioViewYouTube = lazy(() => import("@/components/studio/views/StudioViewYouTube"));
 const StudioViewAssistant = lazy(() => import("@/components/studio/views/StudioViewAssistant"));
 const StudioViewUpdates = lazy(() => import("@/components/studio/studio-view-updates"));
+const StudioViewAdmin = lazy(() => import("@/components/studio/views/StudioViewAdmin"));
 
 /**
  * StudioMainContent
@@ -47,6 +48,7 @@ export function StudioMainContent() {
           {currentView === "youtube" && <StudioViewYouTube />}
           {currentView === "assistant" && <StudioViewAssistant />}
           {currentView === "updates" && <StudioViewUpdates />}
+          {currentView === "admin" && <StudioViewAdmin />}
         </div>
       </Suspense>
     </StudioViewErrorBoundary>
@@ -80,6 +82,7 @@ export function StudioView() {
           {currentView === "youtube" && <StudioViewYouTube />}
           {currentView === "assistant" && <StudioViewAssistant />}
           {currentView === "updates" && <StudioViewUpdates />}
+          {currentView === "admin" && <StudioViewAdmin />}
         </div>
       </Suspense>
     </StudioViewErrorBoundary>

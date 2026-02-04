@@ -56,6 +56,16 @@ export interface Profile {
   onboarding_completed: boolean
 }
 
+/** Single roles table: user role assignment. No row = lowest tier (member). */
+export interface Role {
+  user_id: string
+  role: string
+  created_at: string
+}
+
+/** Resolved role name for auth/UI. No row in roles = 'member'. */
+export type ResolvedRole = 'admin' | 'member'
+
 export interface UserSubscription {
   id: string
   user_id: string
@@ -277,6 +287,12 @@ export interface ProfileInsert {
   created_at?: string
   is_admin?: boolean
   onboarding_completed?: boolean
+}
+
+export interface RoleInsert {
+  user_id: string
+  role: string
+  created_at?: string
 }
 
 export interface UserSubscriptionInsert {
@@ -820,6 +836,11 @@ export interface Database {
         Row: Profile
         Insert: ProfileInsert
         Update: ProfileUpdate
+      }
+      roles: {
+        Row: Role
+        Insert: RoleInsert
+        Update: { role?: string; created_at?: string }
       }
       user_subscriptions: {
         Row: UserSubscription

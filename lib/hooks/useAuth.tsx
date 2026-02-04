@@ -19,6 +19,7 @@ import {
 } from "react";
 import type { User, Session } from "@supabase/supabase-js";
 import type { Profile } from "@/lib/types/database";
+import type { ResolvedRole } from "@/lib/types/database";
 import { logClientError, logClientWarn } from "@/lib/utils/client-logger";
 
 // ============================================================================
@@ -29,6 +30,8 @@ export interface AuthContextType {
   user: User | null;
   profile: Profile | null;
   session: Session | null;
+  /** Resolved from roles table; no row = member. Used for admin nav and route guards. */
+  role: ResolvedRole | null;
   isLoading: boolean;
   isAuthenticated: boolean;
   isConfigured: boolean;
@@ -72,6 +75,7 @@ interface AuthProviderProps {
   initialUser?: User | null;
   initialSession?: Session | null;
   initialProfile?: Profile | null;
+  initialRole?: ResolvedRole | null;
 }
 
 export function AuthProvider({ 
@@ -79,11 +83,13 @@ export function AuthProvider({
   initialUser,
   initialSession,
   initialProfile,
+  initialRole,
 }: AuthProviderProps) {
   // Initialize with server-provided state if available, otherwise null
   const [user, setUser] = useState<User | null>(initialUser ?? null);
   const [profile, setProfile] = useState<Profile | null>(initialProfile ?? null);
   const [session, setSession] = useState<Session | null>(initialSession ?? null);
+  const [role, setRole] = useState<ResolvedRole | null>(initialRole ?? null);
   // If initial state is provided, we're not loading (server already checked)
   // Otherwise, start with loading=true until client-side initialization completes
   const [isLoading, setIsLoading] = useState(initialUser === undefined && initialSession === undefined);
@@ -349,7 +355,8 @@ export function AuthProvider({
       setSession(null);
       setUser(null);
       setProfile(null);
-      
+      setRole(null);
+
       const authService = await import("@/lib/services/auth");
       
       // Add timeout to prevent hanging - if signOut hangs, we'll timeout after 3 seconds
@@ -436,6 +443,7 @@ export function AuthProvider({
       user,
       profile,
       session,
+      role,
       isLoading,
       isAuthenticated,
       isConfigured,
@@ -451,6 +459,7 @@ export function AuthProvider({
     user,
     profile,
     session,
+    role,
     isLoading,
     isConfigured,
     signIn,

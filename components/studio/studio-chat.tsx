@@ -751,24 +751,11 @@ export function StudioChatAssistant() {
           ) : (
             <div className="space-y-4">
               {chatAssistant.conversationHistory.map((message, index) => (
-                <div
+                <ChatMessage
                   key={index}
-                  className={cn(
-                    "flex",
-                    message.role === "user" ? "justify-end" : "justify-start"
-                  )}
-                >
-                  <div
-                    className={cn(
-                      "max-w-[80%] rounded-lg px-3 py-2 text-sm",
-                      message.role === "user"
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-muted text-foreground"
-                    )}
-                  >
-                    <p>{message.content}</p>
-                  </div>
-                </div>
+                  role={message.role}
+                  content={message.content}
+                />
               ))}
               {chatAssistant.isProcessing && (
                 <div className="flex justify-start">

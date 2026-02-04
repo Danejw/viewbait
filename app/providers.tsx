@@ -14,12 +14,15 @@ import { SubscriptionProvider } from "@/lib/hooks/useSubscription";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { PwaRegister } from "@/components/pwa-register";
+import type { InitialAuthState } from "@/lib/server/data/auth";
 
 interface ProvidersProps {
   children: ReactNode;
+  /** Initial auth state from server (prevents flicker, includes role for admin nav). */
+  initialAuthState?: InitialAuthState | null;
 }
 
-export function Providers({ children }: ProvidersProps) {
+export function Providers({ children, initialAuthState }: ProvidersProps) {
   const [queryClient] = useState(
     () =>
       new QueryClient({
@@ -42,7 +45,12 @@ export function Providers({ children }: ProvidersProps) {
       disableTransitionOnChange
     >
       <QueryClientProvider client={queryClient}>
-        <AuthProvider>
+        <AuthProvider
+          initialUser={initialAuthState?.user}
+          initialSession={initialAuthState?.session}
+          initialProfile={initialAuthState?.profile}
+          initialRole={initialAuthState?.role}
+        >
           <SubscriptionProvider>
             {children}
             <Toaster richColors position="top-center" />

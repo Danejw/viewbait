@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono, Inter, Space_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
+import { getInitialAuthState } from "@/lib/server/data/auth";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
@@ -30,18 +31,19 @@ export const viewport = {
   themeColor: "#b91c3c",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const initialAuthState = await getInitialAuthState();
   return (
     <html lang="en" className={inter.variable} suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${spaceMono.variable} antialiased`}
         suppressHydrationWarning
       >
-        <Providers>{children}</Providers>
+        <Providers initialAuthState={initialAuthState}>{children}</Providers>
       </body>
     </html>
   );

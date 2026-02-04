@@ -2,6 +2,7 @@
 
 import React from "react";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { cn } from "@/lib/utils";
 
 export interface ChatMessageProps {
@@ -51,6 +52,7 @@ export function ChatMessage({ role, content, timestamp, attachedImages }: ChatMe
         ) : (
           <div className="prose prose-sm dark:prose-invert max-w-none [&_p]:my-1 [&_ul]:my-2 [&_ol]:my-2 [&_pre]:my-2 [&_code]:text-xs [&_pre]:rounded-md [&_pre]:bg-background/50 [&_pre]:p-2 [&_pre]:overflow-x-auto">
             <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
               components={{
                 code({ className, children, ...props }) {
                   const isBlock = className?.startsWith("language-");

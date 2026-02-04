@@ -7,12 +7,11 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
-import { requireAuth } from '@/lib/server/utils/auth'
+import { requireAdmin } from '@/lib/server/utils/roles'
 import {
   validationErrorResponse,
   databaseErrorResponse,
   serverErrorResponse,
-  forbiddenResponse,
 } from '@/lib/server/utils/error-handler'
 import { logError } from '@/lib/server/utils/logger'
 import { NextResponse } from 'next/server'
@@ -21,41 +20,14 @@ import type { NotificationInsert } from '@/lib/types/database'
 /**
  * POST /api/notifications/broadcast
  * Broadcast notification to multiple users (admin only)
- * 
- * Security: Requires admin privileges (is_admin = true in profiles table)
+ *
+ * Security: Requires admin role (roles table)
  */
 export async function POST(request: Request) {
   try {
-    // Require authentication and check admin status
     const supabase = await createClient()
-    const user = await requireAuth(supabase)
+    await requireAdmin(supabase)
 
-    // Check if user is admin
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('is_admin')
-      .eq('id', user.id)
-      .single()
-
-    if (profileError || !profile) {
-      logError(profileError || new Error('Profile not found'), {
-        route: 'POST /api/notifications/broadcast',
-        userId: user.id,
-        operation: 'check-admin-status',
-      })
-      return databaseErrorResponse('Failed to verify admin status')
-    }
-
-    if (!profile.is_admin) {
-      logError(new Error('Unauthorized broadcast attempt'), {
-        route: 'POST /api/notifications/broadcast',
-        userId: user.id,
-        operation: 'unauthorized-broadcast',
-      })
-      return forbiddenResponse('Admin privileges required to broadcast notifications')
-    }
-
-    // Use service role client for broadcast (admin verified)
     const supabaseService = createServiceClient()
 
     // Parse request body
@@ -182,6 +154,7 @@ export async function POST(request: Request) {
       errors: errors.length > 0 ? errors : undefined,
     })
   } catch (error) {
+    if (error instanceof Response) return error
     return serverErrorResponse(error, 'Failed to broadcast notifications')
   }
 }

@@ -20,6 +20,7 @@ import {
   Settings,
   Newspaper,
   MessageSquare,
+  LayoutDashboard,
 } from "lucide-react";
 import Link from "next/link";
 import { ThemeToggleSimple } from "@/components/theme-toggle";
@@ -53,6 +54,8 @@ export interface NavItem {
   href?: string;
   /** Nested items shown under this one (e.g. Assistant under YouTube). */
   children?: NavItem[];
+  /** Optional badge shown to the right of the label (e.g. "beta"). */
+  badge?: "beta";
 }
 
 export const navItems: NavItem[] = [
@@ -77,6 +80,7 @@ export const navItems: NavItem[] = [
         icon: MessageSquare,
         locked: true,
         unlockWithPro: true,
+        badge: "beta",
       },
     ],
   },
@@ -98,6 +102,7 @@ export function StudioSidebarNav() {
     actions: { setView },
   } = useStudio();
   const { tier, productId } = useSubscription();
+  const { role } = useAuth();
   const [subscriptionModalOpen, setSubscriptionModalOpen] = useState(false);
 
   const renderItem = (item: NavItem, isChild = false) => {
@@ -109,17 +114,21 @@ export function StudioSidebarNav() {
     const canNavigate = item.href && !isLocked;
 
     const buttonContent = canNavigate ? (
-      <Link
-        href={item.href!}
+      <Button
+        variant="side"
+        size={leftSidebarCollapsed ? "icon-sm" : "sm"}
+        asChild
         className={cn(
-          "flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-          leftSidebarCollapsed ? "justify-center shrink-0" : "justify-start text-left",
-          "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+          "w-full",
+          leftSidebarCollapsed ? "shrink-0 justify-center" : "justify-start text-left gap-3",
+          "text-sidebar-foreground"
         )}
       >
-        <Icon className="h-4 w-4 shrink-0" />
-        {!leftSidebarCollapsed && <span>{item.label}</span>}
-      </Link>
+        <Link href={item.href!}>
+          <Icon className="h-4 w-4 shrink-0" />
+          {!leftSidebarCollapsed && <span>{item.label}</span>}
+        </Link>
+      </Button>
     ) : (
       <Button
         type="button"
@@ -146,6 +155,11 @@ export function StudioSidebarNav() {
         {!leftSidebarCollapsed && (
           <>
             <span>{item.label}</span>
+            {item.badge === "beta" && (
+              <span className="rounded px-1 py-0.25 text-[8px] font-medium uppercase tracking-wide bg-primary text-white">
+                Beta
+              </span>
+            )}
             {isLocked && <Lock className="ml-auto h-3 w-3" />}
           </>
         )}
@@ -155,7 +169,7 @@ export function StudioSidebarNav() {
     const wrapped = leftSidebarCollapsed ? (
       <Tooltip>
         <TooltipTrigger asChild>{buttonContent}</TooltipTrigger>
-        <TooltipContent side="right" className="flex items-center gap-2">
+        <TooltipContent side="right" className="flex items-center">
           {item.label}
           {isLocked && <Lock className="h-3 w-3" />}
         </TooltipContent>
@@ -183,6 +197,16 @@ export function StudioSidebarNav() {
             )}
           </React.Fragment>
         ))}
+        {role === "admin" && (
+          <>
+            <div className="border-t border-sidebar-border my-2" aria-hidden />
+            {renderItem({
+              label: "Admin",
+              view: "admin",
+              icon: LayoutDashboard,
+            })}
+          </>
+        )}
       </nav>
       <SubscriptionModal
         isOpen={subscriptionModalOpen}

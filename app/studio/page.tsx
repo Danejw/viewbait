@@ -1,6 +1,7 @@
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useEffect, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   StudioProvider,
   StudioFrame,
@@ -16,6 +17,29 @@ import { StudioDndContext } from "@/components/studio/studio-dnd-context";
 import { ProcessCheckoutOnReturn } from "@/components/studio/process-checkout-return";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { useAuth } from "@/lib/hooks/useAuth";
+import { useStudio } from "@/components/studio/studio-provider";
+
+/**
+ * Syncs ?view=admin from URL to studio view when user is admin (for /admin redirect and bookmarks).
+ */
+function StudioViewFromQuery() {
+  const searchParams = useSearchParams();
+  const { role } = useAuth();
+  const { actions: { setView } } = useStudio();
+  const applied = useRef(false);
+
+  useEffect(() => {
+    if (applied.current) return;
+    const view = searchParams.get("view");
+    if (view === "admin" && role === "admin") {
+      applied.current = true;
+      setView("admin");
+    }
+  }, [searchParams, role, setView]);
+
+  return null;
+}
 
 /**
  * StudioPageContent
@@ -63,6 +87,7 @@ export default function StudioPage() {
         <StudioDndContext>
           <Suspense fallback={null}>
             <ProcessCheckoutOnReturn />
+            <StudioViewFromQuery />
           </Suspense>
           <StudioPageContent />
         </StudioDndContext>
