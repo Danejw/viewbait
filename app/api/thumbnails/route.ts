@@ -95,10 +95,10 @@ export async function GET(request: Request) {
       hasNextPage: !!hasNextPage,
     }
 
-    // Cache as private user data
+    // Cache as private dynamic data so list updates after move/add-to-project
     return createCachedResponse(
       responseData,
-      { strategy: 'private-user', maxAge: 300 },
+      { strategy: 'private-dynamic', maxAge: 60 },
       request
     )
   } catch (error) {

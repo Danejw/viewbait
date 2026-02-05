@@ -61,7 +61,10 @@ export async function getThumbnails(
       ...(projectId && { projectId }),
     })
     const url = `/api/thumbnails?${params.toString()}`;
-    const response = await fetch(url)
+    const response = await fetch(url, {
+      cache: 'no-store',
+      credentials: 'include',
+    })
     
     if (!response.ok) {
       const errorData = await response.json()

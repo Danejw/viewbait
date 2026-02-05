@@ -48,7 +48,7 @@ export interface FetchPublicThumbnailsResult {
  */
 // Note: thumbnail_400w_url and thumbnail_800w_url are optional columns that may not exist yet
 // They are handled as null in the mapping function, so we don't select them here to avoid query errors
-const THUMBNAIL_FIELDS = 'id,title,image_url,liked,is_public,created_at,resolution,user_id,style,palette,emotion,aspect_ratio,has_watermark,share_click_count'
+const THUMBNAIL_FIELDS = 'id,title,image_url,liked,is_public,created_at,resolution,user_id,style,palette,emotion,aspect_ratio,has_watermark,share_click_count,project_id'
 
 /**
  * Build a thumbnails query without executing it
