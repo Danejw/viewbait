@@ -316,6 +316,10 @@ export default function StudioViewYouTube() {
                         selected={youtubeStyleExtract.selectedVideoIds.has(video.videoId)}
                         onToggleSelect={youtubeStyleExtract.toggleSelectVideo}
                         channel={channel ? { title: channel.title, description: channel.description } : null}
+                        otherChannelThumbnailUrls={filteredVideos
+                          .filter((v) => v.videoId !== video.videoId)
+                          .slice(0, 10)
+                          .map((v) => v.thumbnailUrl)}
                       />
                     ))}
                   </div>

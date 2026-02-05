@@ -4,7 +4,7 @@
 **Date:** 2025-02-04  
 **Scope:** Innovative features that are both visionary and practically implementable within the current stack (Next.js, Supabase, Stripe, Gemini).
 
-This document proposes 3–5 new feature ideas that extend beyond the existing [Vision & Feature Roadmap](../audits/audit_vision_feature_roadmap.md) (sections C.1–C.15). Each idea is grounded in the codebase, product vision, and technical constraints described in [System Understanding](../system_understanding.md) and [Assistant Implementation](../assistant_implementation.md).
+This document proposes new feature ideas that extend beyond the existing [Vision & Feature Roadmap](../audits/audit_vision_feature_roadmap.md) (sections C.1–C.15). Each idea is grounded in the codebase, product vision, and technical constraints described in [System Understanding](../system_understanding.md) and [Assistant Implementation](../assistant_implementation.md). **Batch 1** (below) covers quality signals, batch generation, voice, channel fit, and best-performer reuse. **Batch 2** adds remix-from-one, share-for-feedback, trending hooks, A/B pair suggestion, and draft/save-for-later.
 
 ---
 
@@ -17,6 +17,11 @@ This document proposes 3–5 new feature ideas that extend beyond the existing [
 | 3 | Voice-to-Thumbnail (Describe Out Loud) | Typing friction, especially on mobile | ✅ Describe by voice; accessibility; faster input | S (Web Speech) to M (Live integration) | All (voice); Pro for Live | O |
 | 4 | Channel Consistency Check | Hard to know if thumbnail fits channel look | ✅ Explicit “fit” signal; fewer mismatches | M (profile + compare + UI) | All (channel profile could use Pro data) | O |
 | 5 | Thumbnail Inspired by Best Performer | Don’t know how to replicate winning thumbnails | ✅ Data-driven style reuse; replicate what works | M (analytics + analyze + pre-fill) | Pro + YouTube | O |
+| 6 | Remix from One Thumbnail | Iterating means starting from scratch each time | ✅ N variants from one base; faster A/B prep | M (remix API + params + UI) | All (N variants gated by tier) | O |
+| 7 | Share for Feedback (Collaboration) | Share link is view-only; teams want approve/comment | ✅ Simple feedback on shared thumbnails; agency use | M (feedback schema + share page + UI) | All | O |
+| 8 | Trending Hooks / Topic Prompts | Creators don’t know what angles work in their niche | ✅ One-click “what’s working” prompts; activation | S–M (curated list + UI) | All | O |
+| 9 | A/B Pair Suggestion | Don’t know which two thumbnails to test together | ✅ Suggest maximally different pair for better learning | S (heuristic + Gallery action) | Pro + experiments | O |
+| 10 | Draft / Save for Later | Can’t queue ideas when offline or in a hurry | ✅ Save prompt + options; generate when ready | M (drafts table or PWA local + sync) | All | O |
 
 *Status: **✔** Done / implemented · **❌** Not doing / rejected · **O** To be / planned*
 
@@ -158,6 +163,145 @@ In the **YouTube tab** or **Assistant**, the user selects a **top-performing vid
 ### Alignment with product vision
 
 Connects “high-converting thumbnails” and “your style” to actual performance data and makes the Pro + YouTube integration a clear value story.
+
+---
+
+## O 6. Remix from One Thumbnail (N Variations from a Base)
+
+### Problem it solves
+
+🟡 When a creator has one thumbnail they like, getting slight variants (different text, crop, or intensity) means starting from scratch: re-entering prompt, style, and face. That slows A/B prep and iteration.
+
+### How it works
+
+From **Gallery** or **Results**, the user selects a thumbnail and chooses **“Create variations”** or **“Remix this.”** The system uses that thumbnail as the **style/layout reference** (same face, palette, composition) and lets the user tweak one or more parameters: e.g. **thumbnail text** (3 options), **crop/framing**, or **intensity** (same prompt with “more dramatic” / “softer”). Then it runs **N generations** (e.g. 2–4) in one flow, consuming credits per output. Tier limits on variations apply. Optionally, the Assistant can suggest: “You liked this one — want 2 more with different text?”
+
+### Benefits
+
+- **Users:** Faster iteration from a winning base; natural A/B prep without re-describing everything.
+- **Business:** 💡 Differentiator (“remix what works”); increases credit use in a structured way; reinforces consistency.
+
+### Technical considerations
+
+- **API:** New `POST /api/generate/remix` (or optional `source_thumbnail_id` + `variation_params` on existing generate) that loads the source thumbnail, runs analyze-style/analyze-palette or reuses stored cues, and builds the prompt with overrides (text, customInstructions). Credits deducted per generated thumbnail; idempotency per remix batch.
+- **Params:** Accept `textAlternatives[]` (for N text variants) or single `textOverride` + `count`; optional `intensity` or `mood` override. Reuse existing face/style references from source or from user’s library.
+- **UX:** Entry on thumbnail card (“Remix” / “Create variations”); small modal to set text options or intensity, then progress and Results as for batch.
+- **Cost:** Same as N separate generations; ⚠️ enforce tier max variations and cooldown.
+
+### Alignment with product vision
+
+Makes “your style, one prompt” extend to “your style, N variants from one base” and shortens the path from one good thumbnail to a testable set.
+
+---
+
+## O 7. Share for Feedback (Collaboration)
+
+### Problem it solves
+
+🟡 The existing [share-thumbnail proposal](../audits/audit_vision_feature_roadmap.md) (C.11) is read-only. Teams and clients want to **approve or comment** on a thumbnail before it goes live—without logging into ViewBait.
+
+### How it works
+
+When the user **shares a thumbnail** (e.g. “Copy share link” or “Share for feedback”), the link opens a **lightweight feedback page** (e.g. `/t/[id]` or `/share/[token]`). Viewers see the thumbnail and optional title/context, plus a simple **feedback strip**: e.g. 👍 / 👎 and an optional **short comment** (single field, character limit). Submissions are stored (e.g. `thumbnail_feedback` table: thumbnail_id, session_or_email, rating, comment, created_at). The **creator** sees aggregated feedback in Studio (e.g. on the thumbnail card or in a “Feedback” panel): “3 approvals, 1 comment: ‘Text too small’.” No viewer account required; optional “Notify me when there’s feedback” for the creator.
+
+### Benefits
+
+- **Users:** Real collaboration: get client or team sign-off before applying to YouTube; fewer back-and-forth emails.
+- **Business:** ✅ Expands to agencies and teams; stickiness; 💡 differentiator (“share for approval”).
+
+### Technical considerations
+
+- **Schema:** New table or columns: e.g. `thumbnail_feedback(thumbnail_id, fingerprint_or_email, rating, comment, created_at)` with RLS that allows anonymous insert for shareable thumbnails and select only for thumbnail owner. Or use a share token that maps to thumbnail_id and allow one feedback per token/session.
+- **Abuse:** Rate limit feedback per thumbnail (e.g. max 50 responses) and per IP/session; optional CAPTCHA for anonymous submit.
+- **Privacy:** Share link and feedback page must not expose private user data; thumbnail image only, with optional “link may expire” (free-tier retention).
+- **UI:** Minimal public page (no full Studio); creator-facing summary in Gallery or thumbnail detail.
+
+### Alignment with product vision
+
+Extends “share thumbnail” from view-only to **actionable feedback**, supporting “creator + team” workflows and professional use.
+
+---
+
+## O 8. Trending Hooks / Topic Prompts
+
+### Problem it solves
+
+🟡 New users (and some experienced ones) don’t know **what thumbnail angles or text hooks** work in their niche. “What should I type?” is a common blocker to first generation.
+
+### How it works
+
+In **Studio** (Manual tab or first-run) and optionally in **Chat**, show a **“Trending in [topic]”** or **“Quick prompts by niche”** section. Topics might be: Gaming, Education, Vlog, Reaction, How-to, etc. Each topic has **3–5 preset prompts** (e.g. “Shocked face + bold text: YOU WON’T BELIEVE THIS” for Reaction; “Clean layout, key takeaway: 3 Steps to X” for How-to). Curated internally at first (no backend beyond constants or a small config). **One-click** applies the prompt to Thumbnail Text (and optionally sets aspect ratio or style if defined). User can edit before generating. Later, “trending” could be informed by anonymized aggregate data (e.g. most-used phrases per topic) with clear privacy policy.
+
+### Benefits
+
+- **Users:** Lower friction to first generation; discovery of what works; faster time-to-value.
+- **Business:** ✅ Activation and differentiation (“we know what’s working in your niche”); no extra API cost for MVP.
+
+### Technical considerations
+
+- **MVP:** Client-only: constant or JSON in `lib/constants/` (e.g. `trendingPromptsByTopic`). UI: dropdown or chip group “Trending” / “By topic”; onClick sets `thumbnailText` (and optional 1–2 fields) via StudioProvider. No new API.
+- **Later:** Optional admin or cron that updates prompts from usage analytics; then store in DB and serve via lightweight API.
+- **Copy:** Avoid promising “guaranteed CTR”; frame as “popular angles” or “what creators in this niche try first.”
+
+### Alignment with product vision
+
+Supports “describe what you want; get scroll-stopping results” by **reducing the blank slate** and aligning first prompts with proven angles.
+
+---
+
+## O 9. A/B Pair Suggestion (Which Two to Test)
+
+### Problem it solves
+
+🔴 Creators with many thumbnails often don’t know **which two** to run in an A/B experiment. Picking two similar thumbnails yields little learning; picking randomly is hit-or-miss.
+
+### How it works
+
+In **Gallery** (or from the experiment-creation flow), the user selects **“Suggest A/B pair”** or **“Pick best pair to test.”** The system chooses **2 thumbnails** that are **maximally different** on dimensions we can infer: e.g. presence/absence of face, text vs no text, dominant color, or style (from analyze-style if cached). Algorithm: simple heuristic (e.g. cluster by style cues, pick one from each of two clusters) or embedding similarity and pick the two with lowest similarity. User sees the suggested pair with a short rationale (“Different layout and text presence”); they can accept and create the experiment or swap one. Uses existing experiment-creation API once the pair is chosen.
+
+### Benefits
+
+- **Users:** Data-informed experiment setup; better learning from each test; less guesswork.
+- **Business:** Higher value from experiments → stronger Pro + YouTube story; 💡 differentiator.
+
+### Technical considerations
+
+- **Data:** Use existing thumbnail metadata (e.g. has_face, thumbnail_text length, style_id if set) or optional cached analyze-style result. No new Gemini call for MVP if we use existing fields; optional: one batch analyze for thumbnails without style_id to enrich.
+- **Algorithm:** For MVP, simple rules: e.g. prefer one with face + one without; or max difference in palette_id. Later: embedding of thumbnail image (e.g. from Gemini or a small model) and pick pair with min similarity.
+- **UI:** Button in Gallery toolbar or in “Create experiment” modal (“Suggest pair from Gallery”); show 2 cards with “Use as A” / “Use as B”; one click to create experiment with these two.
+- **Tier:** Gate to users who have experiments (Pro + YouTube) or to anyone with 2+ thumbnails if experiment creation is tier-gated separately.
+
+### Alignment with product vision
+
+Makes A/B experiments **smarter** and ties “high-converting thumbnails” to **learnable** choices, not just generation.
+
+---
+
+## O 10. Draft / Save for Later (Queue Ideas, Generate When Ready)
+
+### Problem it solves
+
+🟡 Creators often get ideas **on the go** (mobile, offline, or in a hurry) but can’t or don’t want to generate right then. There’s no way to **save the prompt and options** and generate later without re-entering everything.
+
+### How it works
+
+In **Studio**, add **“Save as draft”** (or “Save for later”). The current **generator state** (thumbnail text, style, palette, face, aspect ratio, resolution, variations, custom instructions) is saved either **locally** (e.g. localStorage or PWA-friendly IndexedDB) or **synced** (new `thumbnail_drafts` table, user-scoped). The user sees a **“Drafts”** list (sidebar or modal): title (e.g. first 40 chars of thumbnail text or “Untitled”), date, and **“Generate”** / **“Edit”**. Clicking **Generate** loads the draft into the form and triggers generation (or opens the form pre-filled for one more edit). Optional: **“Generate all”** for power users (batch from several drafts, respecting credits and tier). Synced drafts enable “start on phone, generate on desktop.”
+
+### Benefits
+
+- **Users:** Capture ideas without losing them; mobile-friendly; less friction when time is short.
+- **Business:** ✅ Retention (return to complete); supports [PWA](../pwa.md) and offline-capable narrative; optional Pro perk (synced drafts across devices).
+
+### Technical considerations
+
+- **MVP:** Client-only drafts in localStorage: key `viewbait_drafts`, array of `{ id, thumbnailText, selectedStyleId, ... }` with size cap (e.g. 10 drafts). UI: “Save draft” in generator; “Drafts” in sidebar that loads draft into form and optionally deletes after generate.
+- **Synced:** New table `thumbnail_drafts` (user_id, payload jsonb, title, created_at); RLS by user_id. API: GET/POST/DELETE drafts. Sync on save and on load so drafts list is consistent across devices.
+- **PWA:** Works with existing [PWA setup](../pwa.md); offline save to local first, sync when online if we add server drafts.
+- **Cost:** No extra AI or storage for draft payload (small JSON); generation cost unchanged when user hits Generate.
+
+### Alignment with product vision
+
+Supports **“describe what you want”** even when the user can’t complete the loop immediately—ideas are captured and the loop closes when they’re back in the studio.
 
 ---
 

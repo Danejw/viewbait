@@ -12,7 +12,7 @@ import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from "
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useDraggable } from "@dnd-kit/core";
 import { motion } from "framer-motion";
-import { Copy, ExternalLink, Eye, ThumbsUp, BarChart3, ScanLine, Thermometer, RefreshCw } from "lucide-react";
+import { Copy, ExternalLink, Eye, ThumbsUp, BarChart3, ScanLine, Thermometer, RefreshCw, Layers } from "lucide-react";
 import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,11 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from "@/components/ui/hover-card";
+import {
+  Popover,
+  PopoverAnchor,
+  PopoverContent,
+} from "@/components/ui/popover";
 import {
   Tooltip,
   TooltipContent,
@@ -38,11 +43,14 @@ import { useSubscription } from "@/lib/hooks/useSubscription";
 import { fetchImageAsBase64Client } from "@/lib/utils/fetch-image-as-base64-client";
 import { generateThumbnailHeatmap } from "@/lib/services/thumbnail-heatmap";
 import { analyzeYouTubeVideo } from "@/lib/services/youtube-video-analyze";
+import { checkChannelConsistency } from "@/lib/services/youtube-channel-consistency";
 import { buildVideoUnderstandingSummary } from "@/lib/utils/video-context-summary";
+import { copyToClipboardWithToast } from "@/lib/utils/clipboard";
 import type { DragData } from "@/components/studio/studio-dnd-context";
 import type { Thumbnail } from "@/lib/types/database";
 
 const HEATMAP_QUERY_KEY = "thumbnail-heatmap" as const;
+const CHANNEL_CONSISTENCY_QUERY_KEY = "channel-consistency" as const;
 
 export interface YouTubeVideoCardVideo {
   videoId: string;
@@ -64,6 +72,8 @@ export interface YouTubeVideoCardProps {
   onToggleSelect?: (videoId: string) => void;
   /** Optional channel context (e.g. when on My channel) for video analytics summary */
   channel?: { title: string; description?: string } | null;
+  /** Other channel thumbnail URLs for channel consistency check (exclude current video; cap 10). */
+  otherChannelThumbnailUrls?: string[];
 }
 
 const YOUTUBE_WATCH_URL = "https://www.youtube.com/watch?v=";
@@ -87,12 +97,21 @@ export function YouTubeVideoCardSkeleton() {
  * with same gradient, animation (-translate-y-2 → translate-y-0), and typography.
  * Click opens video on YouTube in new tab.
  */
+const CONSISTENCY_COOLDOWN_MS = 5000;
+
+function consistencyScoreLabel(score: number): string {
+  if (score <= 2) return "Low";
+  if (score <= 3) return "Medium";
+  return "High";
+}
+
 export const YouTubeVideoCard = memo(function YouTubeVideoCard({
   video,
   priority = false,
   selected = false,
   onToggleSelect,
   channel = null,
+  otherChannelThumbnailUrls,
 }: YouTubeVideoCardProps) {
   const { videoId, title, thumbnailUrl, viewCount, likeCount } = video;
   const hasStats = viewCount != null || likeCount != null;
@@ -104,6 +123,9 @@ export const YouTubeVideoCard = memo(function YouTubeVideoCard({
   const [showStyleSuccessBorder, setShowStyleSuccessBorder] = useState(false);
   const [showAnalyticsSuccessBorder, setShowAnalyticsSuccessBorder] = useState(false);
   const [showHeatmapOverlay, setShowHeatmapOverlay] = useState(false);
+  const [consistencyPopoverOpen, setConsistencyPopoverOpen] = useState(false);
+  const lastConsistencyRequestTime = useRef<number>(0);
+  const consistencyJustClosedRef = useRef(false);
   const wasLoadingAnalytics = useRef(false);
 
   const { tier } = useSubscription();
@@ -111,8 +133,34 @@ export const YouTubeVideoCard = memo(function YouTubeVideoCard({
   const queryClient = useQueryClient();
   const cachedHeatmapDataUrl = useQuery({
     queryKey: [HEATMAP_QUERY_KEY, videoId],
+    queryFn: () => undefined as unknown as string,
     enabled: false,
   }).data as string | undefined;
+
+  const cachedConsistency = useQuery({
+    queryKey: [CHANNEL_CONSISTENCY_QUERY_KEY, videoId],
+    queryFn: () => undefined as unknown as { score: number; cues: string[] },
+    enabled: false,
+  }).data as { score: number; cues: string[] } | undefined;
+
+  const consistencyMutation = useMutation({
+    mutationFn: async () => {
+      const refs = otherChannelThumbnailUrls ?? [];
+      if (refs.length === 0) throw new Error("Not enough channel thumbnails to compare.");
+      return checkChannelConsistency({
+        videoId,
+        thumbnailUrl,
+        otherThumbnailUrls: refs.slice(0, 10),
+      });
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData([CHANNEL_CONSISTENCY_QUERY_KEY, videoId], data);
+      // Keep popover closed by default; icon turns red to show data is available; user clicks to view.
+    },
+    onError: (err) => {
+      toast.error(err instanceof Error ? err.message : "Failed to check channel consistency");
+    },
+  });
 
   const heatmapMutation = useMutation({
     mutationFn: async () => {
@@ -143,7 +191,7 @@ export const YouTubeVideoCard = memo(function YouTubeVideoCard({
   const watchUrl = `${YOUTUBE_WATCH_URL}${videoId}`;
   const selectionMode = onToggleSelect != null;
   const isAnalyzingOrLoading =
-    isAnalyzing || isReRolling || isVideoAnalyticsLoading || heatmapMutation.isPending;
+    isAnalyzing || isReRolling || isVideoAnalyticsLoading || heatmapMutation.isPending || consistencyMutation.isPending;
 
   // Track when analytics loading completes and we have cache → show success border briefly
   useEffect(() => {
@@ -262,6 +310,42 @@ export const YouTubeVideoCard = memo(function YouTubeVideoCard({
     [canUseHeatmap, cachedHeatmapDataUrl, heatmapMutation]
   );
 
+  const handleChannelConsistencyOpenChange = useCallback((open: boolean) => {
+    if (open && consistencyJustClosedRef.current) {
+      consistencyJustClosedRef.current = false;
+      return;
+    }
+    setConsistencyPopoverOpen(open);
+  }, []);
+
+  const handleChannelConsistency = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      e.preventDefault();
+      const refs = otherChannelThumbnailUrls ?? [];
+      if (refs.length === 0) {
+        toast.error("Not enough channel thumbnails to compare.");
+        return;
+      }
+      if (cachedConsistency) {
+        setConsistencyPopoverOpen((prev) => {
+          if (prev) consistencyJustClosedRef.current = true;
+          return !prev;
+        });
+        return;
+      }
+      const now = Date.now();
+      if (consistencyMutation.isPending || now - lastConsistencyRequestTime.current < CONSISTENCY_COOLDOWN_MS) {
+        return;
+      }
+      lastConsistencyRequestTime.current = now;
+      consistencyMutation.mutate();
+    },
+    [otherChannelThumbnailUrls, cachedConsistency, consistencyMutation]
+  );
+
+  const canShowConsistency = (otherChannelThumbnailUrls?.length ?? 0) > 0;
+
   const handleReRollWithVideoContext = useCallback(
     async (e: React.MouseEvent) => {
       e.stopPropagation();
@@ -353,6 +437,59 @@ export const YouTubeVideoCard = memo(function YouTubeVideoCard({
           iconClassName={heatmapMutation.isPending ? "animate-spin" : undefined}
         />
       )}
+      {canShowConsistency && (
+        <Popover open={consistencyPopoverOpen} onOpenChange={handleChannelConsistencyOpenChange}>
+          <PopoverAnchor asChild>
+            <span>
+              <ActionButton
+                icon={consistencyMutation.isPending ? ViewBaitLogo : Layers}
+                label={
+                  cachedConsistency
+                    ? consistencyPopoverOpen
+                      ? "Hide channel fit"
+                      : "Show channel fit"
+                    : "Does this fit my channel?"
+                }
+                onClick={handleChannelConsistency}
+                disabled={consistencyMutation.isPending}
+                active={!!cachedConsistency}
+                iconClassName={consistencyMutation.isPending ? "animate-spin" : undefined}
+              />
+            </span>
+          </PopoverAnchor>
+          <PopoverContent
+            side="top"
+            align="center"
+            sideOffset={8}
+            className="z-[10002] w-64"
+            onOpenAutoFocus={(e) => e.preventDefault()}
+            aria-describedby={cachedConsistency ? "channel-consistency-result" : undefined}
+          >
+            {cachedConsistency ? (
+              <div id="channel-consistency-result" role="status" aria-live="polite">
+                <p
+                  className={cn(
+                    "font-medium",
+                    cachedConsistency.score <= 2 && "text-amber-600 dark:text-amber-500",
+                    cachedConsistency.score === 3 && "text-foreground",
+                    cachedConsistency.score >= 4 && "text-green-600 dark:text-green-500"
+                  )}
+                >
+                  Channel fit: {consistencyScoreLabel(cachedConsistency.score)}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {cachedConsistency.score}/5
+                  {cachedConsistency.cues.length > 0 && (
+                    <> · {cachedConsistency.cues.slice(0, 2).join("; ")}</>
+                  )}
+                </p>
+              </div>
+            ) : (
+              <p className="text-muted-foreground">Run a check to see how this thumbnail fits your channel.</p>
+            )}
+          </PopoverContent>
+        </Popover>
+      )}
     </motion.div>
   );
 
@@ -400,7 +537,13 @@ export const YouTubeVideoCard = memo(function YouTubeVideoCard({
                   <div className="studio-analyzing-status">
                     <div className="studio-analyzing-status-dot" aria-hidden />
                     <span className="studio-analyzing-status-text">
-                      {isReRolling ? "RE-ROLLING" : heatmapMutation.isPending ? "HEATMAP" : "ANALYZING"}
+                      {isReRolling
+                        ? "RE-ROLLING"
+                        : heatmapMutation.isPending
+                          ? "HEATMAP"
+                          : consistencyMutation.isPending
+                            ? "CONSISTENCY"
+                            : "ANALYZING"}
                     </span>
                   </div>
                   <div className="studio-analyzing-title">
