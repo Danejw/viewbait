@@ -112,7 +112,12 @@ function ProjectSelectorInner({
         <SelectItem value={PROJECT_NONE_VALUE}>None</SelectItem>
         {projects.map((project) => (
           <SelectItem key={project.id} value={project.id}>
-            {project.name}
+            <span className="flex items-center gap-2">
+              {project.name}
+              {project.isShared && (
+                <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Shared</span>
+              )}
+            </span>
           </SelectItem>
         ))}
       </SelectContent>

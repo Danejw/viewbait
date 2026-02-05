@@ -43,18 +43,23 @@ export function ShareProjectDialog({
   const { updateProject } = useProjects();
   const [shareMode, setShareMode] = useState<'all' | 'favorites'>(project.share_mode === 'favorites' ? 'favorites' : 'all');
   const [displaySlug, setDisplaySlug] = useState<string | null>(project.share_slug ?? null);
+  const [editorSlug, setEditorSlug] = useState<string | null>(project.editor_slug ?? null);
   const [copied, setCopied] = useState(false);
+  const [editorCopied, setEditorCopied] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const isEnabled = !!displaySlug;
+  const isEditorLinkEnabled = !!editorSlug;
+  const isOwner = !project.isShared;
 
   useEffect(() => {
     if (!open) return;
     setDisplaySlug(project.share_slug ?? null);
+    setEditorSlug(project.editor_slug ?? null);
     setShareMode(project.share_mode === 'favorites' ? 'favorites' : 'all');
     setError(null);
-  }, [open, project.id, project.share_slug, project.share_mode]);
+  }, [open, project.id, project.share_slug, project.share_mode, project.editor_slug, project.isShared]);
 
   const shareUrl = typeof window !== 'undefined' && displaySlug
     ? `${window.location.origin}/p/${displaySlug}`
@@ -106,6 +111,42 @@ export function ShareProjectDialog({
       setSaving(false);
     }
   }, [project.id, shareMode, isEnabled, updateProject]);
+
+  const editorLinkUrl = typeof window !== 'undefined' && editorSlug
+    ? `${window.location.origin}/e/${editorSlug}`
+    : '';
+
+  const handleEditorLinkToggle = useCallback(
+    async (enabled: boolean) => {
+      if (!isOwner) return;
+      setError(null);
+      setSaving(true);
+      try {
+        if (enabled) {
+          const updated = await updateProject(project.id, { editor_link_enabled: true });
+          if (updated?.editor_slug) setEditorSlug(updated.editor_slug);
+          else setError('Failed to generate editor link');
+        } else {
+          await updateProject(project.id, { editor_link_enabled: false });
+          setEditorSlug(null);
+        }
+      } catch {
+        setError('Failed to update editor link');
+      } finally {
+        setSaving(false);
+      }
+    },
+    [project.id, isOwner, updateProject]
+  );
+
+  const copyEditorLink = useCallback(async () => {
+    if (!editorLinkUrl) return;
+    const ok = await copyToClipboardWithToast(editorLinkUrl, 'Editor link copied');
+    if (ok) {
+      setEditorCopied(true);
+      setTimeout(() => setEditorCopied(false), 2000);
+    }
+  }, [editorLinkUrl]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -195,6 +236,55 @@ export function ShareProjectDialog({
                 Anyone with this link can view the gallery. They cannot edit or add thumbnails.
               </p>
             </div>
+          )}
+
+          {isOwner && (
+            <>
+              <div className="flex items-center justify-between pt-2 border-t border-border">
+                <Label htmlFor="editor-link-enabled">Editor link</Label>
+                <Switch
+                  id="editor-link-enabled"
+                  checked={isEditorLinkEnabled}
+                  onCheckedChange={handleEditorLinkToggle}
+                  disabled={saving}
+                />
+              </div>
+              {isEditorLinkEnabled && editorSlug && (
+                <div className="space-y-2">
+                  <Label>Editor link</Label>
+                  <div className="flex gap-2 items-stretch">
+                    <input
+                      type="text"
+                      readOnly
+                      value={editorLinkUrl}
+                      className={cn(
+                        "flex h-9 w-full rounded-md border border-input bg-muted px-3 py-1 text-sm ring-offset-background",
+                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                        "disabled:cursor-not-allowed disabled:opacity-50"
+                      )}
+                    />
+                    <Tooltip open={editorCopied ? true : undefined}>
+                      <TooltipTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={copyEditorLink}
+                          className="h-9 w-9 shrink-0 p-0"
+                        >
+                          <Copy className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="top">
+                        {editorCopied ? "Copied!" : "Copy link"}
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Signed-in users who open this link will be added as editors and can add thumbnails to this project with the same settings.
+                  </p>
+                </div>
+              )}
+            </>
           )}
 
           {error && (

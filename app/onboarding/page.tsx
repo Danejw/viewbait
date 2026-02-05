@@ -16,6 +16,7 @@
   } from "react";
   import Link from "next/link";
   import Image from "next/image";
+  import { useSearchParams } from "next/navigation";
   import { ChevronRight, ExternalLink, RefreshCw, Zap } from "lucide-react";
   import { toast } from "sonner";
   import { OnboardingProvider } from "@/lib/contexts/onboarding-context";
@@ -34,7 +35,10 @@
   import { ViewBaitLogo } from "@/components/ui/viewbait-logo";
   import { CRTLoadingEffect } from "@/components/ui/crt-loading-effect";
   import { TooltipProvider } from "@/components/ui/tooltip";
+  import { isAllowedRedirect } from "@/lib/utils/redirect-allowlist";
   import type { Thumbnail } from "@/lib/types/database";
+
+  const ONBOARDING_REDIRECT_KEY = "onboarding_redirect";
 
   const TOTAL_STEPS = 6;
   const STEP_NAMES = [
@@ -48,7 +52,9 @@
 
   /** Inner flow that uses Studio context; must be rendered inside StudioProvider + OnboardingProvider */
   function OnboardingFlow() {
+    const searchParams = useSearchParams();
     const { user } = useAuth();
+    const [postCompletionRedirect, setPostCompletionRedirect] = useState("/studio");
     const {
       state: { thumbnailText, selectedStyle, includeFaces, selectedFaces, isGenerating },
       actions: { setIncludeStyles, setThumbnailText, setSelectedStyle, setIncludeFaces, clearLastGeneratedThumbnail },
@@ -82,6 +88,21 @@
     setIncludeFacesRef.current = setIncludeFaces;
     setThumbnailTextRef.current = setThumbnailText;
     setSelectedStyleRef.current = setSelectedStyle;
+
+    // Store validated redirect from URL so we can send user there after completion
+    useEffect(() => {
+      const r = searchParams.get("redirect");
+      if (r && isAllowedRedirect(r)) {
+        if (typeof sessionStorage !== "undefined") sessionStorage.setItem(ONBOARDING_REDIRECT_KEY, r);
+      }
+    }, [searchParams]);
+
+    // When entering step 5, read stored redirect for "Open in Studio" link
+    useEffect(() => {
+      if (step !== 5) return;
+      const r = typeof sessionStorage !== "undefined" ? sessionStorage.getItem(ONBOARDING_REDIRECT_KEY) : null;
+      setPostCompletionRedirect(r && isAllowedRedirect(r) ? r : "/studio");
+    }, [step]);
 
     // When entering step 3, show the style grid once (includeStyles = true)
     useEffect(() => {
@@ -608,7 +629,7 @@
                 </div>
                 <div className="flex flex-col gap-3">
                   <Link
-                    href="/studio"
+                    href={postCompletionRedirect}
                     className="btn-primary w-full inline-flex items-center justify-center gap-2 no-underline"
                   >
                     <ExternalLink className="size-4 shrink-0" strokeWidth={2} />
@@ -651,7 +672,9 @@
           <StudioProvider>
             <ChatDropHandlerProvider>
               <StudioDndContext>
-                <OnboardingFlow />
+                <React.Suspense fallback={null}>
+                  <OnboardingFlow />
+                </React.Suspense>
               </StudioDndContext>
             </ChatDropHandlerProvider>
           </StudioProvider>

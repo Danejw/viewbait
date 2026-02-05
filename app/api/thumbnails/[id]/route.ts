@@ -8,7 +8,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import type { ThumbnailUpdate } from '@/lib/types/database'
-import { getProjectById } from '@/lib/server/data/projects'
+import { getProjectByIdForAccess } from '@/lib/server/data/projects'
 import { logError } from '@/lib/server/utils/logger'
 import { requireAuth } from '@/lib/server/utils/auth'
 import { notFoundResponse, validationErrorResponse, databaseErrorResponse } from '@/lib/server/utils/error-handler'
@@ -147,9 +147,9 @@ export async function PATCH(
       return validationErrorResponse('Title cannot be empty')
     }
 
-    // Validate project_id when set to a non-null value (project must exist and belong to user)
+    // Validate project_id when set to a non-null value (project must exist; user must be owner or editor)
     if (payload.project_id != null) {
-      const { data: project } = await getProjectById(supabase, payload.project_id, user.id)
+      const { data: project } = await getProjectByIdForAccess(supabase, payload.project_id, user.id)
       if (!project) {
         return validationErrorResponse('Project not found or access denied')
       }

@@ -30,7 +30,7 @@ import {
   aiServiceErrorResponse,
 } from '@/lib/server/utils/error-handler'
 import { handleApiError } from '@/lib/server/utils/api-helpers'
-import { getProjectById } from '@/lib/server/data/projects'
+import { getProjectByIdForAccess } from '@/lib/server/data/projects'
 import { createNotificationIfNew } from '@/lib/server/notifications/create'
 import { SIGNED_URL_EXPIRY_ONE_YEAR_SECONDS } from '@/lib/server/utils/url-refresh'
 
@@ -465,7 +465,7 @@ export async function POST(request: Request) {
     // Resolve project_id if provided: must exist and belong to user
     let projectIdForInsert: string | null = null
     if (body.project_id) {
-      const { data: project } = await getProjectById(supabase, body.project_id, user.id)
+      const { data: project } = await getProjectByIdForAccess(supabase, body.project_id, user.id)
       if (project) {
         projectIdForInsert = project.id
       }

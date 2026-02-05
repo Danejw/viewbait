@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useRef } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import {
   StudioProvider,
   StudioFrame,
@@ -25,7 +25,8 @@ import { useStudio } from "@/components/studio/studio-provider";
  */
 function StudioViewFromQuery() {
   const searchParams = useSearchParams();
-  const { role } = useAuth();
+  const { profile } = useAuth();
+  const role = profile?.is_admin ? "admin" : "member";
   const { actions: { setView } } = useStudio();
   const applied = useRef(false);
 
@@ -42,6 +43,34 @@ function StudioViewFromQuery() {
       }
     }
   }, [searchParams, role, setView]);
+
+  return null;
+}
+
+/**
+ * Syncs ?project=<id> from URL to active project when that project is in the user's list (IDOR-safe).
+ * After applying, clears the query param so refresh doesn't re-apply.
+ */
+function StudioProjectFromQuery() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const { data: { projects, projectsLoading }, actions: { setActiveProjectId } } = useStudio();
+  const applied = useRef(false);
+
+  useEffect(() => {
+    if (applied.current || projectsLoading) return;
+    const projectId = searchParams.get("project");
+    if (!projectId) return;
+    const inList = projects.some((p) => p.id === projectId);
+    if (inList) {
+      applied.current = true;
+      setActiveProjectId(projectId);
+      const next = new URLSearchParams(searchParams.toString());
+      next.delete("project");
+      const qs = next.toString();
+      router.replace(qs ? `?${qs}` : window.location.pathname, { scroll: false });
+    }
+  }, [searchParams, projects, projectsLoading, setActiveProjectId, router]);
 
   return null;
 }
@@ -93,6 +122,7 @@ export default function StudioPage() {
           <Suspense fallback={null}>
             <ProcessCheckoutOnReturn />
             <StudioViewFromQuery />
+            <StudioProjectFromQuery />
           </Suspense>
           <StudioPageContent />
         </StudioDndContext>

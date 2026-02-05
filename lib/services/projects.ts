@@ -23,6 +23,11 @@ export interface CreateProjectPayload {
 export interface UpdateProjectPayload {
   name?: string
   default_settings?: ProjectDefaultSettings | null
+  share_slug?: string | null
+  share_mode?: ShareMode | null
+  editor_slug?: string | null
+  /** Set true to enable editor link (server generates editor_slug); set false to disable */
+  editor_link_enabled?: boolean
 }
 
 /**
@@ -105,6 +110,36 @@ export async function updateProject(
       return {
         project: null,
         error: new Error(errorData.error || 'Failed to update project'),
+      }
+    }
+    const data = await response.json()
+    return { project: data.project ?? null, error: null }
+  } catch (error) {
+    return {
+      project: null,
+      error: error instanceof Error ? error : new Error('Network error'),
+    }
+  }
+}
+
+/**
+ * Join a project by editor slug (e.g. from /e/[slug]). Returns the project so client can redirect to /studio?project=<id>.
+ */
+export async function joinByEditorSlug(editorSlug: string): Promise<{
+  project: DbProject | null
+  error: Error | null
+}> {
+  try {
+    const response = await fetch('/api/projects/join-by-editor-slug', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ editor_slug: editorSlug }),
+    })
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      return {
+        project: null,
+        error: new Error(errorData.error || 'Failed to join project'),
       }
     }
     const data = await response.json()

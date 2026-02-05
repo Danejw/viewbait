@@ -11,6 +11,7 @@ import { createServiceClient } from '@/lib/supabase/service'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { logError, logInfo } from '@/lib/server/utils/logger'
+import { getAllowedRedirect } from '@/lib/utils/redirect-allowlist'
 
 /**
  * Persist YouTube integration tokens to the database
@@ -81,8 +82,8 @@ async function persistYouTubeTokens(
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url)
   const code = requestUrl.searchParams.get('code')
-  // Support both 'next' and 'redirect' query params, default to /studio
-  const next = requestUrl.searchParams.get('next') || requestUrl.searchParams.get('redirect') || '/studio'
+  const rawNext = requestUrl.searchParams.get('next') || requestUrl.searchParams.get('redirect')
+  const next = getAllowedRedirect(rawNext, '/studio')
 
   if (code) {
     const supabase = await createClient()

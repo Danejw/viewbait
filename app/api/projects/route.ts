@@ -15,7 +15,7 @@ import { handleApiError } from '@/lib/server/utils/api-helpers'
 import { logError } from '@/lib/server/utils/logger'
 import { NextResponse } from 'next/server'
 import type { ProjectInsert, ProjectDefaultSettings } from '@/lib/types/database'
-import { listProjects, createProject } from '@/lib/server/data/projects'
+import { listProjectsWithShared, createProject } from '@/lib/server/data/projects'
 import { createNotificationIfNew } from '@/lib/server/notifications/create'
 
 export const revalidate = 60
@@ -29,7 +29,7 @@ export async function GET() {
     const supabase = await createClient()
     const user = await requireAuth(supabase)
 
-    const { data, error } = await listProjects(supabase, user.id)
+    const { data, error } = await listProjectsWithShared(supabase, user.id)
 
     if (error) {
       logError(error, {
@@ -40,7 +40,7 @@ export async function GET() {
       return databaseErrorResponse('Failed to fetch projects')
     }
 
-    return NextResponse.json({ projects: data })
+    return NextResponse.json({ projects: data ?? [] })
   } catch (error) {
     return handleApiError(error, 'GET /api/projects', 'fetch-projects', undefined, 'Failed to fetch projects')
   }

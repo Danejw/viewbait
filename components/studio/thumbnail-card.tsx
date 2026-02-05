@@ -263,6 +263,7 @@ const ProgressiveImage = memo(function ProgressiveImage({
   const [ref, isIntersecting] = useIntersectionObserver({
     rootMargin: "200px",
   });
+  const imgRef = useRef<HTMLImageElement | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const [currentSrc, setCurrentSrc] = useState<string | null>(null);
 
@@ -290,6 +291,17 @@ const ProgressiveImage = memo(function ProgressiveImage({
     }
   }, [imageSrc, currentSrc]);
 
+  // If the image is already complete (cached or very fast load), the load event may have fired
+  // before we attached the listener. Check after mount and call onLoad so the CRT overlay clears.
+  React.useEffect(() => {
+    if (!currentSrc || isLoaded) return;
+    const img = imgRef.current;
+    if (img?.complete && img.naturalWidth > 0) {
+      setIsLoaded(true);
+      onLoad?.();
+    }
+  }, [currentSrc, isLoaded, onLoad]);
+
   return (
     <div ref={ref} className={cn("relative h-full w-full", className)}>
       {!isLoaded && (
@@ -297,6 +309,7 @@ const ProgressiveImage = memo(function ProgressiveImage({
       )}
       {currentSrc && (
         <img
+          ref={imgRef}
           src={currentSrc}
           alt={alt}
           onLoad={handleLoad}
@@ -416,11 +429,13 @@ export const ThumbnailCard = memo(function ThumbnailCard({
     },
   });
 
-  // CRT overlay stays until the image has loaded (continuous visual feedback after generation)
+  // CRT overlay stays until the image has loaded (continuous visual feedback after generation).
+  // Only reset when thumbnail identity (id) changes, not when displaySrc changes (e.g. watermark URL
+  // resolving), so the overlay does not reappear when switching from imageUrl to watermarkedUrl.
   const [imageLoaded, setImageLoaded] = useState(false);
   React.useEffect(() => {
     setImageLoaded(false);
-  }, [id, displaySrc]);
+  }, [id]);
 
   // Clear success border after a short delay so it doesn't stay forever
   React.useEffect(() => {

@@ -72,6 +72,19 @@ export function buildThumbnailsQuery(
     projectId,
   } = options
 
+  // When viewing a specific project: filter by project_id only; RLS allows rows where user is owner or editor.
+  if (projectId != null && projectId !== '' && projectId !== '__none__') {
+    let query = supabase
+      .from('thumbnails')
+      .select(THUMBNAIL_FIELDS, { count: 'exact' })
+      .eq('project_id', projectId)
+      .order(orderBy, { ascending: orderDirection === 'asc' })
+    if (favoritesOnly) {
+      query = query.eq('liked', true) as ReturnType<SupabaseClient['from']>['select']
+    }
+    return query
+  }
+
   let query = QueryPatterns.userOwnedWithFavorites(
     supabase,
     'thumbnails',
@@ -87,11 +100,8 @@ export function buildThumbnailsQuery(
     }
   )
 
-  // projectId: omit = all; '__none__' = only thumbnails with no project; uuid = that project
   if (projectId === '__none__') {
     query = query.is('project_id', null) as ReturnType<SupabaseClient['from']>['select']
-  } else if (projectId != null && projectId !== '') {
-    query = query.eq('project_id', projectId) as ReturnType<SupabaseClient['from']>['select']
   }
 
   return query

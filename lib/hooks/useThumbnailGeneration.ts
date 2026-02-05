@@ -262,20 +262,6 @@ export function useThumbnailGeneration(
       (r): r is { success: true; tempId: string; thumbnailId: string; imageUrl: string } =>
         r.success && "tempId" in r && "thumbnailId" in r && "imageUrl" in r
     );
-    // #region agent log
-    fetch("http://127.0.0.1:7250/ingest/503c3a58-0894-4f46-a41c-96a198c9eec9", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        location: "useThumbnailGeneration.ts:after-allSettled",
-        message: "setState after Promise.allSettled (isGenerating: false)",
-        data: { failedCount, errorMessage: errorMessage ?? null },
-        timestamp: Date.now(),
-        sessionId: "debug-session",
-        hypothesisId: "H5",
-      }),
-    }).catch(() => {});
-    // #endregion
     setState(prev => {
       const newItems = new Map(prev.generatingItems);
       for (const { tempId, error: errMsg } of failedByTempId) {
@@ -352,20 +338,6 @@ export function useThumbnailGeneration(
   const removeGeneratingItemsByIds = useCallback((ids: Set<string> | string[]) => {
     const idSet = ids instanceof Set ? ids : new Set(ids);
     if (idSet.size === 0) return;
-    // #region agent log
-    fetch("http://127.0.0.1:7250/ingest/503c3a58-0894-4f46-a41c-96a198c9eec9", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        location: "useThumbnailGeneration.ts:removeGeneratingItemsByIds",
-        message: "removeGeneratingItemsByIds called",
-        data: { idsLen: idSet.size },
-        timestamp: Date.now(),
-        sessionId: "debug-session",
-        hypothesisId: "H3",
-      }),
-    }).catch(() => {});
-    // #endregion
     startTransition(() => {
       setState(prev => {
         const newItems = new Map(prev.generatingItems);

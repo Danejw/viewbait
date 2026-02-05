@@ -287,6 +287,8 @@ export interface StudioActions {
   // Project workflow
   setActiveProjectId: (id: string | null) => void;
   saveProjectSettings: () => Promise<void>;
+  /** Apply the active project's default_settings to the form (for editors: "Pull from original settings"). */
+  pullProjectSettings: () => void;
   /** Clear lastGeneratedThumbnail after onboarding consumes it */
   clearLastGeneratedThumbnail: () => void;
   /** Set the video the user is focused on in the assistant (for "Generate thumbnail" / agent context) */
@@ -576,6 +578,27 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
   const deleteMutation = useDeleteThumbnail();
   const favoriteMutation = useToggleFavorite();
 
+  /** Returns a partial state update from project default_settings (DRY for effect and pullProjectSettings). */
+  const getStatePatchFromDefaultSettings = useCallback((settings: ProjectDefaultSettings) => {
+    return {
+      thumbnailText: settings.thumbnailText ?? "",
+      customInstructions: settings.customInstructions ?? "",
+      includeStyles: settings.includeStyles ?? false,
+      selectedStyle: settings.selectedStyle ?? null,
+      includePalettes: settings.includePalettes ?? false,
+      selectedPalette: settings.selectedPalette ?? null,
+      selectedAspectRatio: settings.selectedAspectRatio ?? "16:9",
+      selectedResolution: settings.selectedResolution ?? "1K",
+      variations: settings.variations ?? 1,
+      includeStyleReferences: settings.includeStyleReferences ?? false,
+      styleReferences: Array.isArray(settings.styleReferences) ? settings.styleReferences : [],
+      includeFaces: settings.includeFaces ?? false,
+      selectedFaces: Array.isArray(settings.selectedFaces) ? settings.selectedFaces : [],
+      faceExpression: settings.faceExpression ?? "None",
+      facePose: settings.facePose ?? "None",
+    };
+  }, []);
+
   // When activeProjectId changes, apply project default_settings to form once (if any)
   const lastAppliedProjectIdRef = useRef<string | null>(null);
   useEffect(() => {
@@ -589,26 +612,8 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
     const project = projects.find((p) => p.id === projectId);
     const settings = project?.default_settings;
     if (!settings || typeof settings !== "object") return;
-    setState((s) => {
-      const next = { ...s };
-      if (settings.thumbnailText !== undefined) next.thumbnailText = settings.thumbnailText ?? "";
-      if (settings.customInstructions !== undefined) next.customInstructions = settings.customInstructions ?? "";
-      if (settings.includeStyles !== undefined) next.includeStyles = settings.includeStyles ?? false;
-      if (settings.selectedStyle !== undefined) next.selectedStyle = settings.selectedStyle ?? null;
-      if (settings.includePalettes !== undefined) next.includePalettes = settings.includePalettes ?? false;
-      if (settings.selectedPalette !== undefined) next.selectedPalette = settings.selectedPalette ?? null;
-      if (settings.selectedAspectRatio !== undefined) next.selectedAspectRatio = settings.selectedAspectRatio ?? "16:9";
-      if (settings.selectedResolution !== undefined) next.selectedResolution = settings.selectedResolution ?? "1K";
-      if (settings.variations !== undefined) next.variations = settings.variations ?? 1;
-      if (settings.includeStyleReferences !== undefined) next.includeStyleReferences = settings.includeStyleReferences ?? false;
-      if (settings.styleReferences !== undefined) next.styleReferences = Array.isArray(settings.styleReferences) ? settings.styleReferences : [];
-      if (settings.includeFaces !== undefined) next.includeFaces = settings.includeFaces ?? false;
-      if (settings.selectedFaces !== undefined) next.selectedFaces = Array.isArray(settings.selectedFaces) ? settings.selectedFaces : [];
-      if (settings.faceExpression !== undefined) next.faceExpression = settings.faceExpression ?? "None";
-      if (settings.facePose !== undefined) next.facePose = settings.facePose ?? "None";
-      return next;
-    });
-  }, [state.activeProjectId, projects]);
+    setState((s) => ({ ...s, ...getStatePatchFromDefaultSettings(settings as ProjectDefaultSettings) }));
+  }, [state.activeProjectId, projects, getStatePatchFromDefaultSettings]);
 
   // Sync generation state (including cooldown so button stays disabled during tier-based interval).
   // Defer update via startTransition to avoid stacking with hook/query updates and exceeding React's update depth.
@@ -727,6 +732,12 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
 
     // Refresh thumbnails after generation completes
     if (results.some((r) => r.success)) {
+      const successIds = results
+        .filter((r): r is { success: true; thumbnailId?: string } => r.success && !!r.thumbnailId)
+        .map((r) => r.thumbnailId!);
+      if (successIds.length > 0) {
+        removeGeneratingItemsByIds(successIds);
+      }
       const firstSuccess = results.find((r) => r.success && r.thumbnailId && r.imageUrl);
       const thumbId = firstSuccess?.thumbnailId;
       const thumbUrl = firstSuccess?.imageUrl;
@@ -748,7 +759,7 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
       }
       await refreshThumbnails();
     }
-  }, [state, generate, refreshThumbnails, faces, canCreateCustomAssets]);
+  }, [state, generate, refreshThumbnails, faces, canCreateCustomAssets, removeGeneratingItemsByIds]);
 
   // Thumbnail action handlers
   const onFavoriteToggle = useCallback((id: string) => {
@@ -1270,6 +1281,15 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
     await refetchProjects();
   }, [state.activeProjectId, state.thumbnailText, state.customInstructions, state.includeStyles, state.selectedStyle, state.includePalettes, state.selectedPalette, state.selectedAspectRatio, state.selectedResolution, state.variations, state.includeStyleReferences, state.styleReferences, state.includeFaces, state.selectedFaces, state.faceExpression, state.facePose, updateProjectFn, refetchProjects]);
 
+  const pullProjectSettings = useCallback(() => {
+    if (!state.activeProjectId || !projects.length) return;
+    const project = projects.find((p) => p.id === state.activeProjectId);
+    const settings = project?.default_settings;
+    if (!settings || typeof settings !== "object") return;
+    setState((s) => ({ ...s, ...getStatePatchFromDefaultSettings(settings as ProjectDefaultSettings) }));
+    toast.success("Settings loaded");
+  }, [state.activeProjectId, projects, getStatePatchFromDefaultSettings]);
+
   const actions: StudioActions = {
     setView: (view) =>
       setState((s) => ({
@@ -1500,6 +1520,7 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
     clearError,
     setActiveProjectId,
     saveProjectSettings,
+    pullProjectSettings,
     clearLastGeneratedThumbnail: () =>
       setState((s) => ({ ...s, lastGeneratedThumbnail: null })),
     setFocusedVideo: (video) =>

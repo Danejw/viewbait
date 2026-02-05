@@ -185,6 +185,18 @@ export function aiServiceErrorResponse(
 }
 
 /**
+ * Rate limit exceeded response (429)
+ */
+export function rateLimitResponse(
+  message: string = 'Too many requests. Please try again later.'
+): NextResponse {
+  return NextResponse.json(
+    { error: message, code: 'RATE_LIMIT_EXCEEDED' },
+    { status: 429 }
+  )
+}
+
+/**
  * Stripe error response (500)
  */
 export function stripeErrorResponse(

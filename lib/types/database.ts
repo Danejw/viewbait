@@ -119,6 +119,11 @@ export interface DbProject {
   created_at: string
   updated_at: string
   default_settings: ProjectDefaultSettings | null
+  share_slug?: string | null
+  share_mode?: ShareMode | null
+  editor_slug?: string | null
+  /** True when user is editor (not owner); from GET /api/projects */
+  isShared?: boolean
 }
 
 /**
@@ -390,6 +395,7 @@ export interface ProjectUpdate {
   default_settings?: ProjectDefaultSettings | null
   share_slug?: string | null
   share_mode?: ShareMode | null
+  editor_slug?: string | null
 }
 
 export interface StyleInsert {

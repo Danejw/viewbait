@@ -7,11 +7,12 @@
 
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { isAllowedRedirect } from "@/lib/utils/redirect-allowlist";
 
 /**
  * Routes that require authentication
  */
-const PROTECTED_ROUTES = ["/studio", "/onboarding"];
+const PROTECTED_ROUTES = ["/studio", "/onboarding", "/e"];
 
 /**
  * Routes that should redirect authenticated users away
@@ -92,8 +93,8 @@ export async function middleware(request: NextRequest) {
   // Protected route check - redirect to auth if not authenticated
   if (isProtectedRoute(pathname) && !user) {
     const redirectUrl = new URL("/auth", request.url);
-    // Preserve the original destination for post-auth redirect
-    redirectUrl.searchParams.set("redirect", pathname);
+    const destination = pathname + (request.nextUrl.search || "");
+    redirectUrl.searchParams.set("redirect", isAllowedRedirect(destination) ? destination : "/studio");
     return NextResponse.redirect(redirectUrl);
   }
 
@@ -122,6 +123,10 @@ export async function middleware(request: NextRequest) {
 
     if (needsOnboarding) {
       const redirectUrl = new URL("/onboarding", request.url);
+      const destination = pathname + (request.nextUrl.search || "");
+      if (isAllowedRedirect(destination)) {
+        redirectUrl.searchParams.set("redirect", destination);
+      }
       const redirectResponse = NextResponse.redirect(redirectUrl);
       supabaseResponse.cookies.getAll().forEach((cookie) => {
         redirectResponse.cookies.set(cookie.name, cookie.value);

@@ -1393,9 +1393,11 @@ export function StudioGeneratorSubmit({
 }: StudioGeneratorSubmitProps = {}) {
   const {
     state: { isButtonDisabled, thumbnailText, variations, selectedResolution, activeProjectId, reRollDataJustApplied },
-    data: { isSavingProjectSettings },
-    actions: { generateThumbnails, saveProjectSettings, clearReRollDataApplied },
+    data: { projects, isSavingProjectSettings },
+    actions: { generateThumbnails, saveProjectSettings, pullProjectSettings, clearReRollDataApplied },
   } = useStudio();
+  const activeProject = activeProjectId ? projects.find((p) => p.id === activeProjectId) : null;
+  const isEditor = activeProject?.isShared === true;
   const { getResolutionCost } = useSubscription();
 
   useEffect(() => {
@@ -1442,16 +1444,28 @@ export function StudioGeneratorSubmit({
         )}
       </Button>
       {!hideSaveToProject && activeProjectId && (
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="w-full"
-          onClick={saveProjectSettings}
-          disabled={isSavingProjectSettings}
-        >
-          {isSavingProjectSettings ? "Saving..." : "Save current settings to project"}
-        </Button>
+        isEditor ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="w-full"
+            onClick={pullProjectSettings}
+          >
+            Pull from original settings
+          </Button>
+        ) : (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="w-full"
+            onClick={saveProjectSettings}
+            disabled={isSavingProjectSettings}
+          >
+            {isSavingProjectSettings ? "Saving..." : "Save current settings to project"}
+          </Button>
+        )
       )}
     </div>
   );

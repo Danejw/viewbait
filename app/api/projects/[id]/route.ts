@@ -17,10 +17,15 @@ import { handleApiError } from '@/lib/server/utils/api-helpers'
 import { logError } from '@/lib/server/utils/logger'
 import { NextResponse } from 'next/server'
 import type { ProjectUpdate, ProjectDefaultSettings } from '@/lib/types/database'
-import { getProjectById, updateProject, deleteProject } from '@/lib/server/data/projects'
+import {
+  getProjectById,
+  updateProject,
+  deleteProject,
+  validateEditorSlug,
+} from '@/lib/server/data/projects'
 
-/** Generate a short unique slug for share links */
-function generateShareSlug(): string {
+/** Generate a short unique slug for share/editor links */
+function generateShortSlug(): string {
   return crypto.randomUUID().replace(/-/g, '').slice(0, 12)
 }
 
@@ -62,15 +67,36 @@ export async function PATCH(
       if (update.share_slug === undefined && mode != null) {
         const { data: existing } = await getProjectById(supabase, id, user.id)
         if (existing && !existing.share_slug) {
-          let slug = generateShareSlug()
+          let slug = generateShortSlug()
           for (let attempts = 0; attempts < 5; attempts++) {
             const { data: conflict } = await supabase.from('projects').select('id').eq('share_slug', slug).maybeSingle()
             if (!conflict) break
-            slug = generateShareSlug()
+            slug = generateShortSlug()
           }
           update.share_slug = slug
         }
       }
+    }
+
+    if (body.editor_link_enabled === true) {
+      const { data: existing } = await getProjectById(supabase, id, user.id)
+      if (existing && !existing.editor_slug) {
+        let slug = generateShortSlug()
+        for (let attempts = 0; attempts < 5; attempts++) {
+          const { data: conflict } = await supabase.from('projects').select('id').eq('editor_slug', slug).maybeSingle()
+          if (!conflict) break
+          slug = generateShortSlug()
+        }
+        update.editor_slug = slug
+      }
+    } else if (body.editor_link_enabled === false || body.editor_slug === null || body.editor_slug === '') {
+      update.editor_slug = null
+    } else if (body.editor_slug !== undefined && body.editor_slug != null && body.editor_slug !== '') {
+      const slug = String(body.editor_slug).trim()
+      if (!validateEditorSlug(slug)) {
+        return validationErrorResponse('Invalid editor_slug: max 128 chars, alphanumeric and hyphen only')
+      }
+      update.editor_slug = slug
     }
 
     if (Object.keys(update).length === 0) {

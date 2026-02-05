@@ -60,9 +60,9 @@ export async function POST(
           ? body.project_id.trim() || null
           : null
 
-    // Validate project exists and belongs to user when assigning to a project
+    // Validate project exists and user is owner or editor when assigning to a project
     if (projectId != null) {
-      const { data: project } = await getProjectById(supabase, projectId, user.id)
+      const { data: project } = await getProjectByIdForAccess(supabase, projectId, user.id)
       if (!project) {
         return validationErrorResponse('Project not found or access denied')
       }

@@ -20,6 +20,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FeedbackModal } from "@/components/feedback-modal";
+import { getAllowedRedirect } from "@/lib/utils/redirect-allowlist";
 
 /**
  * Google Icon SVG Component
@@ -67,8 +68,8 @@ function AuthForm() {
   const [message, setMessage] = useState<string | null>(null);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
 
-  // Get the redirect destination from query params (default to /studio)
-  const redirectTo = searchParams.get("redirect") || "/studio";
+  // Get the redirect destination from query params; validate to prevent open redirect
+  const redirectTo = getAllowedRedirect(searchParams.get("redirect"), "/studio");
 
   // Redirect if already authenticated
   useEffect(() => {
