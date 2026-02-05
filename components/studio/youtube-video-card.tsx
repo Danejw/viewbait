@@ -12,7 +12,7 @@ import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from "
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useDraggable } from "@dnd-kit/core";
 import { motion } from "framer-motion";
-import { Copy, ExternalLink, Eye, ThumbsUp, BarChart3, ScanLine, Thermometer, RefreshCw, Layers } from "lucide-react";
+import { Copy, ExternalLink, Eye, ThumbsUp, BarChart3, ScanLine, Thermometer, RefreshCw, Layers, ImagePlus } from "lucide-react";
 import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -46,6 +46,7 @@ import { analyzeYouTubeVideo } from "@/lib/services/youtube-video-analyze";
 import { checkChannelConsistency } from "@/lib/services/youtube-channel-consistency";
 import { buildVideoUnderstandingSummary } from "@/lib/utils/video-context-summary";
 import { copyToClipboardWithToast } from "@/lib/utils/clipboard";
+import { SetThumbnailPicker } from "@/components/studio/set-thumbnail-picker";
 import type { DragData } from "@/components/studio/studio-dnd-context";
 import type { Thumbnail } from "@/lib/types/database";
 
@@ -74,6 +75,8 @@ export interface YouTubeVideoCardProps {
   channel?: { title: string; description?: string } | null;
   /** Other channel thumbnail URLs for channel consistency check (exclude current video; cap 10). */
   otherChannelThumbnailUrls?: string[];
+  /** Called after successfully setting a thumbnail on YouTube (e.g. refetch videos). */
+  onThumbnailSetSuccess?: () => void;
 }
 
 const YOUTUBE_WATCH_URL = "https://www.youtube.com/watch?v=";
@@ -112,8 +115,13 @@ export const YouTubeVideoCard = memo(function YouTubeVideoCard({
   onToggleSelect,
   channel = null,
   otherChannelThumbnailUrls,
+  onThumbnailSetSuccess,
 }: YouTubeVideoCardProps) {
   const { videoId, title, thumbnailUrl, viewCount, likeCount } = video;
+  const [setThumbnailPickerVideo, setSetThumbnailPickerVideo] = useState<{
+    videoId: string;
+    title: string;
+  } | null>(null);
   const hasStats = viewCount != null || likeCount != null;
   const { state, actions } = useStudio();
   const isVideoAnalyticsLoading = state.videoAnalyticsLoadingVideoIds.includes(videoId);
@@ -402,6 +410,11 @@ export const YouTubeVideoCard = memo(function YouTubeVideoCard({
       }}
     >
       <ActionButton icon={Copy} label="Use title" onClick={handleUseTitle} />
+      <ActionButton
+        icon={ImagePlus}
+        label="Use thumbnail for this video"
+        onClick={() => setSetThumbnailPickerVideo({ videoId, title })}
+      />
       <ActionButton icon={ExternalLink} label="Open on YouTube" onClick={handleOpenVideo} />
       <ActionButton
         icon={isReRolling ? ViewBaitLogo : RefreshCw}
@@ -660,6 +673,15 @@ export const YouTubeVideoCard = memo(function YouTubeVideoCard({
           {actionBar}
         </HoverCardContent>
       </HoverCard>
+      {setThumbnailPickerVideo && (
+        <SetThumbnailPicker
+          videoId={setThumbnailPickerVideo.videoId}
+          videoTitle={setThumbnailPickerVideo.title}
+          open={true}
+          onOpenChange={(open) => !open && setSetThumbnailPickerVideo(null)}
+          onSuccess={onThumbnailSetSuccess}
+        />
+      )}
     </div>
   );
 });

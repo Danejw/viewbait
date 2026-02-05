@@ -21,9 +21,9 @@ import { Label } from "@/components/ui/label";
 import { ImageModal } from "@/components/ui/modal";
 import { ViewBaitLogo } from "@/components/ui/viewbait-logo";
 import { useSharedProjectGallery } from "@/lib/hooks/useProjects";
+import { MasonryGrid } from "@/components/studio/masonry-grid";
 import { SharedGalleryCard, SharedGalleryCardSkeleton } from "@/components/studio/shared-gallery-card";
 import { recordSharedProjectClick } from "@/lib/services/projects";
-import { cn } from "@/lib/utils";
 import type { PublicThumbnailData } from "@/lib/types/database";
 
 /** Shared gallery header bar: ViewBait brand + back + optional title/zoom. Responsive: on small screens only icons (logo + back), no title text. */
@@ -108,25 +108,18 @@ function SharedGalleryHeader({
 
 /**
  * Grid zoom: index 0 = most zoomed in, 8 = most zoomed out.
- * Small screens: 1–4 columns. Desktop (md+): 2–10 columns.
- * All strings kept so Tailwind JIT includes them.
+ * Maps to masonry column counts: mobile (≤768px) 1–4 cols, desktop 2–10 cols.
  */
-const GRID_ZOOM_RESPONSIVE_CLASSES = [
-  "grid-cols-1 gap-4 md:grid-cols-2 md:gap-4",
-  "grid-cols-1 gap-4 md:grid-cols-3 md:gap-3",
-  "grid-cols-2 gap-4 md:grid-cols-4 md:gap-3",
-  "grid-cols-2 gap-3 md:grid-cols-5 md:gap-3",
-  "grid-cols-3 gap-3 md:grid-cols-6 md:gap-2",
-  "grid-cols-3 gap-3 md:grid-cols-7 md:gap-2",
-  "grid-cols-3 gap-3 md:grid-cols-8 md:gap-2",
-  "grid-cols-4 gap-3 md:grid-cols-9 md:gap-2",
-  "grid-cols-4 gap-3 md:grid-cols-10 md:gap-2",
-] as const;
+function getMasonryBreakpointCols(zoomLevel: number): { default: number; 768: number } {
+  const desktop = Math.min(10, 2 + zoomLevel);
+  const mobile = [1, 1, 2, 2, 3, 3, 3, 4, 4][Math.min(8, Math.max(0, zoomLevel))] ?? 3;
+  return { default: desktop, 768: mobile };
+}
 
 const DEFAULT_ZOOM_LEVEL = 4;
 const STORAGE_KEY = "shared-gallery-zoom";
 const MIN_ZOOM = 0;
-const MAX_ZOOM = GRID_ZOOM_RESPONSIVE_CLASSES.length - 1;
+const MAX_ZOOM = 8;
 
 function clampZoom(level: number): number {
   return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, Math.round(level)));
@@ -246,11 +239,15 @@ export default function SharedProjectGalleryPage() {
               <Skeleton className="h-8 w-48 rounded-md" />
               <Skeleton className="h-4 w-20 rounded-md" />
             </div>
-            <div className={cn("grid", GRID_ZOOM_RESPONSIVE_CLASSES[DEFAULT_ZOOM_LEVEL])}>
+            <MasonryGrid
+              breakpointCols={getMasonryBreakpointCols(DEFAULT_ZOOM_LEVEL)}
+              gap={12}
+              className="w-full"
+            >
               {Array.from({ length: 8 }).map((_, i) => (
                 <SharedGalleryCardSkeleton key={i} />
               ))}
-            </div>
+            </MasonryGrid>
           </div>
         </main>
       </div>
@@ -283,7 +280,11 @@ export default function SharedProjectGalleryPage() {
             </div>
           ) : (
             <>
-              <div className={cn("grid", GRID_ZOOM_RESPONSIVE_CLASSES[zoomLevel])}>
+              <MasonryGrid
+                breakpointCols={getMasonryBreakpointCols(zoomLevel)}
+                gap={12}
+                className="w-full"
+              >
                 {thumbnails.map((thumb) => (
                   <SharedGalleryCard
                     key={thumb.id}
@@ -291,7 +292,7 @@ export default function SharedProjectGalleryPage() {
                     onClick={handleThumbnailClick}
                   />
                 ))}
-              </div>
+              </MasonryGrid>
               {selectedThumbnail && (
                 <ImageModal
                   open={selectedThumbnail !== null}

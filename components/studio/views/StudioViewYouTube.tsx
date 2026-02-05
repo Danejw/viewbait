@@ -320,6 +320,7 @@ export default function StudioViewYouTube() {
                           .filter((v) => v.videoId !== video.videoId)
                           .slice(0, 10)
                           .map((v) => v.thumbnailUrl)}
+                        onThumbnailSetSuccess={fetchVideos}
                       />
                     ))}
                   </div>

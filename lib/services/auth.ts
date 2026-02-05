@@ -63,11 +63,15 @@ export async function signUpWithEmail(
 }
 
 /**
- * YouTube OAuth scopes for channel data and analytics access
+ * YouTube OAuth scopes: read channel/analytics and write (thumbnails, update title).
+ * Existing users must reconnect to gain thumbnail/update-title write permission.
+ * If thumbnail upload returns 403 SCOPE_REQUIRED, add the youtube.force-ssl scope
+ * in Google Cloud Console (OAuth consent screen → Scopes). See docs/guides/youtube-oauth-thumbnail-scope.md.
  */
 const YOUTUBE_SCOPES = [
   'https://www.googleapis.com/auth/youtube.readonly',
   'https://www.googleapis.com/auth/yt-analytics.readonly',
+  'https://www.googleapis.com/auth/youtube.force-ssl',
 ].join(' ')
 
 /**

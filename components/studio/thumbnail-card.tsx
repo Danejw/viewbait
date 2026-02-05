@@ -51,6 +51,7 @@ import { useThumbnailActions } from "@/components/studio/studio-provider";
 import { ActionBarIcon, ActionButton } from "@/components/studio/action-bar-icon";
 import { ViewBaitLogo } from "@/components/ui/viewbait-logo";
 import { fetchImageAsBase64Client } from "@/lib/utils/fetch-image-as-base64-client";
+import { normalizeAspectRatio } from "@/lib/utils/aspect-ratio";
 import { generateThumbnailHeatmap } from "@/lib/services/thumbnail-heatmap";
 import type { Thumbnail } from "@/lib/types/database";
 import type { DragData } from "./studio-dnd-context";
@@ -644,8 +645,9 @@ export const ThumbnailCard = memo(function ThumbnailCard({
   const cardContent = (
     <Card
       ref={setNodeRef}
+      style={{ aspectRatio: normalizeAspectRatio(thumbnail?.aspect_ratio ?? null) }}
       className={cn(
-            "group relative aspect-video w-full cursor-pointer overflow-hidden p-0 transition-all",
+            "group relative w-full cursor-pointer overflow-hidden p-0 transition-all",
             "hover:ring-2 hover:ring-primary/50 hover:shadow-lg",
             isDragging && "opacity-50 ring-2 ring-primary cursor-grabbing",
             draggable && !isDragging && "cursor-grab",

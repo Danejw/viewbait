@@ -2,17 +2,10 @@
 
 /**
  * ThumbnailGrid Component
- * 
- * Optimized grid for displaying many thumbnails with:
- * - content-visibility: auto for rendering performance (rendering-content-visibility)
- * - Virtualization for large lists
- * - Intersection observer for lazy loading
- * - Skeleton placeholders for empty slots
- * 
- * ThumbnailCard components handle their own actions via useThumbnailActions hook,
- * so no action callbacks need to be passed through this component.
- * 
- * @see vercel-react-best-practices for optimization patterns
+ *
+ * Masonry layout (left-to-right, top-down) for mixed aspect ratios.
+ * - content-visibility for above-the-fold optimization
+ * - ThumbnailCard components handle their own actions via useThumbnailActions hook
  */
 
 import React, { memo, useMemo } from "react";
@@ -20,8 +13,20 @@ import { cn } from "@/lib/utils";
 import { gridItemAboveFoldClass, GRID_ABOVE_FOLD_DEFAULT } from "@/lib/utils/grid-visibility";
 import { useEmptySlots } from "@/lib/hooks/useEmptySlots";
 import { getCombinedThumbnailsList } from "@/lib/utils/studio-thumbnails";
+import { MasonryGrid } from "./masonry-grid";
 import { ThumbnailCard, ThumbnailCardEmpty, ThumbnailCardSkeleton } from "./thumbnail-card";
 import type { Thumbnail } from "@/lib/types/database";
+
+/** Masonry breakpoints: ~200px min column width. */
+const THUMBNAIL_MASONRY_BREAKPOINTS = {
+  default: 6,
+  1200: 6,
+  1000: 5,
+  800: 4,
+  600: 3,
+  400: 2,
+  0: 1,
+};
 
 const DEFAULT_MIN_SLOTS = 12;
 
@@ -50,15 +55,9 @@ export interface ThumbnailGridProps {
 }
 
 /**
- * CSS-in-JS for content-visibility optimization
- * This improves rendering performance for off-screen items
+ * Content-visibility for off-screen items (card aspect-ratio drives height).
  */
-const gridItemStyles = {
-  // content-visibility: auto skips rendering of off-screen items
-  // contain-intrinsic-size ensures layout stability
-  contentVisibility: "auto",
-  containIntrinsicSize: "0 180px", // Approximate height for aspect-video
-} as React.CSSProperties;
+const gridItemStyles = { contentVisibility: "auto" } as React.CSSProperties;
 
 /**
  * Memoized grid item wrapper with content-visibility
@@ -119,13 +118,11 @@ export const ThumbnailGrid = memo(function ThumbnailGrid({
   }
 
   return (
-    <div
-      className={cn(
-        "grid w-full gap-3 p-1 grid-cols-[repeat(auto-fill,minmax(200px,1fr))]",
-        gridClassName
-      )}
+    <MasonryGrid
+      breakpointCols={THUMBNAIL_MASONRY_BREAKPOINTS}
+      gap={12}
+      className={cn("w-full p-1", gridClassName)}
     >
-      {/* Render combined items */}
       {combinedItems.map((thumbnail, index) => (
         <GridItem key={thumbnail.id} index={index}>
           <ThumbnailCard
@@ -135,8 +132,6 @@ export const ThumbnailGrid = memo(function ThumbnailGrid({
           />
         </GridItem>
       ))}
-
-      {/* Empty placeholders */}
       {Array.from({ length: emptySlotCount }).map((_, index) => (
         <GridItem
           key={`empty-${index}`}
@@ -145,7 +140,7 @@ export const ThumbnailGrid = memo(function ThumbnailGrid({
           <ThumbnailCardEmpty />
         </GridItem>
       ))}
-    </div>
+    </MasonryGrid>
   );
 });
 

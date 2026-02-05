@@ -23,6 +23,9 @@ async function persistYouTubeTokens(
   googleUserId: string | undefined,
   scopes: string[] | undefined
 ): Promise<void> {
+  // #region agent log
+  fetch('http://127.0.0.1:7250/ingest/503c3a58-0894-4f46-a41c-96a198c9eec9', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'auth/callback/route.ts:persistYouTubeTokens', message: 'persistYouTubeTokens called', data: { userIdPrefix: userId?.slice(0, 8), hasRefreshToken: !!refreshToken }, timestamp: Date.now(), sessionId: 'debug-session', hypothesisId: 'E' }) }).catch(() => {})
+  // #endregion
   try {
     const supabaseService = createServiceClient()
     
@@ -47,12 +50,18 @@ async function persistYouTubeTokens(
       })
     
     if (error) {
+      // #region agent log
+      fetch('http://127.0.0.1:7250/ingest/503c3a58-0894-4f46-a41c-96a198c9eec9', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'auth/callback/route.ts:persistError', message: 'persistYouTubeTokens upsert error', data: { userIdPrefix: userId?.slice(0, 8), errorCode: error?.code }, timestamp: Date.now(), sessionId: 'debug-session', hypothesisId: 'E' }) }).catch(() => {})
+      // #endregion
       logError(error, {
         route: 'GET /auth/callback',
         userId,
         operation: 'persist-youtube-tokens',
       })
     } else {
+      // #region agent log
+      fetch('http://127.0.0.1:7250/ingest/503c3a58-0894-4f46-a41c-96a198c9eec9', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'auth/callback/route.ts:persistSuccess', message: 'persistYouTubeTokens upsert success', data: { userIdPrefix: userId?.slice(0, 8) }, timestamp: Date.now(), sessionId: 'debug-session', hypothesisId: 'E' }) }).catch(() => {})
+      // #endregion
       logInfo('YouTube integration tokens persisted successfully', {
         route: 'GET /auth/callback',
         userId,
@@ -94,7 +103,13 @@ export async function GET(request: NextRequest) {
       const hasGoogleIdentity = user.identities?.some(identity => identity.provider === 'google')
       const hasGoogleInProviders = user.app_metadata?.providers?.includes('google')
       const isGoogleOAuth = hasGoogleIdentity || hasGoogleInProviders
-      
+      const willPersist = isGoogleOAuth && !!providerToken
+      // #region agent log
+      fetch('http://127.0.0.1:7250/ingest/503c3a58-0894-4f46-a41c-96a198c9eec9', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'auth/callback/route.ts:afterExchange', message: 'Auth callback after exchangeCodeForSession', data: { hasProviderToken: !!providerToken, hasProviderRefreshToken: !!providerRefreshToken, isGoogleOAuth, willPersist, userIdPrefix: user.id?.slice(0, 8) }, timestamp: Date.now(), sessionId: 'debug-session', hypothesisId: willPersist ? 'A' : 'A' }) }).catch(() => {})
+      if (isGoogleOAuth && !providerToken) {
+        fetch('http://127.0.0.1:7250/ingest/503c3a58-0894-4f46-a41c-96a198c9eec9', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'auth/callback/route.ts:skipPersist', message: 'Google OAuth but no provider_token - skipping YouTube token persist', data: { userIdPrefix: user.id?.slice(0, 8) }, timestamp: Date.now(), sessionId: 'debug-session', hypothesisId: 'A' }) }).catch(() => {})
+      }
+      // #endregion
       if (isGoogleOAuth && providerToken) {
         // Extract Google user ID from identity data
         const googleIdentity = user.identities?.find(
@@ -106,8 +121,11 @@ export async function GET(request: NextRequest) {
         // Note: Supabase may not always expose the exact scopes granted
         const scopes = user.app_metadata?.providers_scopes?.google as string[] | undefined
         
-        // Persist tokens to database (async, don't block redirect)
-        persistYouTubeTokens(
+        // Persist tokens to database before redirect so set-thumbnail etc. use the new token
+        // #region agent log
+        fetch('http://127.0.0.1:7250/ingest/503c3a58-0894-4f46-a41c-96a198c9eec9', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'auth/callback/route.ts:beforePersist', message: 'About to persist YouTube tokens', data: { userIdPrefix: user.id?.slice(0, 8) }, timestamp: Date.now(), sessionId: 'debug-session', hypothesisId: 'A' }) }).catch(() => {})
+        // #endregion
+        await persistYouTubeTokens(
           user.id,
           providerToken,
           providerRefreshToken ?? undefined,
@@ -120,6 +138,9 @@ export async function GET(request: NextRequest) {
             operation: 'persist-youtube-tokens-background',
           })
         })
+        // #region agent log
+        fetch('http://127.0.0.1:7250/ingest/503c3a58-0894-4f46-a41c-96a198c9eec9', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'auth/callback/route.ts:afterPersistAwait', message: 'Persist YouTube tokens await completed', data: { userIdPrefix: user.id?.slice(0, 8) }, timestamp: Date.now(), sessionId: 'debug-session', hypothesisId: 'E' }) }).catch(() => {})
+        // #endregion
       }
       
       // Successfully authenticated, redirect to the app

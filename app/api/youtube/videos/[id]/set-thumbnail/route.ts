@@ -1,34 +1,37 @@
 /**
  * YouTube Video Set Thumbnail API Route
- * 
- * Uploads and sets a custom thumbnail for a YouTube video.
- * Requires youtube.upload scope.
- * Validates file constraints (max 2MB; jpeg/png).
+ *
+ * Sets a custom thumbnail for a YouTube video. Delegates to setVideoThumbnailFromUrl.
+ * Accepts either thumbnail_id (server resolves image URL) or image_url.
+ * Requires youtube.force-ssl (or youtube.upload) scope. Returns SCOPE_REQUIRED on 403 scope errors.
  */
 
 import { createClient } from '@/lib/supabase/server'
 import { requireAuth } from '@/lib/server/utils/auth'
 import { getTierNameForUser } from '@/lib/server/utils/tier'
-import {
-  validationErrorResponse,
-  serverErrorResponse,
-} from '@/lib/server/utils/error-handler'
+import { validationErrorResponse } from '@/lib/server/utils/error-handler'
 import { handleApiError } from '@/lib/server/utils/api-helpers'
 import { logError, logInfo } from '@/lib/server/utils/logger'
 import { NextResponse } from 'next/server'
-import { ensureValidToken, isYouTubeConnected } from '@/lib/services/youtube'
+import {
+  hasThumbnailScope,
+  isYouTubeConnected,
+  setVideoThumbnailFromUrl,
+} from '@/lib/services/youtube'
 
-const YOUTUBE_DATA_API_BASE = 'https://www.googleapis.com/youtube/v3'
-const MAX_THUMBNAIL_SIZE = 2 * 1024 * 1024 // 2MB
-const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/jpg', 'image/png']
+/** Short-lived signed URL expiry (seconds) when resolving thumbnail_id for one-time fetch. */
+const THUMBNAIL_SIGNED_URL_EXPIRY_SECONDS = 60
 
 export interface SetThumbnailRequest {
-  image_url: string
+  /** Preferred: server loads thumbnail with RLS and resolves image URL. */
+  thumbnail_id?: string
+  /** Alternative: client provides a fetchable image URL (e.g. long-lived signed URL). */
+  image_url?: string
 }
 
 /**
  * POST /api/youtube/videos/[id]/set-thumbnail
- * Set a custom thumbnail for a YouTube video
+ * Set a custom thumbnail for a YouTube video. Body: { thumbnail_id } or { image_url }.
  */
 export async function POST(
   request: Request,
@@ -51,7 +54,6 @@ export async function POST(
       )
     }
 
-    // Check if user has YouTube connected
     const connected = await isYouTubeConnected(user.id)
     if (!connected) {
       return NextResponse.json(
@@ -64,136 +66,136 @@ export async function POST(
       )
     }
 
-    // Parse request body
-    const body: SetThumbnailRequest = await request.json()
-
-    if (!body.image_url || !body.image_url.trim()) {
-      return validationErrorResponse('image_url is required')
-    }
-
-    // Get valid access token
-    const accessToken = await ensureValidToken(user.id)
-    if (!accessToken) {
+    const hasScope = await hasThumbnailScope(user.id)
+    if (!hasScope) {
+      const redirectUriHint = new URL(
+        '/api/youtube/connect/callback',
+        request.url
+      ).toString()
+      logInfo('Set thumbnail blocked: no thumbnail scope; suggest Reconnect', {
+        route: 'POST /api/youtube/videos/[id]/set-thumbnail',
+        userId: user.id,
+        redirect_uri_hint: redirectUriHint,
+      })
       return NextResponse.json(
         {
           success: false,
-          error: 'Unable to get valid access token',
-          code: 'TOKEN_ERROR',
+          error:
+            'Thumbnail upload requires extra permission. Click Reconnect in the YouTube tab. If Reconnect fails, add the redirect URI below to Google Cloud Console → Credentials → your OAuth client → Authorized redirect URIs.',
+          code: 'SCOPE_REQUIRED',
+          redirect_uri_hint: redirectUriHint,
         },
-        { status: 401 }
+        { status: 403 }
       )
     }
 
-    // Fetch the image from the URL
-    let imageResponse: Response
-    try {
-      imageResponse = await fetch(body.image_url)
-      if (!imageResponse.ok) {
-        throw new Error(`Failed to fetch image: ${imageResponse.statusText}`)
-      }
-    } catch (error) {
-      logError(error, {
-        route: 'POST /api/youtube/videos/[id]/set-thumbnail',
-        userId: user.id,
-        videoId,
-        operation: 'fetch-image',
-      })
-      return validationErrorResponse('Failed to fetch image from URL')
+    const body = (await request.json()) as SetThumbnailRequest
+    const thumbnailId = body.thumbnail_id?.trim()
+    const imageUrl = body.image_url?.trim()
+
+    if (!thumbnailId && !imageUrl) {
+      return validationErrorResponse('thumbnail_id or image_url is required')
     }
 
-    // Validate file size
-    const contentLength = imageResponse.headers.get('content-length')
-    if (contentLength && parseInt(contentLength, 10) > MAX_THUMBNAIL_SIZE) {
-      return validationErrorResponse(
-        `Image size exceeds 2MB limit (${Math.round(parseInt(contentLength, 10) / 1024 / 1024 * 100) / 100}MB)`
-      )
-    }
+    let resolvedImageUrl: string
 
-    // Get image data
-    const imageBuffer = await imageResponse.arrayBuffer()
-    const imageSize = imageBuffer.byteLength
+    if (thumbnailId) {
+      const { data: thumbnail, error: thumbError } = await supabase
+        .from('thumbnails')
+        .select('id, image_url')
+        .eq('id', thumbnailId)
+        .eq('user_id', user.id)
+        .single()
 
-    if (imageSize > MAX_THUMBNAIL_SIZE) {
-      return validationErrorResponse(
-        `Image size exceeds 2MB limit (${Math.round(imageSize / 1024 / 1024 * 100) / 100}MB)`
-      )
-    }
-
-    // Validate MIME type
-    const contentType = imageResponse.headers.get('content-type') || ''
-    if (!ALLOWED_MIME_TYPES.includes(contentType.toLowerCase())) {
-      // Try to detect from file extension if content-type is missing
-      const urlLower = body.image_url.toLowerCase()
-      const isJpeg = urlLower.includes('.jpg') || urlLower.includes('.jpeg')
-      const isPng = urlLower.includes('.png')
-
-      if (!isJpeg && !isPng) {
-        return validationErrorResponse(
-          'Image must be JPEG or PNG format'
+      if (thumbError || !thumbnail) {
+        return NextResponse.json(
+          { success: false, error: 'Thumbnail not found', code: 'NOT_FOUND' },
+          { status: 404 }
         )
       }
+
+      let storagePath: string | null = null
+      if (thumbnail.image_url) {
+        const signedUrlMatch = (thumbnail.image_url as string).match(
+          /\/storage\/v1\/object\/sign\/thumbnails\/([^?]+)/
+        )
+        if (signedUrlMatch) storagePath = signedUrlMatch[1]
+      }
+      if (!storagePath) {
+        storagePath = `${user.id}/${thumbnail.id}/thumbnail.png`
+      }
+
+      const { data: signedUrlData } = await supabase.storage
+        .from('thumbnails')
+        .createSignedUrl(storagePath, THUMBNAIL_SIGNED_URL_EXPIRY_SECONDS)
+
+      let signedUrl = signedUrlData?.signedUrl ?? null
+      if (!signedUrl && storagePath.endsWith('.png')) {
+        const jpgPath = storagePath.replace('.png', '.jpg')
+        const { data: jpgData } = await supabase.storage
+          .from('thumbnails')
+          .createSignedUrl(jpgPath, THUMBNAIL_SIGNED_URL_EXPIRY_SECONDS)
+        signedUrl = jpgData?.signedUrl ?? null
+      }
+
+      if (!signedUrl) {
+        logError(new Error('Failed to create signed URL for thumbnail'), {
+          route: 'POST /api/youtube/videos/[id]/set-thumbnail',
+          userId: user.id,
+          thumbnailId,
+        })
+        return NextResponse.json(
+          { success: false, error: 'Could not resolve thumbnail image', code: 'RESOLVE_FAILED' },
+          { status: 500 }
+        )
+      }
+      resolvedImageUrl = signedUrl
+    } else {
+      resolvedImageUrl = imageUrl!
     }
 
-    // Determine MIME type for upload
-    let mimeType = contentType
-    if (!mimeType || !ALLOWED_MIME_TYPES.includes(mimeType.toLowerCase())) {
-      const urlLower = body.image_url.toLowerCase()
-      mimeType = urlLower.includes('.png') ? 'image/png' : 'image/jpeg'
-    }
+    const result = await setVideoThumbnailFromUrl(user.id, videoId, resolvedImageUrl)
 
-    // Upload thumbnail to YouTube using thumbnails.set
-    const uploadUrl = new URL(`${YOUTUBE_DATA_API_BASE}/thumbnails/set`)
-    uploadUrl.searchParams.set('videoId', videoId)
-
-    // YouTube thumbnails.set requires multipart/form-data
-    const formData = new FormData()
-    const blob = new Blob([imageBuffer], { type: mimeType })
-    formData.append('media', blob)
-
-    const uploadResponse = await fetch(uploadUrl.toString(), {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        // Don't set Content-Type header - browser will set it with boundary
-      },
-      body: formData,
-    })
-
-    if (!uploadResponse.ok) {
-      const errorData = await uploadResponse.json().catch(() => ({}))
-      logError(new Error('YouTube API error'), {
+    if (result.success) {
+      logInfo('Video thumbnail set successfully', {
         route: 'POST /api/youtube/videos/[id]/set-thumbnail',
         userId: user.id,
         videoId,
-        status: uploadResponse.status,
-        error: errorData.error?.message || uploadResponse.statusText,
       })
+      return NextResponse.json({
+        success: true,
+        message: 'Thumbnail uploaded successfully',
+      })
+    }
+
+    if (result.code === 'SCOPE_REQUIRED') {
       return NextResponse.json(
         {
           success: false,
-          error: errorData.error?.message || 'Failed to upload thumbnail',
-          code: 'YOUTUBE_API_ERROR',
+          error:
+            result.error ||
+            'Thumbnail upload requires an extra permission. Reconnect your YouTube account to enable it.',
+          code: 'SCOPE_REQUIRED',
         },
-        { status: uploadResponse.status }
+        { status: 403 }
       )
     }
 
-    const uploadData = await uploadResponse.json().catch(() => ({}))
-
-    logInfo('Video thumbnail set successfully', {
-      route: 'POST /api/youtube/videos/[id]/set-thumbnail',
-      userId: user.id,
-      videoId,
-      imageSize,
-      mimeType,
-    })
-
-    return NextResponse.json({
-      success: true,
-      message: 'Thumbnail uploaded successfully',
-      data: uploadData,
-    })
+    return NextResponse.json(
+      {
+        success: false,
+        error: result.error || 'Failed to upload thumbnail',
+        code: 'YOUTUBE_API_ERROR',
+      },
+      { status: 502 }
+    )
   } catch (error) {
-    return handleApiError(error, 'UNKNOWN', 'set-video-thumbnail', undefined, 'Failed to set video thumbnail')
+    return handleApiError(
+      error,
+      'UNKNOWN',
+      'set-video-thumbnail',
+      undefined,
+      'Failed to set video thumbnail'
+    )
   }
 }

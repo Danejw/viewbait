@@ -16,6 +16,8 @@ import { logError, logInfo, logWarn } from '@/lib/server/utils/logger'
 // ============================================================================
 
 const YOUTUBE_DATA_API_BASE = 'https://www.googleapis.com/youtube/v3'
+/** Upload endpoint for media (e.g. thumbnails.set); must use /upload/ in path. */
+const YOUTUBE_UPLOAD_API_BASE = 'https://www.googleapis.com/upload/youtube/v3'
 const YOUTUBE_ANALYTICS_API_BASE = 'https://youtubeanalytics.googleapis.com/v2'
 const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token'
 
@@ -78,6 +80,9 @@ export interface TokenRefreshResult {
 // Token Management
 // ============================================================================
 
+/** Scope required for setting video thumbnails via YouTube Data API. */
+export const YOUTUBE_THUMBNAIL_SCOPE = 'https://www.googleapis.com/auth/youtube.force-ssl'
+
 /**
  * Get the YouTube integration for a user
  * Returns null if no integration exists or it's disconnected
@@ -99,6 +104,16 @@ export async function getYouTubeIntegration(
   }
   
   return data as YouTubeIntegration
+}
+
+/**
+ * True if the user's YouTube integration has the thumbnail upload scope stored.
+ * Empty scopes_granted (e.g. from Supabase OAuth or before we persisted scopes) means false.
+ */
+export async function hasThumbnailScope(userId: string): Promise<boolean> {
+  const integration = await getYouTubeIntegration(userId)
+  if (!integration?.scopes_granted?.length) return false
+  return integration.scopes_granted.includes(YOUTUBE_THUMBNAIL_SCOPE)
 }
 
 /**
@@ -171,6 +186,9 @@ async function refreshGoogleToken(refreshToken: string): Promise<TokenRefreshRes
  * @returns Valid access token or null if unable to get one
  */
 export async function ensureValidToken(userId: string): Promise<string | null> {
+  // #region agent log
+  fetch('http://127.0.0.1:7250/ingest/503c3a58-0894-4f46-a41c-96a198c9eec9', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'youtube.ts:ensureValidToken:entry', message: 'ensureValidToken called', data: { userIdPrefix: userId?.slice(0, 8) }, timestamp: Date.now(), sessionId: 'debug-session', hypothesisId: 'B' }) }).catch(() => {})
+  // #endregion
   const integration = await getYouTubeIntegration(userId)
   
   if (!integration) {
@@ -184,7 +202,9 @@ export async function ensureValidToken(userId: string): Promise<string | null> {
   
   const expiresAt = new Date(integration.expires_at)
   const needsRefresh = expiresAt.getTime() - Date.now() < TOKEN_REFRESH_BUFFER_MS
-  
+  // #region agent log
+  fetch('http://127.0.0.1:7250/ingest/503c3a58-0894-4f46-a41c-96a198c9eec9', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'youtube.ts:ensureValidToken:decision', message: needsRefresh ? 'Token will refresh' : 'Using stored token', data: { userIdPrefix: userId?.slice(0, 8), needsRefresh, expiresAtMs: expiresAt.getTime(), nowMs: Date.now() }, timestamp: Date.now(), sessionId: 'debug-session', hypothesisId: 'B' }) }).catch(() => {})
+  // #endregion
   if (!needsRefresh) {
     return integration.access_token
   }
@@ -1406,6 +1426,13 @@ const MAX_THUMBNAIL_SIZE = 2 * 1024 * 1024 // 2MB
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/jpg', 'image/png']
 
 /**
+ * Result of setVideoThumbnailFromUrl. code is set when the failure is due to insufficient OAuth scope (e.g. 403).
+ */
+export type SetVideoThumbnailResult =
+  | { success: true }
+  | { success: false; error: string; code?: 'SCOPE_REQUIRED' }
+
+/**
  * Set a YouTube video's custom thumbnail from a fetchable image URL.
  * Used by the agent tool apply_thumbnail_to_video and by the set-thumbnail API route.
  */
@@ -1413,8 +1440,14 @@ export async function setVideoThumbnailFromUrl(
   userId: string,
   videoId: string,
   imageUrl: string
-): Promise<{ success: boolean; error?: string }> {
+): Promise<SetVideoThumbnailResult> {
+  // #region agent log
+  fetch('http://127.0.0.1:7250/ingest/503c3a58-0894-4f46-a41c-96a198c9eec9', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'youtube.ts:setVideoThumbnailFromUrl:entry', message: 'setVideoThumbnailFromUrl called', data: { userIdPrefix: userId?.slice(0, 8), videoId }, timestamp: Date.now(), sessionId: 'debug-session', hypothesisId: 'D' }) }).catch(() => {})
+  // #endregion
   const accessToken = await ensureValidToken(userId)
+  // #region agent log
+  fetch('http://127.0.0.1:7250/ingest/503c3a58-0894-4f46-a41c-96a198c9eec9', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'youtube.ts:setVideoThumbnailFromUrl:afterEnsure', message: 'ensureValidToken returned', data: { userIdPrefix: userId?.slice(0, 8), hasAccessToken: !!accessToken }, timestamp: Date.now(), sessionId: 'debug-session', hypothesisId: 'D' }) }).catch(() => {})
+  // #endregion
   if (!accessToken) {
     return { success: false, error: 'Unable to get valid access token' }
   }
@@ -1453,31 +1486,47 @@ export async function setVideoThumbnailFromUrl(
     mimeType = urlLower.includes('.png') ? 'image/png' : 'image/jpeg'
   }
 
-  const uploadUrl = new URL(`${YOUTUBE_DATA_API_BASE}/thumbnails/set`)
+  const uploadUrl = new URL(`${YOUTUBE_UPLOAD_API_BASE}/thumbnails/set`)
   uploadUrl.searchParams.set('videoId', videoId)
-  const formData = new FormData()
-  const blob = new Blob([imageBuffer], { type: mimeType })
-  formData.append('media', blob)
+  uploadUrl.searchParams.set('uploadType', 'media')
 
   const uploadResponse = await fetch(uploadUrl.toString(), {
     method: 'POST',
-    headers: { Authorization: `Bearer ${accessToken}` },
-    body: formData,
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': mimeType,
+    },
+    body: imageBuffer,
   })
 
   if (!uploadResponse.ok) {
-    const errorData = await uploadResponse.json().catch(() => ({}))
+    const errorData = (await uploadResponse.json().catch(() => ({}))) as {
+      error?: { message?: string; errors?: Array<{ reason?: string; message?: string }> }
+    }
+    const message = errorData?.error?.message || 'Failed to upload thumbnail'
+    const integration = uploadResponse.status === 403 ? await getYouTubeIntegration(userId) : null
     logError(new Error('YouTube API thumbnail upload error'), {
       service: 'youtube',
       operation: 'setVideoThumbnailFromUrl',
       userId,
       videoId,
       status: uploadResponse.status,
-      error: (errorData as { error?: { message?: string } })?.error?.message || uploadResponse.statusText,
+      error: message,
+      rawErrorBody: errorData,
+      ...(integration ? { scopesGranted: integration.scopes_granted ?? [] } : {}),
     })
+    // Thumbnails set 403 = "not properly authorized" or "doesn't have permission" per API docs; treat as scope so user can reconnect.
+    const isScopeError =
+      uploadResponse.status === 403 &&
+      (errorData?.error?.errors?.some(
+        (e) =>
+          e.reason === 'insufficientPermissions' ||
+          /insufficient|permission|scope|forbidden/i.test(e.message ?? '')
+      ) ?? (/insufficient|permission|scope|forbidden|authorized/i.test(message) || uploadResponse.status === 403))
     return {
       success: false,
-      error: (errorData as { error?: { message?: string } })?.error?.message || 'Failed to upload thumbnail',
+      error: message,
+      ...(isScopeError ? { code: 'SCOPE_REQUIRED' as const } : {}),
     }
   }
 

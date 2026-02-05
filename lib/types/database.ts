@@ -137,6 +137,7 @@ export interface PublicThumbnailData {
   created_at: string
   resolution: string | null
   share_click_count?: number
+  aspect_ratio: string | null
 }
 
 export interface DbStyle {
@@ -988,6 +989,8 @@ export interface Thumbnail {
   projectId?: string | null // maps to project_id
   /** Clicks when viewed via shared project gallery (approval score) */
   shareClickCount?: number
+  /** Aspect ratio e.g. "16:9", "1:1", "9:16" (for masonry/card layout) */
+  aspect_ratio?: string | null
 }
 
 /**
@@ -1061,6 +1064,7 @@ export function mapDbThumbnailToThumbnail(db: DbThumbnail): Thumbnail {
     likeCount: db.like_count || 0,
     projectId: db.project_id ?? null,
     shareClickCount: db.share_click_count ?? 0,
+    aspect_ratio: db.aspect_ratio ?? null,
   }
 }
 

@@ -10,6 +10,7 @@ import React, { memo, useCallback, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { normalizeAspectRatio } from "@/lib/utils/aspect-ratio";
 import { useIntersectionObserver } from "@/lib/hooks/useIntersectionObserver";
 import type { PublicThumbnailData } from "@/lib/types/database";
 
@@ -65,8 +66,9 @@ export const SharedGalleryCard = memo(function SharedGalleryCard({
 
   return (
     <Card
+      style={{ aspectRatio: normalizeAspectRatio(thumbnail.aspect_ratio) }}
       className={cn(
-        "group relative aspect-video w-full overflow-hidden p-0 transition-all",
+        "group relative w-full overflow-hidden p-0 transition-all",
         isClickable && "cursor-pointer hover:ring-2 hover:ring-primary/50 hover:shadow-lg"
       )}
       aria-label={isClickable ? `View ${thumbnail.title}` : undefined}

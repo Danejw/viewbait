@@ -161,7 +161,7 @@ export type UseYouTubeIntegrationReturn = YouTubeIntegrationState & YouTubeInteg
  * Hook for managing YouTube integration state and actions
  */
 export function useYouTubeIntegration(): UseYouTubeIntegrationReturn {
-  const { isAuthenticated, signInWithGoogle } = useAuth();
+  const { isAuthenticated } = useAuth();
   
   const [state, setState] = useState<YouTubeIntegrationState>({
     status: null,
@@ -180,7 +180,8 @@ export function useYouTubeIntegration(): UseYouTubeIntegrationReturn {
   });
 
   /**
-   * Refresh integration status from server
+   * Refresh integration status from server.
+   * Retries once after a short delay on 404 (helps when returning from OAuth redirect).
    */
   const refreshStatus = useCallback(async () => {
     if (!isAuthenticated) {
@@ -195,18 +196,52 @@ export function useYouTubeIntegration(): UseYouTubeIntegrationReturn {
 
     setState(prev => ({ ...prev, isRefreshing: true, error: null }));
 
-    try {
+    const tryFetch = async (): Promise<Response> => {
       const response = await fetch("/api/youtube/status");
-      const data = await response.json();
+      return response;
+    };
 
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to fetch status");
+    const parseResponse = async (
+      response: Response
+    ): Promise<{ data: { success?: boolean; status?: unknown; channel?: unknown; error?: string }; throwErr: Error | null }> => {
+      const text = await response.text();
+      let data: { success?: boolean; status?: unknown; channel?: unknown; error?: string } = {};
+      const contentType = response.headers.get("content-type") ?? "";
+      if (contentType.includes("application/json")) {
+        try {
+          data = JSON.parse(text) as typeof data;
+        } catch {
+          data = { error: "Invalid response from server" };
+        }
+      } else if (!response.ok) {
+        const isHtml = text.trimStart().startsWith("<!");
+        data = {
+          error:
+            response.status === 404
+              ? "YouTube status endpoint not found. Run the app from the viewbait folder (e.g. cd viewbait && npm run dev)."
+              : isHtml
+                ? "Server returned an unexpected response. Try refreshing the page."
+                : text.slice(0, 200) || "Failed to fetch status",
+        };
       }
+      const throwErr =
+        !response.ok ? new Error(data.error || "Failed to fetch status") : null;
+      return { data, throwErr };
+    };
+
+    try {
+      let response = await tryFetch();
+      if (response.status === 404) {
+        await new Promise((r) => setTimeout(r, 1500));
+        response = await tryFetch();
+      }
+      const { data, throwErr } = await parseResponse(response);
+      if (throwErr) throw throwErr;
 
       setState(prev => ({
         ...prev,
-        status: data.status,
-        channel: data.channel || prev.channel,
+        status: data.status ?? prev.status,
+        channel: data.channel ?? prev.channel,
         isLoading: false,
         isRefreshing: false,
       }));
@@ -556,30 +591,15 @@ export function useYouTubeIntegration(): UseYouTubeIntegrationReturn {
   }, [isAuthenticated]);
 
   /**
-   * Reconnect by initiating OAuth flow
-   * This will redirect to Google OAuth with YouTube scopes.
+   * Reconnect by starting dedicated YouTube OAuth (authorize route).
+   * We exchange the code with Google ourselves so the stored token has the requested scopes.
    * After OAuth, user is redirected back to /studio.
    */
-  const reconnect = useCallback(async () => {
+  const reconnect = useCallback(() => {
     setState(prev => ({ ...prev, error: null }));
-
-    try {
-      const { error } = await signInWithGoogle("/studio");
-      if (error) {
-        throw error;
-      }
-      // OAuth will redirect, so we don't need to handle success here
-    } catch (error) {
-      logClientError(error, {
-        operation: "reconnect-youtube",
-        component: "useYouTubeIntegration",
-      });
-      setState(prev => ({
-        ...prev,
-        error: error instanceof Error ? error.message : "Failed to reconnect",
-      }));
-    }
-  }, [signInWithGoogle]);
+    const next = typeof window !== "undefined" ? encodeURIComponent("/studio") : "/studio";
+    window.location.href = `/api/youtube/connect/authorize?next=${next}`;
+  }, []);
 
   /**
    * Clear any errors

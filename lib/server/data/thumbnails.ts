@@ -214,7 +214,7 @@ export async function fetchPublicThumbnailsNoAuth(limit: number = 12): Promise<F
     // Note: thumbnail_400w_url and thumbnail_800w_url are optional columns that may not exist yet
     const { data, count, error } = await supabase
       .from('thumbnails')
-      .select('id,title,image_url,style,palette,liked,created_at,resolution,user_id', { count: 'exact' })
+      .select('id,title,image_url,style,palette,liked,created_at,resolution,user_id,aspect_ratio', { count: 'exact' })
       .eq('is_public', true)
       .not('image_url', 'is', null) // Filter out null image_url
       .order('created_at', { ascending: false })
@@ -319,6 +319,7 @@ export async function fetchPublicThumbnailsNoAuth(limit: number = 12): Promise<F
       liked: thumb.liked,
       created_at: thumb.created_at,
       resolution: thumb.resolution,
+      aspect_ratio: (thumb as { aspect_ratio?: string | null }).aspect_ratio ?? null,
     }))
 
     return {
@@ -360,7 +361,7 @@ export async function fetchThumbnailsForSharedProject(
 
     let query = supabase
       .from('thumbnails')
-      .select('id,title,image_url,style,palette,liked,created_at,resolution,user_id,share_click_count', { count: 'exact' })
+      .select('id,title,image_url,style,palette,liked,created_at,resolution,user_id,share_click_count,aspect_ratio', { count: 'exact' })
       .eq('project_id', projectId)
       .not('image_url', 'is', null)
       .order('created_at', { ascending: false })
@@ -432,6 +433,7 @@ export async function fetchThumbnailsForSharedProject(
       created_at: thumb.created_at,
       resolution: thumb.resolution,
       share_click_count: (thumb as { share_click_count?: number }).share_click_count ?? 0,
+      aspect_ratio: (thumb as { aspect_ratio?: string | null }).aspect_ratio ?? null,
     }))
 
     return { thumbnails: publicThumbnails, count: count ?? 0, error: null }
