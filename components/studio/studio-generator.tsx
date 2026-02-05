@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useState, useMemo, useRef } from "react";
+import React, { useCallback, useState, useMemo, useRef, useEffect } from "react";
 import { useDroppable, useDndContext } from "@dnd-kit/core";
 import {
   Settings,
@@ -1382,6 +1382,8 @@ type StudioGeneratorSubmitProps = {
  * StudioGeneratorSubmit
  * Generate button with validation and loading state; optional Save settings to project when a project is selected.
  */
+const REROLL_ANIMATION_CLEAR_MS = 6000;
+
 export function StudioGeneratorSubmit({
   className,
   buttonLabel = "CREATE THUMBNAILS",
@@ -1390,11 +1392,19 @@ export function StudioGeneratorSubmit({
   hideSaveToProject = false,
 }: StudioGeneratorSubmitProps = {}) {
   const {
-    state: { isButtonDisabled, thumbnailText, variations, selectedResolution, activeProjectId },
+    state: { isButtonDisabled, thumbnailText, variations, selectedResolution, activeProjectId, reRollDataJustApplied },
     data: { isSavingProjectSettings },
-    actions: { generateThumbnails, saveProjectSettings },
+    actions: { generateThumbnails, saveProjectSettings, clearReRollDataApplied },
   } = useStudio();
   const { getResolutionCost } = useSubscription();
+
+  useEffect(() => {
+    if (!reRollDataJustApplied) return;
+    const t = setTimeout(() => {
+      clearReRollDataApplied?.();
+    }, REROLL_ANIMATION_CLEAR_MS);
+    return () => clearTimeout(t);
+  }, [reRollDataJustApplied, clearReRollDataApplied]);
 
   // Disabled during tier-based cooldown or when text is empty (time-only debounce per tier)
   const isDisabled = isButtonDisabled || !thumbnailText.trim();
@@ -1413,7 +1423,11 @@ export function StudioGeneratorSubmit({
         onClick={generateThumbnails}
         disabled={isDisabled}
         size="lg"
-        className={cn("w-full", className)}
+        className={cn(
+          "w-full",
+          className,
+          reRollDataJustApplied && "animate-pulse ring-2 ring-primary ring-offset-2 ring-offset-background"
+        )}
       >
         {isButtonDisabled ? (
           <span className="flex items-center gap-2">

@@ -12,7 +12,7 @@ import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from "
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useDraggable } from "@dnd-kit/core";
 import { motion } from "framer-motion";
-import { Copy, ExternalLink, Eye, ThumbsUp, BarChart3, ScanLine, Thermometer } from "lucide-react";
+import { Copy, ExternalLink, Eye, ThumbsUp, BarChart3, ScanLine, Thermometer, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -37,6 +37,8 @@ import { useStudio } from "@/components/studio/studio-provider";
 import { useSubscription } from "@/lib/hooks/useSubscription";
 import { fetchImageAsBase64Client } from "@/lib/utils/fetch-image-as-base64-client";
 import { generateThumbnailHeatmap } from "@/lib/services/thumbnail-heatmap";
+import { analyzeYouTubeVideo } from "@/lib/services/youtube-video-analyze";
+import { buildVideoUnderstandingSummary } from "@/lib/utils/video-context-summary";
 import type { DragData } from "@/components/studio/studio-dnd-context";
 import type { Thumbnail } from "@/lib/types/database";
 
@@ -98,6 +100,7 @@ export const YouTubeVideoCard = memo(function YouTubeVideoCard({
   const isVideoAnalyticsLoading = state.videoAnalyticsLoadingVideoIds.includes(videoId);
   const hasAnalyticsCached = state.videoAnalyticsCache[videoId] != null;
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isReRolling, setIsReRolling] = useState(false);
   const [showStyleSuccessBorder, setShowStyleSuccessBorder] = useState(false);
   const [showAnalyticsSuccessBorder, setShowAnalyticsSuccessBorder] = useState(false);
   const [showHeatmapOverlay, setShowHeatmapOverlay] = useState(false);
@@ -140,7 +143,7 @@ export const YouTubeVideoCard = memo(function YouTubeVideoCard({
   const watchUrl = `${YOUTUBE_WATCH_URL}${videoId}`;
   const selectionMode = onToggleSelect != null;
   const isAnalyzingOrLoading =
-    isAnalyzing || isVideoAnalyticsLoading || heatmapMutation.isPending;
+    isAnalyzing || isReRolling || isVideoAnalyticsLoading || heatmapMutation.isPending;
 
   // Track when analytics loading completes and we have cache → show success border briefly
   useEffect(() => {
@@ -259,6 +262,51 @@ export const YouTubeVideoCard = memo(function YouTubeVideoCard({
     [canUseHeatmap, cachedHeatmapDataUrl, heatmapMutation]
   );
 
+  const handleReRollWithVideoContext = useCallback(
+    async (e: React.MouseEvent) => {
+      e.stopPropagation();
+      const {
+        setThumbnailText,
+        setCustomInstructions,
+        markReRollDataApplied,
+        setVideoAnalyticsCache,
+      } = actions;
+      if (isReRolling || !setThumbnailText || !setCustomInstructions || !markReRollDataApplied) return;
+
+      const cached = state.videoAnalyticsCache[videoId];
+      if (cached) {
+        setThumbnailText(title);
+        setCustomInstructions(buildVideoUnderstandingSummary(cached, title, channel ?? null));
+        markReRollDataApplied();
+        return;
+      }
+
+      setIsReRolling(true);
+      try {
+        setThumbnailText(title);
+        const { analytics, error } = await analyzeYouTubeVideo(videoId);
+        if (error || !analytics) {
+          toast.error(error?.message ?? "Failed to analyze video");
+          return;
+        }
+        setVideoAnalyticsCache?.(videoId, analytics);
+        const summary = buildVideoUnderstandingSummary(analytics, title, channel ?? null);
+        setCustomInstructions(summary);
+        markReRollDataApplied();
+      } finally {
+        setIsReRolling(false);
+      }
+    },
+    [
+      actions,
+      channel,
+      isReRolling,
+      state.videoAnalyticsCache,
+      title,
+      videoId,
+    ]
+  );
+
   const actionBar = (
     <motion.div
       className="flex items-center justify-center gap-1"
@@ -272,6 +320,13 @@ export const YouTubeVideoCard = memo(function YouTubeVideoCard({
       <ActionButton icon={Copy} label="Use title" onClick={handleUseTitle} />
       <ActionButton icon={ExternalLink} label="Open on YouTube" onClick={handleOpenVideo} />
       <ActionButton
+        icon={isReRolling ? ViewBaitLogo : RefreshCw}
+        label={isReRolling ? "Re-rolling…" : "Re-roll with video context"}
+        onClick={handleReRollWithVideoContext}
+        disabled={isReRolling}
+        iconClassName={isReRolling ? "animate-spin" : undefined}
+      />
+      <ActionButton
         icon={isAnalyzing ? ViewBaitLogo : ScanLine}
         label="Analyze style and add to instructions"
         onClick={handleAnalyzeStyle}
@@ -282,6 +337,7 @@ export const YouTubeVideoCard = memo(function YouTubeVideoCard({
         icon={isVideoAnalyticsLoading ? ViewBaitLogo : BarChart3}
         label={isVideoAnalyticsLoading ? "Analyzing…" : "Video analytics"}
         onClick={handleVideoAnalytics}
+        disabled={isReRolling || isVideoAnalyticsLoading}
         iconClassName={cn(
           isVideoAnalyticsLoading && "animate-spin",
           hasAnalyticsCached && "text-primary"
@@ -344,7 +400,7 @@ export const YouTubeVideoCard = memo(function YouTubeVideoCard({
                   <div className="studio-analyzing-status">
                     <div className="studio-analyzing-status-dot" aria-hidden />
                     <span className="studio-analyzing-status-text">
-                      {heatmapMutation.isPending ? "HEATMAP" : "ANALYZING"}
+                      {isReRolling ? "RE-ROLLING" : heatmapMutation.isPending ? "HEATMAP" : "ANALYZING"}
                     </span>
                   </div>
                   <div className="studio-analyzing-title">

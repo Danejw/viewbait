@@ -166,6 +166,8 @@ export interface StudioState {
   activeProjectId: string | null;
   /** Set when generation completes successfully; consumed by onboarding to advance to step 5 */
   lastGeneratedThumbnail: Thumbnail | null;
+  /** When true, re-roll just applied title + custom instructions; generator shows Create Thumbnails animation until cleared */
+  reRollDataJustApplied: boolean;
   /** Selected notification id for Updates view (article detail); null = list view */
   selectedUpdateId: string | null;
   /** Assistant "focus on this video" context (videoId + title for handoff and agent context) */
@@ -291,6 +293,14 @@ export interface StudioActions {
   setFocusedVideo: (video: { videoId: string; title?: string } | null) => void;
   /** Open the generator pre-filled for this video (title, optional thumbnail as style reference) and set focused video */
   openGeneratorForVideo: (video: { videoId: string; title?: string; thumbnailUrl?: string }) => void;
+  /** Switch to the generator view without changing any form state (e.g. for re-roll from YouTube card). */
+  switchToGeneratorView: () => void;
+  /** Mark that re-roll just applied data; generator shows Create Thumbnails animation. */
+  markReRollDataApplied: () => void;
+  /** Clear re-roll data applied flag (e.g. after user clicks Create Thumbnails or timeout). */
+  clearReRollDataApplied: () => void;
+  /** Store video analytics in cache (e.g. from re-roll flow so Video analytics modal and future re-rolls use it). */
+  setVideoAnalyticsCache: (videoId: string, analytics: YouTubeVideoAnalytics) => void;
   /** Set sort for Results panel (Create tab) */
   setResultsSort: (orderBy: "created_at" | "title" | "share_click_count", orderDirection: "asc" | "desc") => void;
 }
@@ -527,6 +537,7 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
       pendingFaceDefaultName: null,
       activeProjectId,
       lastGeneratedThumbnail: null,
+      reRollDataJustApplied: false,
       selectedUpdateId: null,
       focusedVideoId: null,
       focusedVideoTitle: null,
@@ -662,6 +673,7 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
 
   // Generate thumbnails action
   const generateThumbnails = useCallback(async () => {
+    setState((s) => ({ ...s, reRollDataJustApplied: false }));
     if (!state.thumbnailText.trim()) {
       setState((s) => ({ ...s, generationError: "Please enter thumbnail text" }));
       return;
@@ -1509,6 +1521,14 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
           : s.styleReferences,
       }))
     },
+    switchToGeneratorView: () =>
+      setState((s) => ({ ...s, currentView: 'generator' })),
+    markReRollDataApplied: () =>
+      setState((s) => ({ ...s, reRollDataJustApplied: true })),
+    clearReRollDataApplied: () =>
+      setState((s) => ({ ...s, reRollDataJustApplied: false })),
+    setVideoAnalyticsCache: (videoId, analytics) =>
+      setState((s) => ({ ...s, videoAnalyticsCache: { ...s.videoAnalyticsCache, [videoId]: analytics } })),
     setResultsSort: (orderBy, orderDirection) =>
       setState((s) => ({ ...s, resultsOrderBy: orderBy, resultsOrderDirection: orderDirection })),
     applyFormStateUpdates: (updates) => {
