@@ -58,17 +58,34 @@ import type { DragData } from "./studio-dnd-context";
 
 const HEATMAP_QUERY_KEY = "thumbnail-heatmap" as const;
 
+/** Medal tier for clicks badge: gold (1st), silver (2nd), bronze (3rd), or default green. */
+type ClicksBadgeTier = "gold" | "silver" | "bronze" | null;
+
 /**
- * Approval score badge (share gallery clicks) - shown on hover when present
+ * Approval score badge (share gallery clicks) – bottom-right corner triangle with count.
+ * Color follows rank: gold / silver / bronze for top 3, green otherwise. Visible only on hover when count > 0.
  */
-function ApprovalScoreBadge({ count }: { count: number }) {
+function ApprovalScoreBadge({
+  count,
+  tier,
+}: {
+  count: number;
+  tier?: ClicksBadgeTier;
+}) {
   if (count <= 0) return null;
   return (
     <span
-      className="rounded px-1.5 py-0.5 text-xs font-medium text-white shadow-sm bg-emerald-600"
+      className={cn(
+        "thumbnail-clicks-badge z-20",
+        tier === "gold" && "thumbnail-clicks-badge-gold",
+        tier === "silver" && "thumbnail-clicks-badge-silver",
+        tier === "bronze" && "thumbnail-clicks-badge-bronze",
+        "opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+      )}
       title="Clicks from shared gallery"
+      aria-hidden
     >
-      {count} click{count !== 1 ? "s" : ""}
+      {count > 99 ? "99+" : count}
     </span>
   );
 }
@@ -641,14 +658,24 @@ export const ThumbnailCard = memo(function ThumbnailCard({
           ? "bronze"
           : null;
 
+  /** Trigger shimmer sweep on hover (gold/silver/bronze only). */
+  const [shimmerActive, setShimmerActive] = useState(false);
+  const runShimmer = useCallback(() => {
+    setShimmerActive(false);
+    setTimeout(() => setShimmerActive(true), 20);
+  }, []);
+  const handleShimmerEnd = useCallback(() => {
+    setShimmerActive(false);
+  }, []);
+
   /* Rank border is applied on a wrapper layer so Card keeps hover:ring and drag ring intact. */
   const cardContent = (
     <Card
       ref={setNodeRef}
       style={{ aspectRatio: normalizeAspectRatio(thumbnail?.aspect_ratio ?? null) }}
       className={cn(
-            "group relative w-full cursor-pointer overflow-hidden p-0 transition-all",
-            "hover:ring-2 hover:ring-primary/50 hover:shadow-lg",
+            "group relative z-0 w-full cursor-pointer overflow-hidden p-0 transition-all",
+            "hover:z-20 hover:ring-2 hover:ring-primary/50 hover:shadow-lg",
             isDragging && "opacity-50 ring-2 ring-primary cursor-grabbing",
             draggable && !isDragging && "cursor-grab",
             (isAnalyzing || heatmapMutation.isPending) && "thumbnail-card-border-loading",
@@ -692,6 +719,10 @@ export const ThumbnailCard = memo(function ThumbnailCard({
             </div>
           ) : (
             <div className="relative h-full w-full overflow-hidden bg-muted">
+              {/* Clicks count badge: top-left, circular green, only on hover when count > 0 */}
+              {showClicksBadge && (
+                <ApprovalScoreBadge count={shareClickCount ?? 0} tier={medalTier} />
+              )}
               {/* Image with scale animation on hover */}
               <div className="h-full w-full transition-transform duration-300 group-hover:scale-105">
                 <ProgressiveImage
@@ -762,7 +793,6 @@ export const ThumbnailCard = memo(function ThumbnailCard({
                   {name}
                 </p>
                 <div className="flex flex-wrap items-center justify-end gap-1">
-                  {showClicksBadge && <ApprovalScoreBadge count={shareClickCount ?? 0} />}
                   <ResolutionBadge resolution={resolution} />
                 </div>
               </div>
@@ -782,15 +812,27 @@ export const ThumbnailCard = memo(function ThumbnailCard({
         {clickRankBorder?.className ? (
           <div
             ref={rankBorderWrapperRef}
-            className={cn("rounded-lg", clickRankBorder.className)}
+            className={cn("relative z-0 rounded-lg hover:z-20", clickRankBorder.className)}
             style={{
               ...clickRankBorder.style,
               "--rank-mouse-x": rankBorderMousePosition ? `${rankBorderMousePosition.x}%` : "-100%",
               "--rank-mouse-y": rankBorderMousePosition ? `${rankBorderMousePosition.y}%` : "-100%",
             } as React.CSSProperties}
             onMouseMove={handleRankBorderMouseMove}
+            onMouseEnter={runShimmer}
             onMouseLeave={handleRankBorderMouseLeave}
           >
+            {medalTier && (
+              <div
+                className={cn(
+                  "rank-shimmer-overlay",
+                  "rank-shimmer-" + medalTier,
+                  shimmerActive && "rank-shimmer-active"
+                )}
+                onAnimationEnd={handleShimmerEnd}
+                aria-hidden
+              />
+            )}
             {cardContent}
           </div>
         ) : (

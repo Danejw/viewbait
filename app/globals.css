@@ -290,11 +290,24 @@ a:focus-visible {
   inherits: false;
 }
 
-/* Shared: wrapper positions pseudo-element border */
+/* Shared: wrapper positions pseudo-element border + glowing shimmer + shiver on hover/leave */
 .click-rank-border-gold,
 .click-rank-border-silver,
 .click-rank-border-bronze {
   position: relative;
+  /* Shiver out: bouncy transition when hover ends */
+  transition:
+    box-shadow 0.2s ease-out,
+    transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.click-rank-border-gold:hover,
+.click-rank-border-silver:hover,
+.click-rank-border-bronze:hover {
+  transform: scale(1.01);
+  /* Shiver in: quick transition when hovering */
+  transition:
+    box-shadow 0.2s ease-out,
+    transform 0.2s ease-out;
 }
 
 /* Gold: conic gradient border with rotating highlight + soft glow */
@@ -322,9 +335,101 @@ a:focus-visible {
   pointer-events: none;
   animation: click-rank-gold-rotate 5s linear infinite;
 }
-.click-rank-border-gold {
-  box-shadow: 0 0 16px rgba(212, 175, 55, 0.45);
+/* Glowing shimmer: gentle pulse on the glow */
+@keyframes rank-glow-shimmer-gold {
+  0%, 100% {
+    box-shadow: 0 0 18px rgba(212, 175, 55, 0.5), 0 0 36px rgba(212, 175, 55, 0.22);
+  }
+  50% {
+    box-shadow: 0 0 22px rgba(212, 175, 55, 0.6), 0 0 44px rgba(212, 175, 55, 0.28);
+  }
 }
+@keyframes rank-glow-shimmer-silver {
+  0%, 100% {
+    box-shadow: 0 0 18px rgba(192, 192, 192, 0.5), 0 0 36px rgba(192, 192, 192, 0.22);
+  }
+  50% {
+    box-shadow: 0 0 22px rgba(192, 192, 192, 0.6), 0 0 44px rgba(192, 192, 192, 0.28);
+  }
+}
+@keyframes rank-glow-shimmer-bronze {
+  0%, 100% {
+    box-shadow: 0 0 18px rgba(205, 127, 50, 0.5), 0 0 36px rgba(205, 127, 50, 0.22);
+  }
+  50% {
+    box-shadow: 0 0 22px rgba(205, 127, 50, 0.6), 0 0 44px rgba(205, 127, 50, 0.28);
+  }
+}
+
+.click-rank-border-gold {
+  animation: rank-glow-shimmer-gold 2.5s ease-in-out infinite;
+}
+.click-rank-border-gold:hover {
+  animation: none;
+  box-shadow: 0 0 24px rgba(212, 175, 55, 0.65), 0 0 48px rgba(212, 175, 55, 0.35);
+}
+
+/* Shimmer sweep overlay – runs on hover (triggered by JS), very smooth in/out */
+@keyframes rank-shimmer-sweep {
+  0% {
+    background-position: -80% 0;
+    opacity: 0;
+  }
+  18% {
+    opacity: 1;
+  }
+  82% {
+    opacity: 1;
+  }
+  100% {
+    background-position: 180% 0;
+    opacity: 0;
+  }
+}
+.rank-shimmer-overlay {
+  position: absolute;
+  inset: 0;
+  border-radius: 0.5rem;
+  pointer-events: none;
+  z-index: 1;
+  background-repeat: no-repeat;
+  background-size: 60% 100%;
+  background-position: -80% 0;
+}
+.rank-shimmer-overlay.rank-shimmer-active {
+  animation: rank-shimmer-sweep 1.2s cubic-bezier(0.33, 0, 0.2, 1) forwards;
+}
+.rank-shimmer-overlay.rank-shimmer-gold {
+  background-image: linear-gradient(
+    105deg,
+    transparent 0%,
+    transparent 30%,
+    rgba(255, 236, 179, 0.6) 50%,
+    transparent 70%,
+    transparent 100%
+  );
+}
+.rank-shimmer-overlay.rank-shimmer-silver {
+  background-image: linear-gradient(
+    105deg,
+    transparent 0%,
+    transparent 30%,
+    rgba(255, 255, 255, 0.65) 50%,
+    transparent 70%,
+    transparent 100%
+  );
+}
+.rank-shimmer-overlay.rank-shimmer-bronze {
+  background-image: linear-gradient(
+    105deg,
+    transparent 0%,
+    transparent 30%,
+    rgba(255, 218, 185, 0.6) 50%,
+    transparent 70%,
+    transparent 100%
+  );
+}
+
 /* Mouse-following glimmer on border */
 .click-rank-border-gold::after {
   content: "";
@@ -366,7 +471,11 @@ a:focus-visible {
   pointer-events: none;
 }
 .click-rank-border-silver {
-  box-shadow: 0 0 16px rgba(192, 192, 192, 0.45);
+  animation: rank-glow-shimmer-silver 2.5s ease-in-out infinite;
+}
+.click-rank-border-silver:hover {
+  animation: none;
+  box-shadow: 0 0 24px rgba(192, 192, 192, 0.65), 0 0 48px rgba(192, 192, 192, 0.35);
 }
 .click-rank-border-silver::after {
   content: "";
@@ -408,7 +517,11 @@ a:focus-visible {
   pointer-events: none;
 }
 .click-rank-border-bronze {
-  box-shadow: 0 0 16px rgba(205, 127, 50, 0.45);
+  animation: rank-glow-shimmer-bronze 2.5s ease-in-out infinite;
+}
+.click-rank-border-bronze:hover {
+  animation: none;
+  box-shadow: 0 0 24px rgba(205, 127, 50, 0.65), 0 0 48px rgba(205, 127, 50, 0.35);
 }
 .click-rank-border-bronze::after {
   content: "";
@@ -444,6 +557,29 @@ a:focus-visible {
       var(--click-rank-gold-mid) 75%,
       var(--click-rank-gold-dark)
     );
+  }
+  .click-rank-border-gold,
+  .click-rank-border-silver,
+  .click-rank-border-bronze {
+    animation: none;
+    transition: none;
+  }
+  .click-rank-border-gold {
+    box-shadow: 0 0 18px rgba(212, 175, 55, 0.5), 0 0 36px rgba(212, 175, 55, 0.22);
+  }
+  .click-rank-border-silver {
+    box-shadow: 0 0 18px rgba(192, 192, 192, 0.5), 0 0 36px rgba(192, 192, 192, 0.22);
+  }
+  .click-rank-border-bronze {
+    box-shadow: 0 0 18px rgba(205, 127, 50, 0.5), 0 0 36px rgba(205, 127, 50, 0.22);
+  }
+  .click-rank-border-gold:hover,
+  .click-rank-border-silver:hover,
+  .click-rank-border-bronze:hover {
+    transition: none;
+  }
+  .rank-shimmer-overlay.rank-shimmer-active {
+    animation: none;
   }
 }
 
@@ -635,6 +771,77 @@ a:focus-visible {
   height: 36px;
   border-radius: 8px;
   backdrop-filter: blur(8px);
+}
+
+/**
+ * Thumbnail clicks count – bottom-right corner triangle with white number.
+ * Default: green. Modifiers: gold (1st), silver (2nd), bronze (3rd). Shown only on hover when count > 0.
+ */
+.thumbnail-clicks-badge {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 25px;
+  height: 25px;
+  min-width: 2rem;
+  min-height: 2rem;
+  background: var(--click-rank-gradient-green);
+  color: white;
+  clip-path: polygon(100% 0, 100% 100%, 0 100%);
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  padding: 0 0.2em 0.2em 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1;
+  box-shadow: 0 -1px 3px rgba(0, 0, 0, 0.2);
+}
+
+/* Metallic shine (wide light band) + high-contrast white number */
+.thumbnail-clicks-badge-gold {
+  background: linear-gradient(
+    145deg,
+    var(--click-rank-gold-dark) 0%,
+    var(--click-rank-gold-mid) 12%,
+    var(--click-rank-gold-light) 28%,
+    var(--click-rank-gold-light) 55%,
+    var(--click-rank-gold-mid) 72%,
+    var(--click-rank-gold-dark) 88%,
+    var(--click-rank-gold-dark) 100%
+  );
+  color: #fff;
+  text-shadow: 0 0 1px rgba(0, 0, 0, 0.7), 0 1px 1px rgba(0, 0, 0, 0.5);
+}
+
+.thumbnail-clicks-badge-silver {
+  background: linear-gradient(
+    145deg,
+    var(--click-rank-silver-dark) 0%,
+    var(--click-rank-silver-mid) 12%,
+    var(--click-rank-silver-light) 28%,
+    var(--click-rank-silver-light) 55%,
+    var(--click-rank-silver-mid) 72%,
+    var(--click-rank-silver-dark) 88%,
+    var(--click-rank-silver-dark) 100%
+  );
+  color: #fff;
+  text-shadow: 0 0 1px rgba(0, 0, 0, 0.7), 0 1px 1px rgba(0, 0, 0, 0.5);
+}
+
+.thumbnail-clicks-badge-bronze {
+  background: linear-gradient(
+    145deg,
+    var(--click-rank-bronze-dark) 0%,
+    var(--click-rank-bronze-mid) 12%,
+    var(--click-rank-bronze-light) 28%,
+    var(--click-rank-bronze-light) 55%,
+    var(--click-rank-bronze-mid) 72%,
+    var(--click-rank-bronze-dark) 88%,
+    var(--click-rank-bronze-dark) 100%
+  );
+  color: #fff;
+  text-shadow: 0 0 1px rgba(0, 0, 0, 0.7), 0 1px 1px rgba(0, 0, 0, 0.5);
 }
 
 @media (prefers-reduced-motion: reduce) {
