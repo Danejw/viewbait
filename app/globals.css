@@ -97,6 +97,8 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+  /* Tooltip: hard drop shadow, dark gray at 50% opacity (not black) */
+  --tooltip-shadow: 5px 5px 0 oklch(0.18 0 0 / 0.25);
 }
 
 .dark {
@@ -200,6 +202,141 @@ a:hover,
 a:focus-visible {
   color: var(--primary);
 }
+
+/* ============================================
+   Pop-art tooltip shapes (flowing edges, theme colors)
+   Uses theme variables; borders, shadow, and arrow use muted-foreground
+   (mid-gray) to match global UI. Text uses --foreground for readability.
+   data-shape: speech, blob, burst, comic, message, or default.
+   ============================================ */
+
+/* Central global tooltip styles: one shadow (dark gray 50%) and outline color for all pop-art tooltips */
+[data-slot="tooltip-content"][data-shape="speech"],
+[data-slot="tooltip-content"][data-shape="blob"],
+[data-slot="tooltip-content"][data-shape="burst"],
+[data-slot="tooltip-content"][data-shape="comic"],
+[data-slot="tooltip-content"][data-shape="message"] {
+  box-shadow: var(--tooltip-shadow);
+}
+
+/* speech: theme background, mid-gray outline */
+[data-slot="tooltip-content"][data-shape="speech"] {
+  background: var(--background) !important;
+  color: var(--foreground) !important;
+  border: .5px solid var(--muted-foreground);
+}
+[data-slot="tooltip-content"][data-shape="speech"] .tooltip-arrow {
+  background: var(--muted-foreground) !important;
+  fill: var(--muted-foreground);
+}
+
+/* blob: theme background, mid-gray outline */
+[data-slot="tooltip-content"][data-shape="blob"] {
+  background: var(--background) !important;
+  color: var(--foreground) !important;
+  border: .5px solid var(--muted-foreground);
+}
+[data-slot="tooltip-content"][data-shape="blob"] .tooltip-arrow {
+  background: var(--muted-foreground) !important;
+  fill: var(--muted-foreground);
+}
+
+/* burst: inverted fill, mid-gray border + background outline */
+[data-slot="tooltip-content"][data-shape="burst"] {
+  background: var(--foreground) !important;
+  color: var(--background) !important;
+  border: .5px solid var(--muted-foreground);
+  filter: drop-shadow(0 0 0 2px var(--background));
+}
+[data-slot="tooltip-content"][data-shape="burst"] .tooltip-arrow {
+  background: var(--background) !important;
+  fill: var(--background);
+}
+
+/* comic: theme background, bold mid-gray outline (shadow from shared block above) */
+[data-slot="tooltip-content"][data-shape="comic"] {
+  background: var(--background) !important;
+  color: var(--foreground) !important;
+  border: 1px solid var(--muted-foreground);
+}
+[data-slot="tooltip-content"][data-shape="comic"] .tooltip-arrow {
+  background: var(--muted-foreground) !important;
+  fill: var(--muted-foreground);
+}
+
+/* message: theme background, mid-gray outline */
+[data-slot="tooltip-content"][data-shape="message"] {
+  background: var(--background) !important;
+  color: var(--foreground) !important;
+  border: .5px solid var(--muted-foreground);
+}
+[data-slot="tooltip-content"][data-shape="message"] .tooltip-arrow {
+  background: var(--muted-foreground) !important;
+  fill: var(--muted-foreground);
+}
+
+/* Primary variant: theme primary; mid-gray border and arrow (shadow from shared block above) */
+[data-slot="tooltip-content"][data-tooltip-variant="primary"] {
+  background: var(--primary) !important;
+  color: var(--primary-foreground) !important;
+  border-color: var(--foreground);
+}
+[data-slot="tooltip-content"][data-tooltip-variant="primary"] .tooltip-arrow {
+  background: var(--muted-foreground) !important;
+  fill: var(--muted-foreground);
+}
+
+/* speech: flowing rounded, one corner softer (classic speech bubble) */
+[data-slot="tooltip-content"][data-shape="speech"] {
+  border-radius: 0.75rem 0.75rem 0.75rem 0.25rem;
+}
+[data-slot="tooltip-content"][data-shape="speech"] .tooltip-arrow {
+  width: 0.35rem;
+  height: 0.35rem;
+  border-radius: 1px;
+}
+
+/* blob: asymmetric flowing radii (organic blob) */
+[data-slot="tooltip-content"][data-shape="blob"] {
+  border-radius: 1rem 0.5rem 1rem 0.5rem;
+}
+[data-slot="tooltip-content"][data-shape="blob"] .tooltip-arrow {
+  width: 0.3rem;
+  height: 0.3rem;
+  border-radius: 1px;
+}
+
+/* burst: pill-like flowing shape */
+[data-slot="tooltip-content"][data-shape="burst"] {
+  border-radius: 9999px;
+}
+[data-slot="tooltip-content"][data-shape="burst"] .tooltip-arrow {
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 1px;
+}
+
+/* comic: uniform large flowing radius */
+[data-slot="tooltip-content"][data-shape="comic"] {
+  border-radius: 0.75rem;
+}
+[data-slot="tooltip-content"][data-shape="comic"] .tooltip-arrow {
+  width: 0.375rem;
+  height: 0.375rem;
+  border-radius: 1px;
+}
+
+/* message: flowing rounded with one smaller corner (tail side) */
+[data-slot="tooltip-content"][data-shape="message"] {
+  border-radius: 0.5rem 0.5rem 0.5rem 0.125rem;
+}
+[data-slot="tooltip-content"][data-shape="message"] .tooltip-arrow {
+  width: 0.32rem;
+  height: 0.32rem;
+  border-radius: 1px;
+}
+
+/* default: no overrides – keeps component's rounded-md and standard arrow */
 
 /* ============================================
    Drag and Drop: Drop Zone Animations

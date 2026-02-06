@@ -38,6 +38,7 @@ import { cn } from "@/lib/utils";
 import { ViewBaitLogo } from "@/components/ui/viewbait-logo";
 import { useStudio, useStudioState, type StudioView } from "@/components/studio/studio-provider";
 import { useAuth } from "@/lib/hooks/useAuth";
+import { useNotifications } from "@/lib/hooks/useNotifications";
 import { useSubscription } from "@/lib/hooks/useSubscription";
 import SubscriptionModal from "@/components/subscription-modal";
 import ReferralModal from "@/components/referral-modal";
@@ -121,7 +122,7 @@ export function StudioSidebarNav() {
         asChild
         className={cn(
           "w-full",
-          leftSidebarCollapsed ? "shrink-0 justify-center" : "justify-start text-left gap-3",
+          leftSidebarCollapsed ? "shrink-0 justify-center hover:bg-transparent" : "justify-start text-left gap-3",
           "text-sidebar-foreground"
         )}
       >
@@ -145,10 +146,11 @@ export function StudioSidebarNav() {
         disabled={isLocked && !openModalOnClick}
         className={cn(
           "w-full",
-          leftSidebarCollapsed ? "shrink-0 justify-center" : "justify-start text-left gap-3",
+          leftSidebarCollapsed ? "shrink-0 justify-center hover:bg-transparent" : "justify-start text-left gap-3",
           isActive
             ? "bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary hover:text-sidebar-primary-foreground"
             : "text-sidebar-foreground",
+          leftSidebarCollapsed && "hover:!bg-transparent",
           isLocked && !openModalOnClick && "opacity-50 cursor-not-allowed"
         )}
       >
@@ -170,7 +172,7 @@ export function StudioSidebarNav() {
     const wrapped = leftSidebarCollapsed ? (
       <Tooltip>
         <TooltipTrigger asChild>{buttonContent}</TooltipTrigger>
-        <TooltipContent side="right" className="flex items-center">
+        <TooltipContent side="right" className="flex items-center" variant={isActive ? "primary" : "default"}>
           {item.label}
           {isLocked && <Lock className="h-3 w-3" />}
         </TooltipContent>
@@ -180,7 +182,10 @@ export function StudioSidebarNav() {
     );
 
     return (
-      <div key={navItemKey(item)} className={cn(isChild && "pl-6")}>
+      <div
+        key={navItemKey(item)}
+        className={cn(isChild && !leftSidebarCollapsed && "pl-6")}
+      >
         {wrapped}
       </div>
     );
@@ -263,7 +268,7 @@ export const StudioSidebarCredits = React.memo(function StudioSidebarCredits() {
               <TooltipContent side="right">
                 {isLoading
                   ? "Loading..."
-                  : `${tierConfig.name} Plan - ${creditsRemaining} / ${creditsTotal} credits (Click to upgrade)`}
+                  : `${tierConfig.name} Plan`}
               </TooltipContent>
             </Tooltip>
           </div>
@@ -342,6 +347,7 @@ export function StudioSidebarUser() {
     actions: { openUpdate },
   } = useStudio();
   const { user, profile, signOut, isLoading: authLoading } = useAuth();
+  const { unreadCount } = useNotifications({ autoFetch: true });
   const router = useRouter();
   const [referralModalOpen, setReferralModalOpen] = useState(false);
   const [accountModalOpen, setAccountModalOpen] = useState(false);
@@ -385,7 +391,9 @@ export function StudioSidebarUser() {
                   />
                 </span>
               </TooltipTrigger>
-              <TooltipContent side="right">Notifications</TooltipContent>
+              <TooltipContent side="right" variant={unreadCount > 0 ? "primary" : "default"}>
+                Notifications
+              </TooltipContent>
             </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -431,7 +439,9 @@ export function StudioSidebarUser() {
                 />
               </span>
             </TooltipTrigger>
-            <TooltipContent side="right">Notifications</TooltipContent>
+            <TooltipContent side="right" variant={unreadCount > 0 ? "primary" : "default"}>
+                Notifications
+              </TooltipContent>
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
