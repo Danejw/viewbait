@@ -38,6 +38,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 /**
@@ -268,31 +274,54 @@ export const ViewControls = memo(function ViewControls({
               isCompact ? "left-2 h-3.5 w-3.5" : "left-2.5 h-4 w-4"
             )} 
           />
-          <Input
-            type="text"
-            placeholder={isCompact ? "" : searchPlaceholder}
-            value={searchQuery}
-            onChange={handleSearchChange}
-            className={cn(
-              "w-full truncate",
-              isCompact ? "h-8 pl-7 pr-6 text-xs" : isMedium ? "h-9 pl-8 pr-7 text-sm" : "h-10 pl-9 pr-8"
-            )}
-            title={isCompact ? searchPlaceholder : undefined}
-          />
-          {searchQuery && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-xs"
-              onClick={handleClearSearch}
+          {isCompact ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="block w-full">
+                  <Input
+                    type="text"
+                    placeholder=""
+                    value={searchQuery}
+                    onChange={handleSearchChange}
+                    className={cn(
+                      "w-full truncate h-8 pl-7 pr-6 text-xs"
+                    )}
+                  />
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">{searchPlaceholder}</TooltipContent>
+            </Tooltip>
+          ) : (
+            <Input
+              type="text"
+              placeholder={searchPlaceholder}
+              value={searchQuery}
+              onChange={handleSearchChange}
               className={cn(
-                "absolute top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground",
-                isCompact ? "right-1.5" : "right-2"
+                "w-full truncate",
+                isMedium ? "h-9 pl-8 pr-7 text-sm" : "h-10 pl-9 pr-8"
               )}
-              aria-label="Clear search"
-            >
-              <X className={cn(isCompact ? "h-3 w-3" : "h-3.5 w-3.5")} />
-            </Button>
+            />
+          )}
+          {searchQuery && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-xs"
+                  onClick={handleClearSearch}
+                  className={cn(
+                    "absolute top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground",
+                    isCompact ? "right-1.5" : "right-2"
+                  )}
+                  aria-label="Clear search"
+                >
+                  <X className={cn(isCompact ? "h-3 w-3" : "h-3.5 w-3.5")} />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">Clear search</TooltipContent>
+            </Tooltip>
           )}
         </div>
       )}
@@ -300,174 +329,207 @@ export const ViewControls = memo(function ViewControls({
       {/* Spacer to push controls to the right */}
       <div className="flex-1 min-w-0" />
 
-      {/* Right side: Controls group */}
-      <div 
-        className={cn(
-          "flex shrink-0 items-center",
-          isCompact ? "gap-1" : isMedium ? "gap-1.5" : "gap-2 md:gap-3"
-        )}
-      >
-        {/* Filter Dropdown - Click trigger to open options */}
-        {showFilter && filterOptions.length > 0 && onFilterChange && (
-          <div className="flex shrink-0 items-center">
-            <Select
-              value={filterValue ?? filterOptions[0]?.value ?? ""}
-              onValueChange={handleFilterChange}
-            >
-              <SelectTrigger
-                type="button"
-                className={cn(
-                  "gap-1 text-xs cursor-pointer",
-                  showDropdownLabel ? "h-10 w-[180px] px-3" : "h-8 min-h-8 min-w-8 w-auto px-1.5"
-                )}
-                title={filterOptions.find(opt => opt.value === (filterValue ?? filterOptions[0]?.value))?.label || "Filter"}
+      {/* Right side: Controls group - use app tooltips for consistency */}
+      <TooltipProvider delayDuration={0}>
+        <div 
+          className={cn(
+            "flex shrink-0 items-center",
+            isCompact ? "gap-1" : isMedium ? "gap-1.5" : "gap-2 md:gap-3"
+          )}
+        >
+          {/* Filter Dropdown - Click trigger to open options */}
+          {showFilter && filterOptions.length > 0 && onFilterChange && (
+            <div className="flex shrink-0 items-center">
+              <Select
+                value={filterValue ?? filterOptions[0]?.value ?? ""}
+                onValueChange={handleFilterChange}
               >
-                <Filter className="h-3.5 w-3.5 shrink-0 pointer-events-none" />
-                {showDropdownLabel && (
-                  <SelectValue
-                    placeholder="Filter..."
-                    className="inline-flex"
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <SelectTrigger
+                      type="button"
+                      className={cn(
+                        "gap-1 text-xs cursor-pointer",
+                        showDropdownLabel ? "h-10 w-[180px] px-3" : "h-8 min-h-8 min-w-8 w-auto px-1.5"
+                      )}
+                    >
+                      <Filter className="h-3.5 w-3.5 shrink-0 pointer-events-none" />
+                      {showDropdownLabel && (
+                        <SelectValue
+                          placeholder="Filter..."
+                          className="inline-flex"
+                        />
+                      )}
+                    </SelectTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    {filterOptions.find(opt => opt.value === (filterValue ?? filterOptions[0]?.value))?.label || "Filter"}
+                  </TooltipContent>
+                </Tooltip>
+                <SelectContent position="popper" sideOffset={6}>
+                  {filterOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {/* Sort Dropdown - Click trigger to open options */}
+          {showSort && sortOptions.length > 0 && onSortChange && (
+            <div className="flex shrink-0 items-center">
+              <Select
+                value={sortValue ?? sortOptions[0]?.value ?? "newest"}
+                onValueChange={handleSortChange}
+              >
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <SelectTrigger
+                      type="button"
+                      className={cn(
+                        "gap-1 text-xs cursor-pointer",
+                        showDropdownLabel ? "h-10 w-[180px] px-3" : "h-8 min-h-8 min-w-8 w-auto px-1.5"
+                      )}
+                    >
+                      <ArrowUpDown className="h-3.5 w-3.5 shrink-0 pointer-events-none" />
+                      {showDropdownLabel && (
+                        <SelectValue
+                          placeholder="Sort..."
+                          className="inline-flex"
+                        />
+                      )}
+                    </SelectTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    {sortOptions.find(opt => opt.value === (sortValue ?? sortOptions[0]?.value))?.label || "Sort"}
+                  </TooltipContent>
+                </Tooltip>
+                <SelectContent position="popper" sideOffset={6}>
+                  {sortOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {/* Favorites - Heart icon toggles favorites on/off */}
+          {showFavorites && onFavoritesToggle && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={handleFavoritesToggleClick}
+                  className={cn(
+                    "shrink-0 cursor-pointer",
+                    isCompact ? "h-8 w-8" : isMedium ? "h-9 w-9" : "h-10 w-10"
+                  )}
+                >
+                  <Heart
+                    className={cn(
+                      "pointer-events-none h-3.5 w-3.5 shrink-0 transition-colors",
+                      favoritesOnly ? "fill-red-500 text-red-500" : "text-muted-foreground"
+                    )}
                   />
-                )}
-              </SelectTrigger>
-              <SelectContent position="popper" sideOffset={6}>
-                {filterOptions.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                {favoritesOnly ? "Show all" : "Favorites only"}
+              </TooltipContent>
+            </Tooltip>
+          )}
 
-        {/* Sort Dropdown - Click trigger to open options */}
-        {showSort && sortOptions.length > 0 && onSortChange && (
-          <div className="flex shrink-0 items-center">
-            <Select
-              value={sortValue ?? sortOptions[0]?.value ?? "newest"}
-              onValueChange={handleSortChange}
-            >
-              <SelectTrigger
-                type="button"
-                className={cn(
-                  "gap-1 text-xs cursor-pointer",
-                  showDropdownLabel ? "h-10 w-[180px] px-3" : "h-8 min-h-8 min-w-8 w-auto px-1.5"
-                )}
-                title={sortOptions.find(opt => opt.value === (sortValue ?? sortOptions[0]?.value))?.label || "Sort"}
-              >
-                <ArrowUpDown className="h-3.5 w-3.5 shrink-0 pointer-events-none" />
-                {showDropdownLabel && (
-                  <SelectValue
-                    placeholder="Sort..."
-                    className="inline-flex"
-                  />
-                )}
-              </SelectTrigger>
-              <SelectContent position="popper" sideOffset={6}>
-                {sortOptions.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
+          {/* Refresh Button - Click to refresh */}
+          {showRefresh && onRefresh && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() => onRefresh()}
+                  disabled={isRefreshing}
+                  className={cn(
+                    "shrink-0 cursor-pointer",
+                    isCompact ? "h-8 w-8" : isMedium ? "h-9 w-9" : "h-10 w-10"
+                  )}
+                >
+                  {isRefreshing ? (
+                    <ViewBaitLogo
+                      className={cn(
+                        "pointer-events-none",
+                        isCompact ? "h-3.5 w-3.5" : "h-4 w-4",
+                        "animate-spin"
+                      )}
+                    />
+                  ) : (
+                    <RefreshCw
+                      className={cn(
+                        "pointer-events-none",
+                        isCompact ? "h-3.5 w-3.5" : "h-4 w-4"
+                      )}
+                    />
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">Refresh</TooltipContent>
+            </Tooltip>
+          )}
 
-        {/* Favorites - Heart icon toggles favorites on/off */}
-        {showFavorites && onFavoritesToggle && (
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            onClick={handleFavoritesToggleClick}
-            title={favoritesOnly ? "Show all" : "Favorites only"}
-            className={cn(
-              "shrink-0 cursor-pointer",
-              isCompact ? "h-8 w-8" : isMedium ? "h-9 w-9" : "h-10 w-10"
-            )}
-          >
-            <Heart
-              className={cn(
-                "pointer-events-none h-3.5 w-3.5 shrink-0 transition-colors",
-                favoritesOnly ? "fill-red-500 text-red-500" : "text-muted-foreground"
+          {/* Add Button - Adapts based on container width; can be disabled with lock (tier-gated) */}
+          {showAdd && (onAdd || addDisabled) && (
+            <>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    disabled={addDisabled}
+                    onClick={() => !addDisabled && onAdd?.()}
+                    className={cn(
+                      "shrink-0",
+                      !addDisabled && "cursor-pointer",
+                      isCompact
+                        ? "h-8 gap-1 px-1.5"
+                        : isMedium
+                        ? "h-9 gap-1.5 px-2"
+                        : "h-10 gap-2 px-3"
+                    )}
+                  >
+                    {addDisabled && addLockIcon ? (
+                      <Lock className={cn("pointer-events-none h-3.5 w-3.5 shrink-0", !isCompact && "h-4 w-4")} />
+                    ) : (
+                      <Plus className={cn("pointer-events-none h-3.5 w-3.5 shrink-0", !isCompact && "h-4 w-4")} />
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">{addLabel}</TooltipContent>
+              </Tooltip>
+              {addDisabled && onUpgradeClick && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="link"
+                      size="sm"
+                      className="h-auto shrink-0 p-0 text-xs text-primary sm:text-sm"
+                      onClick={onUpgradeClick}
+                    >
+                      Upgrade to unlock
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">Upgrade to unlock</TooltipContent>
+                </Tooltip>
               )}
-            />
-          </Button>
-        )}
-
-        {/* Refresh Button - Click to refresh */}
-        {showRefresh && onRefresh && (
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            onClick={() => onRefresh()}
-            disabled={isRefreshing}
-            title="Refresh"
-            className={cn(
-              "shrink-0 cursor-pointer",
-              isCompact ? "h-8 w-8" : isMedium ? "h-9 w-9" : "h-10 w-10"
-            )}
-          >
-            {isRefreshing ? (
-              <ViewBaitLogo
-                className={cn(
-                  "pointer-events-none",
-                  isCompact ? "h-3.5 w-3.5" : "h-4 w-4",
-                  "animate-spin"
-                )}
-              />
-            ) : (
-              <RefreshCw
-                className={cn(
-                  "pointer-events-none",
-                  isCompact ? "h-3.5 w-3.5" : "h-4 w-4"
-                )}
-              />
-            )}
-          </Button>
-        )}
-
-        {/* Add Button - Adapts based on container width; can be disabled with lock (tier-gated) */}
-        {showAdd && (onAdd || addDisabled) && (
-          <>
-            <Button
-              type="button"
-              disabled={addDisabled}
-              onClick={() => !addDisabled && onAdd?.()}
-              className={cn(
-                "shrink-0",
-                !addDisabled && "cursor-pointer",
-                isCompact
-                  ? "h-8 gap-1 px-1.5"
-                  : isMedium
-                  ? "h-9 gap-1.5 px-2"
-                  : "h-10 gap-2 px-3"
-              )}
-              title={addLabel}
-            >
-              {addDisabled && addLockIcon ? (
-                <Lock className={cn("pointer-events-none h-3.5 w-3.5 shrink-0", !isCompact && "h-4 w-4")} />
-              ) : (
-                <Plus className={cn("pointer-events-none h-3.5 w-3.5 shrink-0", !isCompact && "h-4 w-4")} />
-              )}
-            </Button>
-            {addDisabled && onUpgradeClick && (
-              <Button
-                type="button"
-                variant="link"
-                size="sm"
-                className="h-auto shrink-0 p-0 text-xs text-primary sm:text-sm"
-                onClick={onUpgradeClick}
-              >
-                Upgrade to unlock
-              </Button>
-            )}
-          </>
-        )}
-      </div>
+            </>
+          )}
+        </div>
+      </TooltipProvider>
     </div>
   );
 });
