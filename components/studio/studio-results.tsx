@@ -3,9 +3,13 @@
 import React, { useCallback, memo, useMemo } from "react";
 import { useStudio } from "./studio-provider";
 import { ThumbnailGrid } from "./thumbnail-grid";
+import { GridZoomSlider } from "@/components/studio/grid-zoom-slider";
 import { getCombinedThumbnailsList } from "@/lib/utils/studio-thumbnails";
 import { getClickRankBorderMap } from "@/lib/utils/click-rank-borders";
+import { getMasonryBreakpointCols } from "@/lib/utils/grid-zoom";
+import { useGridZoom } from "@/lib/hooks/useGridZoom";
 import type { Thumbnail } from "@/lib/types/database";
+import type { MasonryGridBreakpoints } from "@/components/studio/masonry-grid";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { AlertCircle, RefreshCw } from "lucide-react";
@@ -40,13 +44,19 @@ function getResultsSortValue(
 
 /**
  * StudioResultsHeader
- * Header for results panel with refresh button and sort dropdown.
+ * Header for results panel with refresh button, grid zoom slider, and sort dropdown.
  * Project selection is in the right-hand sidebar above Manual/Chat tabs.
  */
-export const StudioResultsHeader = memo(function StudioResultsHeader() {
+export const StudioResultsHeader = memo(function StudioResultsHeader({
+  gridZoomLevel,
+  onGridZoomChange,
+}: {
+  gridZoomLevel?: number;
+  onGridZoomChange?: (value: number[]) => void;
+} = {}) {
   const { data, state, actions } = useStudio();
   const { refreshThumbnails, thumbnailsLoading } = data;
-  const { isGenerating, resultsOrderBy, resultsOrderDirection } = state;
+  const { resultsOrderBy, resultsOrderDirection } = state;
   const { setResultsSort } = actions;
 
   const sortValue = useMemo(
@@ -86,18 +96,23 @@ export const StudioResultsHeader = memo(function StudioResultsHeader() {
             )}
           </Button>
         </div>
-        <Select value={sortValue} onValueChange={handleSortChange}>
-          <SelectTrigger className="w-[180px]" aria-label="Sort results">
-            <SelectValue placeholder="Sort" />
-          </SelectTrigger>
-          <SelectContent>
-            {RESULTS_SORT_OPTIONS.map((opt) => (
-              <SelectItem key={opt.value} value={opt.value}>
-                {opt.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-3">
+          {typeof gridZoomLevel === "number" && onGridZoomChange && (
+            <GridZoomSlider value={gridZoomLevel} onValueChange={onGridZoomChange} />
+          )}
+          <Select value={sortValue} onValueChange={handleSortChange}>
+            <SelectTrigger className="w-[180px]" aria-label="Sort results">
+              <SelectValue placeholder="Sort" />
+            </SelectTrigger>
+            <SelectContent>
+              {RESULTS_SORT_OPTIONS.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value}>
+                  {opt.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
     </div>
   );
@@ -191,7 +206,11 @@ const FALLBACK_GENERATING_ITEMS = new Map<string, Thumbnail>([
   ["generating-placeholder", FALLBACK_GENERATING_PLACEHOLDER],
 ]);
 
-export const StudioResultsGrid = memo(function StudioResultsGrid() {
+export const StudioResultsGrid = memo(function StudioResultsGrid({
+  breakpointCols,
+}: {
+  breakpointCols?: MasonryGridBreakpoints;
+} = {}) {
   const { data: studioData, state } = useStudio();
   const { thumbnails, generatingItems, thumbnailsLoading } = studioData;
   const { activeProjectId, isGenerating } = state;
@@ -231,6 +250,7 @@ export const StudioResultsGrid = memo(function StudioResultsGrid() {
       minSlots={12}
       showEmptySlots={showEmptySlots}
       clickRankBorderById={clickRankBorderById}
+      breakpointCols={breakpointCols}
     />
   );
 });
@@ -238,17 +258,25 @@ export const StudioResultsGrid = memo(function StudioResultsGrid() {
 /**
  * StudioResults
  * Complete results panel composition with:
- * - Header with refresh
+ * - Header with refresh, grid zoom slider, and sort
  * - Error display
  * - Optimized thumbnail grid
  * - Load more pagination
  */
 export function StudioResults() {
+  const [zoomLevel, , handleZoomChange] = useGridZoom("studio-create-zoom");
+  const breakpointCols = useMemo(
+    () => getMasonryBreakpointCols(zoomLevel),
+    [zoomLevel]
+  );
   return (
     <div>
-      <StudioResultsHeader />
+      <StudioResultsHeader
+        gridZoomLevel={zoomLevel}
+        onGridZoomChange={handleZoomChange}
+      />
       <StudioResultsError />
-      <StudioResultsGrid />
+      <StudioResultsGrid breakpointCols={breakpointCols} />
       <StudioResultsLoadMore />
     </div>
   );

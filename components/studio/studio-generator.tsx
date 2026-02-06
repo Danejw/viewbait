@@ -1393,11 +1393,13 @@ export function StudioGeneratorSubmit({
 }: StudioGeneratorSubmitProps = {}) {
   const {
     state: { isButtonDisabled, thumbnailText, variations, selectedResolution, activeProjectId, reRollDataJustApplied },
-    data: { projects, isSavingProjectSettings },
+    data: { projects, isSavingProjectSettings, settingsDifferFromProject },
     actions: { generateThumbnails, saveProjectSettings, pullProjectSettings, clearReRollDataApplied },
   } = useStudio();
   const activeProject = activeProjectId ? projects.find((p) => p.id === activeProjectId) : null;
   const isEditor = activeProject?.isShared === true;
+  const hasProjectSettings =
+    activeProject?.default_settings != null && typeof activeProject.default_settings === "object";
   const { getResolutionCost } = useSubscription();
 
   useEffect(() => {
@@ -1416,11 +1418,6 @@ export function StudioGeneratorSubmit({
 
   return (
     <div className="space-y-2">
-      {!hideCredits && (
-        <p className="text-center text-xs text-muted-foreground">
-          {variations} thumbnail{variations > 1 ? "s" : ""} • {totalCost} credit{totalCost > 1 ? "s" : ""}
-        </p>
-      )}
       <Button
         onClick={generateThumbnails}
         disabled={isDisabled}
@@ -1433,27 +1430,39 @@ export function StudioGeneratorSubmit({
       >
         {isButtonDisabled ? (
           <span className="flex items-center gap-2">
-            <ViewBaitLogo className="h-4 w-4 animate-spin" />
+            <ViewBaitLogo variant="white" className="h-4 w-4 animate-spin" />
             Creating...
           </span>
         ) : (
-          <>
+          <span className="flex items-center justify-center gap-2 flex-wrap">
             {icon}
             {buttonLabel}
-          </>
+            {!hideCredits && (
+              <span
+                className="inline-flex items-center rounded-md bg-white/90 px-2 py-0.5 text-xs font-medium text-primary/95"
+                aria-label={`${creditCost} × ${variations} = ${totalCost} credit${totalCost !== 1 ? "s" : ""}`}
+              >
+                {totalCost} credit{totalCost !== 1 ? "s" : ""}
+              </span>
+            )}
+          </span>
         )}
       </Button>
-      {!hideSaveToProject && activeProjectId && (
-        isEditor ? (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="w-full"
-            onClick={pullProjectSettings}
-          >
-            Pull from original settings
-          </Button>
+      {!hideSaveToProject &&
+        activeProjectId &&
+        settingsDifferFromProject &&
+        (isEditor ? (
+          hasProjectSettings && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="w-full"
+              onClick={pullProjectSettings}
+            >
+              Pull from original settings
+            </Button>
+          )
         ) : (
           <Button
             type="button"
@@ -1465,8 +1474,7 @@ export function StudioGeneratorSubmit({
           >
             {isSavingProjectSettings ? "Saving..." : "Save current settings to project"}
           </Button>
-        )
-      )}
+        ))}
     </div>
   );
 }
@@ -1545,7 +1553,7 @@ export function StudioGenerator() {
         <StudioGeneratorAspectAndResolution />
         <StudioGeneratorVariations />
       </div>
-      <div className="flex-shrink-0 pt-2">
+      <div className="flex-shrink-0">
         <StudioGeneratorSubmit />
       </div>
       <SubscriptionModal

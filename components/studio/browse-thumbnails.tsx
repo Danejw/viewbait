@@ -15,7 +15,7 @@
  * @see vercel-react-best-practices for optimization patterns
  */
 
-import React, { memo, useState, useCallback } from "react";
+import React, { memo, useState, useCallback, useMemo } from "react";
 import { RefreshCw, ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -24,7 +24,10 @@ import { LoadMoreButton } from "./load-more-button";
 import { getErrorMessage } from "@/lib/utils/error";
 import { BrowseControls } from "./browse-controls";
 import { ThumbnailGrid } from "./thumbnail-grid";
+import { GridZoomSlider } from "./grid-zoom-slider";
 import { usePublicThumbnails } from "@/lib/hooks/usePublicContent";
+import { useGridZoom } from "@/lib/hooks/useGridZoom";
+import { getMasonryBreakpointCols } from "@/lib/utils/grid-zoom";
 import type { PublicSortOption, SortDirection } from "@/lib/hooks/usePublicContent";
 
 /**
@@ -32,6 +35,9 @@ import type { PublicSortOption, SortDirection } from "@/lib/hooks/usePublicConte
  * ThumbnailCard handles its own actions (click, edit, delete, etc.) via context
  */
 export const BrowseThumbnails = memo(function BrowseThumbnails() {
+  const [zoomLevel, , handleZoomChange] = useGridZoom("studio-browse-thumbnails-zoom");
+  const breakpointCols = useMemo(() => getMasonryBreakpointCols(zoomLevel), [zoomLevel]);
+
   // Local state for sorting and filtering
   const [orderBy, setOrderBy] = useState<PublicSortOption>("created_at");
   const [orderDirection, setOrderDirection] = useState<SortDirection>("desc");
@@ -134,6 +140,7 @@ export const BrowseThumbnails = memo(function BrowseThumbnails() {
             isLoading={isLoading}
             minSlots={12}
             showEmptySlots={false}
+            breakpointCols={breakpointCols}
           />
 
           {hasNextPage && (

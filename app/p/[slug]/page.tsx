@@ -10,20 +10,21 @@
  * Grid zoom slider: zoom in = fewer columns (larger thumbnails), zoom out = more columns (more thumbnails). Preference persisted in localStorage.
  */
 
-import React, { useState, useCallback, useRef, useEffect } from "react";
+import React, { useState, useCallback, useRef } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { ArrowLeft, ImageIcon, ZoomIn, ZoomOut } from "lucide-react";
+import { ArrowLeft, ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Slider } from "@/components/ui/slider";
-import { Label } from "@/components/ui/label";
 import { ImageModal } from "@/components/ui/modal";
 import { ViewBaitLogo } from "@/components/ui/viewbait-logo";
 import { useSharedProjectGallery } from "@/lib/hooks/useProjects";
-import { MasonryGrid } from "@/components/studio/masonry-grid";
+import { MasonryGrid, type MasonryGridBreakpoints } from "@/components/studio/masonry-grid";
+import { GridZoomSlider } from "@/components/studio/grid-zoom-slider";
 import { SharedGalleryCard, SharedGalleryCardSkeleton } from "@/components/studio/shared-gallery-card";
 import { recordSharedProjectClick } from "@/lib/services/projects";
+import { getMasonryBreakpointCols, DEFAULT_ZOOM_LEVEL } from "@/lib/utils/grid-zoom";
+import { useGridZoom } from "@/lib/hooks/useGridZoom";
 import type { PublicThumbnailData } from "@/lib/types/database";
 
 /** Shared gallery header bar: ViewBait brand + back + optional title/zoom. Responsive: on small screens only icons (logo + back), no title text. */
@@ -84,45 +85,11 @@ function SharedGalleryHeader({
           )}
         </div>
         {showZoom && (
-          <div className="flex shrink-0 min-w-0 items-center gap-1.5 sm:gap-3">
-            <ZoomIn className="h-4 w-4 shrink-0 text-muted-foreground hidden sm:block" aria-hidden />
-            <div className="flex min-w-0 w-16 flex-col gap-0.5 sm:w-24 sm:gap-1 md:w-32">
-              <Slider
-                aria-label="Grid zoom: more thumbnails per row when zoomed out"
-                aria-labelledby="grid-zoom-label"
-                min={MIN_ZOOM}
-                max={MAX_ZOOM}
-                step={1}
-                value={[zoomLevel]}
-                onValueChange={onZoomChange}
-                className="w-full min-w-0 touch-manipulation"
-              />
-            </div>
-            <ZoomOut className="h-4 w-4 shrink-0 text-muted-foreground hidden sm:block" aria-hidden />
-          </div>
+          <GridZoomSlider value={zoomLevel} onValueChange={onZoomChange} />
         )}
       </div>
     </header>
   );
-}
-
-/**
- * Grid zoom: index 0 = most zoomed in, 8 = most zoomed out.
- * Maps to masonry column counts: mobile (≤768px) 1–4 cols, desktop 2–10 cols.
- */
-function getMasonryBreakpointCols(zoomLevel: number): { default: number; 768: number } {
-  const desktop = Math.min(10, 2 + zoomLevel);
-  const mobile = [1, 1, 2, 2, 3, 3, 3, 4, 4][Math.min(8, Math.max(0, zoomLevel))] ?? 3;
-  return { default: desktop, 768: mobile };
-}
-
-const DEFAULT_ZOOM_LEVEL = 4;
-const STORAGE_KEY = "shared-gallery-zoom";
-const MIN_ZOOM = 0;
-const MAX_ZOOM = 8;
-
-function clampZoom(level: number): number {
-  return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, Math.round(level)));
 }
 
 export default function SharedProjectGalleryPage() {
@@ -130,33 +97,10 @@ export default function SharedProjectGalleryPage() {
   const slug = typeof params?.slug === "string" ? params.slug : null;
   const { data, isLoading, error, refetch } = useSharedProjectGallery(slug);
   const [selectedThumbnail, setSelectedThumbnail] = useState<PublicThumbnailData | null>(null);
-  const [zoomLevel, setZoomLevel] = useState(DEFAULT_ZOOM_LEVEL);
+  const [zoomLevel, , handleZoomChange] = useGridZoom("shared-gallery-zoom");
   /** One click per 1 second per thumbnail (different thumbnails can be recorded without waiting). */
   const lastRecordedByThumbIdRef = useRef<Record<string, number>>({});
   const CLICK_COOLDOWN_MS = 1000;
-
-  /** Restore zoom from localStorage after mount to avoid hydration mismatch. */
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw !== null) {
-        const parsed = parseInt(raw, 10);
-        if (!Number.isNaN(parsed)) setZoomLevel(clampZoom(parsed));
-      }
-    } catch {
-      // ignore
-    }
-  }, []);
-
-  const handleZoomChange = useCallback((value: number[]) => {
-    const level = clampZoom(value[0] ?? DEFAULT_ZOOM_LEVEL);
-    setZoomLevel(level);
-    try {
-      localStorage.setItem(STORAGE_KEY, String(level));
-    } catch {
-      // ignore
-    }
-  }, []);
 
   /** Open full-size modal and record click (approval score) at most once per 1s per thumbnail. */
   const handleThumbnailClick = useCallback(
@@ -240,7 +184,7 @@ export default function SharedProjectGalleryPage() {
               <Skeleton className="h-4 w-20 rounded-md" />
             </div>
             <MasonryGrid
-              breakpointCols={getMasonryBreakpointCols(DEFAULT_ZOOM_LEVEL)}
+              breakpointCols={getMasonryBreakpointCols(DEFAULT_ZOOM_LEVEL) as MasonryGridBreakpoints}
               gap={12}
               className="w-full"
             >
@@ -281,7 +225,7 @@ export default function SharedProjectGalleryPage() {
           ) : (
             <>
               <MasonryGrid
-                breakpointCols={getMasonryBreakpointCols(zoomLevel)}
+                breakpointCols={getMasonryBreakpointCols(zoomLevel) as MasonryGridBreakpoints}
                 gap={12}
                 className="w-full"
               >

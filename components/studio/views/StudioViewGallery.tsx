@@ -9,6 +9,7 @@
 import React, { useState, useCallback, memo, useMemo } from "react";
 import { ViewControls, ViewHeader, type FilterOption, type SortOption } from "@/components/studio/view-controls";
 import { ThumbnailGrid } from "@/components/studio/thumbnail-grid";
+import { GridZoomSlider } from "@/components/studio/grid-zoom-slider";
 import { LoadMoreButton } from "@/components/studio/load-more-button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,6 +17,8 @@ import { Grid3x3, RefreshCw } from "lucide-react";
 import { useThumbnails } from "@/lib/hooks/useThumbnails";
 import { useProjects } from "@/lib/hooks/useProjects";
 import { useAuth } from "@/lib/hooks/useAuth";
+import { useGridZoom } from "@/lib/hooks/useGridZoom";
+import { getMasonryBreakpointCols } from "@/lib/utils/grid-zoom";
 import { getClickRankBorderMap } from "@/lib/utils/click-rank-borders";
 import type { ThumbnailSortOption, SortDirection } from "@/lib/hooks/useThumbnails";
 
@@ -49,6 +52,7 @@ function parseGallerySortValue(value: string): { orderBy: ThumbnailSortOption; o
 function StudioViewGallery() {
   const { user, isAuthenticated } = useAuth();
   const { projects } = useProjects();
+  const [zoomLevel, , handleZoomChange] = useGridZoom("studio-gallery-zoom");
 
   const [sortValue, setSortValue] = useState("newest");
   const [favoritesOnly, setFavoritesOnly] = useState(false);
@@ -181,6 +185,7 @@ function StudioViewGallery() {
             minSlots={12}
             showEmptySlots={false}
             clickRankBorderById={clickRankBorderById}
+            breakpointCols={breakpointCols}
           />
           {hasNextPage && (
             <LoadMoreButton

@@ -134,15 +134,15 @@ export function StudioSettingsSidebarContent() {
   return (
     <TooltipProvider delayDuration={0}>
       <div className="flex h-full flex-col min-h-0 p-2">
-        <div className="sticky top-0 z-10 shrink-0 mb-3 bg-background border-b border-sidebar-border -mx-2 px-2 pb-3">
+        <div className="sticky top-0 z-10 shrink-0 mb-2 border-sidebar-border -mx-2 px-2">
           <ProjectSelector
             variant="form"
             label="Project"
             showHelperText={true}
-            className="mb-0"
+            className="mb-2"
           />
         </div>
-        <div className="flex-1 min-h-0 flex flex-col">
+        <div className="flex-1 min-h-0 flex">
           <StudioGenerator />
         </div>
       </div>

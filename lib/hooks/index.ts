@@ -41,3 +41,4 @@ export {
 } from './useThumbnailGeneration'
 export { useModalManager, type UseModalManagerReturn } from './useModalManager'
 export { useGeneratorMode, type UseGeneratorModeReturn } from './useGeneratorMode'
+export { useGridZoom } from './useGridZoom'

@@ -342,6 +342,8 @@ export interface StudioData {
   projectsLoading: boolean;
   activeProjectId: string | null;
   isSavingProjectSettings: boolean;
+  /** True when current form state differs from the active project's default_settings (used to show Save/Pull buttons). */
+  settingsDifferFromProject: boolean;
 }
 
 /**
@@ -353,6 +355,98 @@ export interface StudioContextValue {
   actions: StudioActions;
   meta: StudioMeta;
   data: StudioData;
+}
+
+/** Build ProjectDefaultSettings from studio state (single source of truth for save and comparison). */
+function stateToDefaultSettings(state: StudioState): ProjectDefaultSettings {
+  return {
+    thumbnailText: state.thumbnailText,
+    customInstructions: state.customInstructions,
+    includeStyles: state.includeStyles,
+    selectedStyle: state.selectedStyle,
+    includePalettes: state.includePalettes,
+    selectedPalette: state.selectedPalette,
+    selectedAspectRatio: state.selectedAspectRatio,
+    selectedResolution: state.selectedResolution,
+    variations: state.variations,
+    includeStyleReferences: state.includeStyleReferences,
+    styleReferences: state.styleReferences,
+    includeFaces: state.includeFaces,
+    selectedFaces: state.selectedFaces,
+    faceExpression: state.faceExpression,
+    facePose: state.facePose,
+  };
+}
+
+/** Normalize optional/missing fields to full shape so comparison is consistent. */
+function normalizeDefaultSettings(s: ProjectDefaultSettings | null): ProjectDefaultSettings {
+  if (!s || typeof s !== "object") {
+    return {
+      thumbnailText: "",
+      customInstructions: "",
+      includeStyles: false,
+      selectedStyle: null,
+      includePalettes: false,
+      selectedPalette: null,
+      selectedAspectRatio: "16:9",
+      selectedResolution: "1K",
+      variations: 1,
+      includeStyleReferences: false,
+      styleReferences: [],
+      includeFaces: false,
+      selectedFaces: [],
+      faceExpression: "None",
+      facePose: "None",
+    };
+  }
+  return {
+    thumbnailText: s.thumbnailText ?? "",
+    customInstructions: s.customInstructions ?? "",
+    includeStyles: s.includeStyles ?? false,
+    selectedStyle: s.selectedStyle ?? null,
+    includePalettes: s.includePalettes ?? false,
+    selectedPalette: s.selectedPalette ?? null,
+    selectedAspectRatio: s.selectedAspectRatio ?? "16:9",
+    selectedResolution: s.selectedResolution ?? "1K",
+    variations: s.variations ?? 1,
+    includeStyleReferences: s.includeStyleReferences ?? false,
+    styleReferences: Array.isArray(s.styleReferences) ? s.styleReferences : [],
+    includeFaces: s.includeFaces ?? false,
+    selectedFaces: Array.isArray(s.selectedFaces) ? s.selectedFaces : [],
+    faceExpression: s.faceExpression ?? "None",
+    facePose: s.facePose ?? "None",
+  };
+}
+
+function arrayEqual(a: string[], b: string[]): boolean {
+  if (a.length !== b.length) return false;
+  return a.every((v, i) => v === b[i]);
+}
+
+/** Deep equality for ProjectDefaultSettings (arrays compared by value). */
+function defaultSettingsEqual(
+  a: ProjectDefaultSettings | null,
+  b: ProjectDefaultSettings | null
+): boolean {
+  const na = normalizeDefaultSettings(a);
+  const nb = normalizeDefaultSettings(b);
+  return (
+    na.thumbnailText === nb.thumbnailText &&
+    na.customInstructions === nb.customInstructions &&
+    na.includeStyles === nb.includeStyles &&
+    na.selectedStyle === nb.selectedStyle &&
+    na.includePalettes === nb.includePalettes &&
+    na.selectedPalette === nb.selectedPalette &&
+    na.selectedAspectRatio === nb.selectedAspectRatio &&
+    na.selectedResolution === nb.selectedResolution &&
+    na.variations === nb.variations &&
+    na.includeStyleReferences === nb.includeStyleReferences &&
+    arrayEqual(na.styleReferences ?? [], nb.styleReferences ?? []) &&
+    na.includeFaces === nb.includeFaces &&
+    arrayEqual(na.selectedFaces ?? [], nb.selectedFaces ?? []) &&
+    na.faceExpression === nb.faceExpression &&
+    na.facePose === nb.facePose
+  );
 }
 
 const StudioContext = createContext<StudioContextValue | null>(null);
@@ -1260,23 +1354,7 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
 
   const saveProjectSettings = useCallback(async () => {
     if (!state.activeProjectId) return;
-    const payload: ProjectDefaultSettings = {
-      thumbnailText: state.thumbnailText,
-      customInstructions: state.customInstructions,
-      includeStyles: state.includeStyles,
-      selectedStyle: state.selectedStyle,
-      includePalettes: state.includePalettes,
-      selectedPalette: state.selectedPalette,
-      selectedAspectRatio: state.selectedAspectRatio,
-      selectedResolution: state.selectedResolution,
-      variations: state.variations,
-      includeStyleReferences: state.includeStyleReferences,
-      styleReferences: state.styleReferences,
-      includeFaces: state.includeFaces,
-      selectedFaces: state.selectedFaces,
-      faceExpression: state.faceExpression,
-      facePose: state.facePose,
-    };
+    const payload = stateToDefaultSettings(state);
     await updateProjectFn(state.activeProjectId, { default_settings: payload });
     await refetchProjects();
   }, [state.activeProjectId, state.thumbnailText, state.customInstructions, state.includeStyles, state.selectedStyle, state.includePalettes, state.selectedPalette, state.selectedAspectRatio, state.selectedResolution, state.variations, state.includeStyleReferences, state.styleReferences, state.includeFaces, state.selectedFaces, state.faceExpression, state.facePose, updateProjectFn, refetchProjects]);
@@ -1626,6 +1704,33 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
     customInstructionsRef,
   };
 
+  const settingsDifferFromProject = React.useMemo(() => {
+    if (!state.activeProjectId || !projects.length) return false;
+    const activeProject = projects.find((p) => p.id === state.activeProjectId);
+    if (!activeProject) return false;
+    const current = stateToDefaultSettings(state);
+    const saved = activeProject.default_settings ?? null;
+    return !defaultSettingsEqual(current, saved);
+  }, [
+    state.activeProjectId,
+    state.thumbnailText,
+    state.customInstructions,
+    state.includeStyles,
+    state.selectedStyle,
+    state.includePalettes,
+    state.selectedPalette,
+    state.selectedAspectRatio,
+    state.selectedResolution,
+    state.variations,
+    state.includeStyleReferences,
+    state.styleReferences,
+    state.includeFaces,
+    state.selectedFaces,
+    state.faceExpression,
+    state.facePose,
+    projects,
+  ]);
+
   const data = React.useMemo<StudioData>(
     () => ({
       currentUserId: user?.id,
@@ -1642,6 +1747,7 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
       projectsLoading,
       activeProjectId: state.activeProjectId,
       isSavingProjectSettings,
+      settingsDifferFromProject,
     }),
     [
       user?.id,
@@ -1659,6 +1765,7 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
       projects,
       projectsLoading,
       isSavingProjectSettings,
+      settingsDifferFromProject,
     ]
   );
 

@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 import { gridItemAboveFoldClass, GRID_ABOVE_FOLD_DEFAULT } from "@/lib/utils/grid-visibility";
 import { useEmptySlots } from "@/lib/hooks/useEmptySlots";
 import { getCombinedThumbnailsList } from "@/lib/utils/studio-thumbnails";
-import { MasonryGrid } from "./masonry-grid";
+import { MasonryGrid, type MasonryGridBreakpoints } from "./masonry-grid";
 import { ThumbnailCard, ThumbnailCardEmpty, ThumbnailCardSkeleton } from "./thumbnail-card";
 import type { Thumbnail } from "@/lib/types/database";
 
@@ -52,6 +52,8 @@ export interface ThumbnailGridProps {
   isLoading?: boolean;
   /** Optional map: thumbnail id → border class/style for click-rank display */
   clickRankBorderById?: Map<string, ClickRankBorderStyle>;
+  /** Optional breakpoints (e.g. from grid zoom); when set, overrides default THUMBNAIL_MASONRY_BREAKPOINTS */
+  breakpointCols?: MasonryGridBreakpoints;
 }
 
 /**
@@ -104,6 +106,7 @@ export const ThumbnailGrid = memo(function ThumbnailGrid({
   gridClassName,
   isLoading = false,
   clickRankBorderById,
+  breakpointCols,
 }: ThumbnailGridProps) {
   const combinedItems = useMemo(
     () => getCombinedThumbnailsList(thumbnails, generatingItems),
@@ -112,6 +115,8 @@ export const ThumbnailGrid = memo(function ThumbnailGrid({
 
   const emptySlotCount = useEmptySlots(combinedItems.length, minSlots, showEmptySlots);
 
+  const cols = breakpointCols ?? THUMBNAIL_MASONRY_BREAKPOINTS;
+
   // Show loading skeleton
   if (isLoading) {
     return <ThumbnailGridSkeleton count={minSlots} />;
@@ -119,7 +124,7 @@ export const ThumbnailGrid = memo(function ThumbnailGrid({
 
   return (
     <MasonryGrid
-      breakpointCols={THUMBNAIL_MASONRY_BREAKPOINTS}
+      breakpointCols={cols}
       gap={12}
       className={cn("w-full p-1", gridClassName)}
     >

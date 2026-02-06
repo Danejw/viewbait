@@ -198,7 +198,7 @@ function ProjectSelectorInner({
         </div>
         {showHelperText && (
           <p className="mt-1 text-xs text-muted-foreground">
-            New thumbnails will be saved to this project, or not assigned if None.
+            New thumbnails will be saved to this project
           </p>
         )}
       </div>
