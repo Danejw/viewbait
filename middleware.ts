@@ -52,7 +52,21 @@ function isOnboardingRoute(pathname: string): boolean {
   return pathname === "/onboarding" || pathname.startsWith("/onboarding/");
 }
 
+/**
+ * Public routes that do not require auth. Skip Supabase client and getSession()
+ * to avoid Auth API usage and rate limits when these pages are hit often.
+ */
+function isPublicRoute(pathname: string): boolean {
+  return pathname === "/" || pathname.startsWith("/p/") || pathname.startsWith("/legal/");
+}
+
 export async function middleware(request: NextRequest) {
+  const pathname = request.nextUrl.pathname;
+
+  if (isPublicRoute(pathname)) {
+    return NextResponse.next({ request });
+  }
+
   let supabaseResponse = NextResponse.next({
     request,
   });
@@ -80,18 +94,23 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  // IMPORTANT: Avoid writing any logic between createServerClient and
-  // supabase.auth.getUser(). A simple mistake could make it very hard to debug
-  // issues with users being randomly logged out.
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const pathname = request.nextUrl.pathname;
+  // Use getSession() for redirect logic only to avoid Auth API round-trips on every request
+  // (reduces 429 rate limit errors). Session user is not server-verified; we use it only
+  // to decide redirects. Where we need a verified user (e.g. profile lookup), we call
+  // getUser() in that branch. API routes and RLS enforce real auth.
+  let hasSession = false;
+  try {
+    const { data } = await supabase.auth.getSession();
+    hasSession = !!data.session?.user;
+  } catch (err) {
+    const authErr = err as { status?: number; code?: string };
+    if (process.env.NODE_ENV === "development" && authErr?.status === 429) {
+      console.warn("[middleware] Supabase Auth rate limit (429), treating as unauthenticated");
+    }
+  }
 
   // Protected route check - redirect to auth if not authenticated
-  if (isProtectedRoute(pathname) && !user) {
+  if (isProtectedRoute(pathname) && !hasSession) {
     const redirectUrl = new URL("/auth", request.url);
     const destination = pathname + (request.nextUrl.search || "");
     redirectUrl.searchParams.set("redirect", isAllowedRedirect(destination) ? destination : "/studio");
@@ -102,7 +121,7 @@ export async function middleware(request: NextRequest) {
   // Skip this for reset-password and callback routes
   if (
     isAuthRoute(pathname) &&
-    user &&
+    hasSession &&
     !pathname.includes("/reset-password") &&
     !pathname.includes("/callback")
   ) {
@@ -110,12 +129,26 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL(redirectTo, request.url));
   }
 
-  // Studio route: redirect to onboarding if user has not completed onboarding
-  if (user && isStudioRoute(pathname) && !isOnboardingRoute(pathname)) {
+  // Studio route: redirect to onboarding if user has not completed onboarding.
+  // Use getUser() here so we use a server-verified user for the profile lookup
+  // (avoids Supabase warning about getSession() user not being authentic).
+  if (hasSession && isStudioRoute(pathname) && !isOnboardingRoute(pathname)) {
+    let userId: string | null = null;
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      userId = userData.user?.id ?? null;
+    } catch {
+      userId = null;
+    }
+    if (!userId) {
+      const redirectUrl = new URL("/auth", request.url);
+      redirectUrl.searchParams.set("redirect", pathname + (request.nextUrl.search || ""));
+      return NextResponse.redirect(redirectUrl);
+    }
     const { data: profile } = await supabase
       .from("profiles")
       .select("onboarding_completed")
-      .eq("id", user.id)
+      .eq("id", userId)
       .single();
 
     const needsOnboarding =
