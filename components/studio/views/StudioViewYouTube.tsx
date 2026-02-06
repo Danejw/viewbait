@@ -8,14 +8,16 @@
  */
 
 import React, { useState, useCallback, useMemo, useEffect } from "react";
-import { Youtube, RefreshCw } from "lucide-react";
+import { Youtube, RefreshCw, Link2, Copy, X } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ViewControls, ViewHeader, type FilterOption, type SortOption } from "@/components/studio/view-controls";
 import { useYouTubeIntegration } from "@/lib/hooks/useYouTubeIntegration";
+import { useSubscription } from "@/lib/hooks/useSubscription";
 import { useStyles } from "@/lib/hooks/useStyles";
 import { useAuth } from "@/lib/hooks/useAuth";
+import { YOUTUBE_THUMBNAIL_SCOPE } from "@/lib/constants/youtube";
 import { useYouTubeStyleExtract } from "@/lib/hooks/useYouTubeStyleExtract";
 import type { DbStyle, StyleInsert, StyleUpdate } from "@/lib/types/database";
 import { StyleEditor } from "@/components/studio/style-editor";
@@ -26,6 +28,7 @@ import { RecentThumbnailsStrip } from "@/components/studio/recent-thumbnails-str
 import { CharacterSnapshotsStrip } from "@/components/studio/character-snapshots-strip";
 import { PlaceSnapshotsStrip } from "@/components/studio/place-snapshots-strip";
 import { ViewBaitLogo } from "@/components/ui/viewbait-logo";
+import { copyToClipboardWithToast } from "@/lib/utils/clipboard";
 import { toast } from "sonner";
 
 export default function StudioViewYouTube() {
@@ -60,8 +63,14 @@ export default function StudioViewYouTube() {
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingStyle, setEditingStyle] = useState<DbStyle | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [thumbnailScopeBannerDismissed, setThumbnailScopeBannerDismissed] = useState(false);
 
+  const { tier } = useSubscription();
   const isConnected = status?.isConnected === true;
+  const canSetThumbnail =
+    tier === "pro" &&
+    (status?.isConnected === true) &&
+    (status?.scopesGranted?.includes(YOUTUBE_THUMBNAIL_SCOPE) ?? false);
 
   const YOUTUBE_FILTER_OPTIONS: FilterOption[] = useMemo(
     () => [
@@ -240,6 +249,16 @@ export default function StudioViewYouTube() {
                       </p>
                     )}
                   </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="shrink-0 gap-1.5"
+                    onClick={() => reconnect()}
+                    aria-label="Reconnect YouTube to refresh permissions"
+                  >
+                    <Link2 className="h-4 w-4" />
+                    Reconnect
+                  </Button>
                 </div>
               )}
 
@@ -284,6 +303,58 @@ export default function StudioViewYouTube() {
                 </div>
               )}
 
+              {isConnected && !canSetThumbnail && !thumbnailScopeBannerDismissed && (
+                <div className="mb-4 flex flex-col gap-2 rounded-md border border-amber-500/50 bg-amber-500/10 px-3 py-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="text-sm text-amber-800 dark:text-amber-200">
+                      Thumbnail upload isn&apos;t available. Reconnect your YouTube account to enable setting thumbnails.
+                    </p>
+                    <div className="flex shrink-0 items-center gap-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-1.5"
+                        onClick={() => reconnect()}
+                      >
+                        <Link2 className="h-4 w-4" />
+                        Reconnect
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        aria-label="Dismiss"
+                        onClick={() => setThumbnailScopeBannerDismissed(true)}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                  {typeof window !== "undefined" && (
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                      <span>Add this URL to Google Cloud Console → Credentials → your OAuth client → Authorized redirect URIs:</span>
+                      <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
+                        {window.location.origin}/api/youtube/connect/callback
+                      </code>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 gap-1"
+                        onClick={() =>
+                          copyToClipboardWithToast(
+                            `${window.location.origin}/api/youtube/connect/callback`,
+                            "Redirect URI copied"
+                          )
+                        }
+                      >
+                        <Copy className="h-3.5 w-3.5" />
+                        Copy
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {showSkeleton && (
                 <div className="grid w-full gap-3 p-1 grid-cols-[repeat(auto-fill,minmax(200px,1fr))]">
                   {Array.from({ length: 12 }).map((_, i) => (
@@ -321,6 +392,7 @@ export default function StudioViewYouTube() {
                           .slice(0, 10)
                           .map((v) => v.thumbnailUrl)}
                         onThumbnailSetSuccess={fetchVideos}
+                        canSetThumbnail={canSetThumbnail}
                       />
                     ))}
                   </div>

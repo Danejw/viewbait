@@ -22,7 +22,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useDraggable } from "@dnd-kit/core";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
-import { Heart, Download, Copy, Pencil, Trash2, FolderPlus, AlertCircle, ScanLine, Thermometer, Crown, Medal } from "lucide-react";
+import { Heart, Download, Copy, Pencil, Trash2, FolderPlus, AlertCircle, ScanLine, Thermometer, Crown, Medal, Youtube } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -341,6 +341,7 @@ export const ThumbnailCard = memo(function ThumbnailCard({
   const {
     currentUserId,
     projects,
+    canSetYouTubeThumbnail,
     onFavoriteToggle,
     onDownload,
     onCopy,
@@ -348,6 +349,7 @@ export const ThumbnailCard = memo(function ThumbnailCard({
     onDelete,
     onAddToProject,
     onAnalyzeThumbnailForInstructions,
+    onSetOnYouTube,
     onView,
     onDismissFailed,
   } = useThumbnailActions();
@@ -590,6 +592,16 @@ export const ThumbnailCard = memo(function ThumbnailCard({
         disabled={isAnalyzing}
         iconClassName={isAnalyzing ? "animate-spin" : undefined}
       />
+      {canSetYouTubeThumbnail && isOwner && (
+        <ActionButton
+          icon={Youtube}
+          label="Set on YouTube"
+          onClick={(e) => {
+            e.stopPropagation();
+            onSetOnYouTube(thumbnail);
+          }}
+        />
+      )}
       {canUseHeatmap && (
         <ActionButton
           icon={heatmapMutation.isPending ? ViewBaitLogo : Thermometer}

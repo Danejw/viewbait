@@ -77,6 +77,8 @@ export interface YouTubeVideoCardProps {
   otherChannelThumbnailUrls?: string[];
   /** Called after successfully setting a thumbnail on YouTube (e.g. refetch videos). */
   onThumbnailSetSuccess?: () => void;
+  /** When false, hide "Use thumbnail for this video" (e.g. not Pro, not connected, or missing scope). Default true for backward compatibility. */
+  canSetThumbnail?: boolean;
 }
 
 const YOUTUBE_WATCH_URL = "https://www.youtube.com/watch?v=";
@@ -116,6 +118,7 @@ export const YouTubeVideoCard = memo(function YouTubeVideoCard({
   channel = null,
   otherChannelThumbnailUrls,
   onThumbnailSetSuccess,
+  canSetThumbnail = true,
 }: YouTubeVideoCardProps) {
   const { videoId, title, thumbnailUrl, viewCount, likeCount } = video;
   const [setThumbnailPickerVideo, setSetThumbnailPickerVideo] = useState<{
@@ -410,11 +413,13 @@ export const YouTubeVideoCard = memo(function YouTubeVideoCard({
       }}
     >
       <ActionButton icon={Copy} label="Use title" onClick={handleUseTitle} />
-      <ActionButton
-        icon={ImagePlus}
-        label="Use thumbnail for this video"
-        onClick={() => setSetThumbnailPickerVideo({ videoId, title })}
-      />
+      {canSetThumbnail && (
+        <ActionButton
+          icon={ImagePlus}
+          label="Use thumbnail for this video"
+          onClick={() => setSetThumbnailPickerVideo({ videoId, title })}
+        />
+      )}
       <ActionButton icon={ExternalLink} label="Open on YouTube" onClick={handleOpenVideo} />
       <ActionButton
         icon={isReRolling ? ViewBaitLogo : RefreshCw}
@@ -633,9 +638,30 @@ export const YouTubeVideoCard = memo(function YouTubeVideoCard({
                   >
                     {title}
                   </p>
-                  {!selectionMode && (
-                    <ExternalLink className="h-4 w-4 shrink-0 text-white drop-shadow-sm" />
-                  )}
+                  <div className="flex items-center gap-1 shrink-0">
+                    {canSetThumbnail && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-white hover:bg-white/20 drop-shadow-sm"
+                            aria-label="Use thumbnail for this video"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSetThumbnailPickerVideo({ videoId, title });
+                            }}
+                          >
+                            <ImagePlus className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" className="text-xs">
+                          Use thumbnail for this video
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
+                    <ExternalLink className="h-4 w-4 text-white drop-shadow-sm" />
+                  </div>
                 </div>
                 {hasStats && (
                   <div

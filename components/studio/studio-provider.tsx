@@ -7,7 +7,9 @@ import { useThumbnails, useDeleteThumbnail, useToggleFavorite } from "@/lib/hook
 import { useFaces } from "@/lib/hooks/useFaces";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useSubscription } from "@/lib/hooks/useSubscription";
+import { useYouTubeIntegration } from "@/lib/hooks/useYouTubeIntegration";
 import { useProjects } from "@/lib/hooks/useProjects";
+import { YOUTUBE_THUMBNAIL_SCOPE } from "@/lib/constants/youtube";
 import type {
   ProjectDefaultSettings,
   Thumbnail,
@@ -29,6 +31,7 @@ import { ThumbnailEditModal, type ThumbnailEditData } from "@/components/studio/
 import { YouTubeVideoAnalyticsModal } from "@/components/studio/youtube-video-analytics-modal";
 import { ImageModal, PaletteViewModal } from "@/components/ui/modal";
 import { SnapshotViewModal } from "@/components/studio/snapshot-view-modal";
+import { SetOnYouTubeModal } from "@/components/studio/set-on-youtube-modal";
 import {
   analyzeYouTubeVideo,
   type YouTubeVideoAnalytics,
@@ -176,6 +179,8 @@ export interface StudioState {
   /** Results panel sort (Create tab) */
   resultsOrderBy?: "created_at" | "title" | "share_click_count";
   resultsOrderDirection?: "asc" | "desc";
+  /** When set, open Set on YouTube modal for this thumbnail (gallery → pick video → set thumbnail). */
+  setOnYouTubeThumbnail: Thumbnail | null;
 }
 
 /**
@@ -235,6 +240,8 @@ export interface StudioActions {
   onAddToProject: (id: string, projectId: string | null, previousProjectId?: string | null) => void;
   /** Analyze thumbnail style and append description to custom instructions. Returns success/cached for card border feedback. */
   onAnalyzeThumbnailForInstructions: (params: { imageUrl?: string; thumbnailId?: string }) => Promise<{ success: boolean; cached?: boolean }>;
+  /** Open Set on YouTube modal to apply this thumbnail to a video (gallery entry point). */
+  onSetOnYouTube: (thumbnail: Thumbnail) => void;
   // Modal actions
   closeDeleteModal: () => void;
   confirmDelete: () => Promise<void>;
@@ -344,6 +351,8 @@ export interface StudioData {
   isSavingProjectSettings: boolean;
   /** True when current form state differs from the active project's default_settings (used to show Save/Pull buttons). */
   settingsDifferFromProject: boolean;
+  /** True when user can set a thumbnail on YouTube (Pro + connected + thumbnail scope). */
+  canSetYouTubeThumbnail: boolean;
 }
 
 /**
@@ -486,6 +495,7 @@ export function useThumbnailActions() {
   return {
     currentUserId: data.currentUserId,
     projects: data.projects,
+    canSetYouTubeThumbnail: data.canSetYouTubeThumbnail,
     onFavoriteToggle: actions.onFavoriteToggle,
     onDownload: actions.onDownloadThumbnail,
     onShare: actions.onShareThumbnail,
@@ -494,6 +504,7 @@ export function useThumbnailActions() {
     onDelete: actions.onDeleteThumbnail,
     onAddToProject: actions.onAddToProject,
     onAnalyzeThumbnailForInstructions: actions.onAnalyzeThumbnailForInstructions,
+    onSetOnYouTube: actions.onSetOnYouTube,
     onView: actions.onViewThumbnail,
     onDismissFailed: actions.removeGeneratingItem,
   };
@@ -537,6 +548,11 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
   // Auth hook for user context
   const { user, isAuthenticated } = useAuth();
   const { canCreateCustomAssets, hasWatermark, tier } = useSubscription();
+  const { status } = useYouTubeIntegration();
+  const canSetYouTubeThumbnail =
+    tier === "pro" &&
+    (status?.isConnected === true) &&
+    (status?.scopesGranted?.includes(YOUTUBE_THUMBNAIL_SCOPE) ?? false);
 
   // Thumbnail generation hook (cooldown duration based on subscription tier)
   const cooldownMs = getGenerateCooldownMs(tier);
@@ -639,6 +655,7 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
       focusedVideoTitle: null,
       resultsOrderBy: undefined,
       resultsOrderDirection: undefined,
+      setOnYouTubeThumbnail: null,
     };
   });
 
@@ -1134,6 +1151,14 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
     }, 300);
   }, []);
 
+  const onSetOnYouTube = useCallback((thumbnail: Thumbnail) => {
+    setState((s) => ({ ...s, setOnYouTubeThumbnail: thumbnail }));
+  }, []);
+
+  const closeSetOnYouTubeModal = useCallback(() => {
+    setState((s) => ({ ...s, setOnYouTubeThumbnail: null }));
+  }, []);
+
   // Style modal handlers
   const onViewStyle = useCallback((style: PublicStyle | DbStyle) => {
     setState((s) => ({
@@ -1566,6 +1591,7 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
     onRegenerateThumbnail,
     onViewThumbnail,
     closeImageModal,
+    onSetOnYouTube,
     onViewStyle,
     closeStyleImageModal,
     onViewPalette,
@@ -1748,6 +1774,7 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
       activeProjectId: state.activeProjectId,
       isSavingProjectSettings,
       settingsDifferFromProject,
+      canSetYouTubeThumbnail,
     }),
     [
       user?.id,
@@ -1766,6 +1793,7 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
       projectsLoading,
       isSavingProjectSettings,
       settingsDifferFromProject,
+      canSetYouTubeThumbnail,
     ]
   );
 
@@ -1880,6 +1908,21 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
         onSetCharacterSnapshots={actions.setCharacterSnapshots}
         onSetPlaceSnapshots={actions.setPlaceSnapshots}
       />
+
+      {/* Set on YouTube modal (gallery → pick video → set thumbnail) */}
+      {state.setOnYouTubeThumbnail && (
+        <SetOnYouTubeModal
+          thumbnailId={state.setOnYouTubeThumbnail.id}
+          thumbnailName={state.setOnYouTubeThumbnail.name}
+          open={true}
+          onOpenChange={(open) => {
+            if (!open) closeSetOnYouTubeModal();
+          }}
+          onSuccess={() => {
+            closeSetOnYouTubeModal();
+          }}
+        />
+      )}
     </StudioContext.Provider>
     </StudioStateContext.Provider>
   );

@@ -18,6 +18,7 @@ import {
   ensureValidToken,
   getDateRangeForLastNDays,
   setVideoThumbnailFromUrl,
+  hasThumbnailScope,
 } from '@/lib/services/youtube'
 import { parseYouTubeVideoId } from '@/lib/utils/youtube'
 import { getThumbnailImageUrlForUser } from '@/lib/server/data/thumbnails'
@@ -305,11 +306,19 @@ export const AGENT_TOOL_REGISTRY: Record<string, ToolEntry> = {
     handler: async (userId, params) => {
       const { video_id, thumbnail_id } = params as z.infer<typeof applyThumbnailToVideoSchema>
       const videoId = parseYouTubeVideoId(video_id) ?? video_id
+      const scopeMessage =
+        'Thumbnail upload requires extra permission. Reconnect your YouTube account in the YouTube tab to enable it.'
+      if (!(await hasThumbnailScope(userId))) {
+        return { success: false, code: 'SCOPE_REQUIRED', message: scopeMessage }
+      }
       const { imageUrl, error: urlError } = await getThumbnailImageUrlForUser(userId, thumbnail_id)
       if (urlError || !imageUrl) throw new Error(urlError ?? 'Thumbnail not found or access denied')
       const result = await setVideoThumbnailFromUrl(userId, videoId, imageUrl)
-      if (!result.success) throw new Error(result.error ?? 'Failed to set thumbnail')
-      return { success: true, videoId, message: 'Thumbnail applied successfully' }
+      if (result.success) return { success: true, videoId, message: 'Thumbnail applied successfully' }
+      if (result.code === 'SCOPE_REQUIRED') {
+        return { success: false, code: 'SCOPE_REQUIRED', message: result.error ?? scopeMessage }
+      }
+      throw new Error(result.error ?? 'Failed to set thumbnail')
     },
   },
 
