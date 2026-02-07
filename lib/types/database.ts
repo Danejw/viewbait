@@ -129,6 +129,10 @@ export interface ThumbnailLivePeriod {
   average_view_duration_seconds: number | null
   impressions: number | null
   impressions_ctr_percent: number | null
+  /** Thumbnail-specific: times thumbnail was shown (videoThumbnailImpressions). */
+  thumbnail_impressions: number | null
+  /** Thumbnail-specific: % of thumbnail impressions that led to a click (0-100). */
+  thumbnail_ctr_percent: number | null
   metrics_fetched_at: string | null
   created_at: string
   updated_at: string

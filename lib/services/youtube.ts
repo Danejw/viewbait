@@ -1153,6 +1153,81 @@ export async function fetchVideoImpressions(
   }
 }
 
+/**
+ * Thumbnail-specific impressions and CTR (videoThumbnailImpressions, videoThumbnailImpressionsClickRate).
+ * Returns nulls if not available (e.g. API does not support or video too new).
+ */
+export interface VideoThumbnailImpressions {
+  thumbnailImpressions: number | null
+  thumbnailClickThroughRate: number | null // percentage (0-100)
+}
+
+/**
+ * Fetch per-video thumbnail impressions and thumbnail CTR.
+ * Uses YouTube Analytics metrics videoThumbnailImpressions, videoThumbnailImpressionsClickRate.
+ * Returns nulls on error or when metrics are not available.
+ */
+export async function fetchVideoThumbnailImpressions(
+  videoId: string,
+  accessToken: string,
+  startDate: string,
+  endDate: string
+): Promise<VideoThumbnailImpressions> {
+  try {
+    const url = new URL(`${YOUTUBE_ANALYTICS_API_BASE}/reports`)
+    url.searchParams.set('ids', `video==${videoId}`)
+    url.searchParams.set('startDate', startDate)
+    url.searchParams.set('endDate', endDate)
+    url.searchParams.set('metrics', 'videoThumbnailImpressions,videoThumbnailImpressionsClickRate')
+
+    const response = await fetch(url.toString(), {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json()
+      logWarn('Video thumbnail impressions not available', {
+        service: 'youtube',
+        operation: 'fetchVideoThumbnailImpressions',
+        videoId,
+        status: response.status,
+        error: errorData.error?.message,
+      })
+      return { thumbnailImpressions: null, thumbnailClickThroughRate: null }
+    }
+
+    const data = await response.json()
+
+    if (!data.rows || data.rows.length === 0) {
+      return { thumbnailImpressions: null, thumbnailClickThroughRate: null }
+    }
+
+    const row = data.rows[0] || []
+    const headers = data.columnHeaders?.map((h: { name: string }) => h.name) || []
+
+    const getValue = (name: string): number | null => {
+      const index = headers.indexOf(name)
+      if (index < 0) return null
+      const value = row[index]
+      return value !== null && value !== undefined ? value : null
+    }
+
+    return {
+      thumbnailImpressions: getValue('videoThumbnailImpressions'),
+      thumbnailClickThroughRate: getValue('videoThumbnailImpressionsClickRate'),
+    }
+  } catch (error) {
+    logError(error, {
+      service: 'youtube',
+      operation: 'fetchVideoThumbnailImpressions',
+      videoId,
+    })
+    return { thumbnailImpressions: null, thumbnailClickThroughRate: null }
+  }
+}
+
 // ============================================================================
 // Search API (uses API key; public data)
 // ============================================================================

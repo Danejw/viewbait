@@ -12,6 +12,7 @@ import {
   ensureValidToken,
   fetchPerVideoAnalytics,
   fetchVideoImpressions,
+  fetchVideoThumbnailImpressions,
   formatDateForAnalytics,
 } from '@/lib/services/youtube'
 import { logError, logWarn } from '@/lib/server/utils/logger'
@@ -132,9 +133,10 @@ export async function fetchAndStoreMetricsForPeriod(
     return
   }
 
-  const [analytics, impressions] = await Promise.all([
+  const [analytics, impressions, thumbnailImpressions] = await Promise.all([
     fetchPerVideoAnalytics(row.video_id, accessToken, startStr, endStr),
     fetchVideoImpressions(row.video_id, accessToken, startStr, endStr),
+    fetchVideoThumbnailImpressions(row.video_id, accessToken, startStr, endStr),
   ])
 
   const updates: Partial<ThumbnailLivePeriod> = {
@@ -150,6 +152,14 @@ export async function fetchAndStoreMetricsForPeriod(
   }
   if (impressions?.impressionsClickThroughRate != null) {
     updates.impressions_ctr_percent = impressions.impressionsClickThroughRate
+  }
+  if (thumbnailImpressions.thumbnailImpressions != null) {
+    updates.thumbnail_impressions = thumbnailImpressions.thumbnailImpressions
+  }
+  if (thumbnailImpressions.thumbnailClickThroughRate != null) {
+    // API may return 0-100 or 0-1; normalize to 0-100 for DB
+    const rate = thumbnailImpressions.thumbnailClickThroughRate
+    updates.thumbnail_ctr_percent = rate <= 1 ? rate * 100 : rate
   }
 
   const { error: updateError } = await supabase

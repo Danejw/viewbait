@@ -41,14 +41,28 @@ function PeriodLine({ period }: { period: ThumbnailLivePeriod }) {
           {formatDate(period.started_at)} – {formatDate(period.ended_at)}
         </span>
       )}
-      {(period.views != null || period.watch_time_minutes != null || period.impressions_ctr_percent != null) && (
+      {(period.views != null ||
+        period.watch_time_minutes != null ||
+        period.impressions != null ||
+        period.impressions_ctr_percent != null ||
+        period.thumbnail_impressions != null ||
+        period.thumbnail_ctr_percent != null) && (
         <span className="flex flex-wrap gap-x-3 gap-y-0">
           {period.views != null && <span>{period.views.toLocaleString()} views</span>}
           {period.watch_time_minutes != null && (
             <span>{Math.round(period.watch_time_minutes)} min watch time</span>
           )}
+          {period.impressions != null && (
+            <span>{period.impressions.toLocaleString()} impressions</span>
+          )}
           {period.impressions_ctr_percent != null && (
             <span>{period.impressions_ctr_percent.toFixed(2)}% CTR</span>
+          )}
+          {period.thumbnail_impressions != null && (
+            <span>{period.thumbnail_impressions.toLocaleString()} thumbnail impressions</span>
+          )}
+          {period.thumbnail_ctr_percent != null && (
+            <span>{period.thumbnail_ctr_percent.toFixed(2)}% thumbnail CTR</span>
           )}
         </span>
       )}
