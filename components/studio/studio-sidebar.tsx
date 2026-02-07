@@ -159,7 +159,7 @@ export function StudioSidebarNav() {
           <>
             <span>{item.label}</span>
             {item.badge === "beta" && (
-              <span className="rounded px-1 py-0.25 text-[8px] font-medium uppercase tracking-wide bg-primary text-white">
+              <span className="rounded px-1 py-0.25 text-[8px] font-medium uppercase tracking-wide bg-white text-primary border border-primary/40">
                 Beta
               </span>
             )}
