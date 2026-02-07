@@ -12,6 +12,20 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { logError, logInfo } from '@/lib/server/utils/logger'
 import { getAllowedRedirect } from '@/lib/utils/redirect-allowlist'
+import { YOUTUBE_SCOPES_REQUESTED } from '@/lib/constants/youtube'
+
+/** Decode JWT payload and return the "scope" claim (for debug logging only). */
+function getScopeFromJwt(token: string): string | null {
+  try {
+    const parts = token.split('.')
+    if (parts.length !== 3) return null
+    const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/')
+    const payload = JSON.parse(Buffer.from(base64, 'base64').toString('utf8')) as { scope?: string }
+    return payload.scope ?? null
+  } catch {
+    return null
+  }
+}
 
 /**
  * Persist YouTube integration tokens to the database
@@ -119,12 +133,14 @@ export async function GET(request: NextRequest) {
         const googleUserId = googleIdentity?.id
         
         // Extract scopes from user metadata if available
-        // Note: Supabase may not always expose the exact scopes granted
-        const scopes = user.app_metadata?.providers_scopes?.google as string[] | undefined
-        
-        // Persist tokens to database before redirect so set-thumbnail etc. use the new token
+        // Note: Supabase may not always expose the exact scopes granted (logs show metadataScopesLength: 0)
+        const metadataScopes = user.app_metadata?.providers_scopes?.google as string[] | undefined
+        const scopes =
+          metadataScopes?.length ? metadataScopes : YOUTUBE_SCOPES_REQUESTED
+        const tokenScopeFromJwt = getScopeFromJwt(providerToken)
+        const tokenHasForceSsl = typeof tokenScopeFromJwt === 'string' && tokenScopeFromJwt.includes('youtube.force-ssl')
         // #region agent log
-        fetch('http://127.0.0.1:7250/ingest/503c3a58-0894-4f46-a41c-96a198c9eec9', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'auth/callback/route.ts:beforePersist', message: 'About to persist YouTube tokens', data: { userIdPrefix: user.id?.slice(0, 8) }, timestamp: Date.now(), sessionId: 'debug-session', hypothesisId: 'A' }) }).catch(() => {})
+        fetch('http://127.0.0.1:7250/ingest/503c3a58-0894-4f46-a41c-96a198c9eec9', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'auth/callback/route.ts:beforePersist', message: 'Scopes at reconnect', data: { userIdPrefix: user.id?.slice(0, 8), metadataScopesLength: metadataScopes?.length ?? 0, metadataHasForceSsl: Array.isArray(metadataScopes) && metadataScopes.includes('https://www.googleapis.com/auth/youtube.force-ssl'), usedRequestedScopesFallback: !metadataScopes?.length, tokenScopeFromJwt: tokenScopeFromJwt ?? 'opaque_or_invalid', tokenHasForceSsl }, timestamp: Date.now(), sessionId: 'debug-session', hypothesisId: 'C' }) }).catch(() => {})
         // #endregion
         await persistYouTubeTokens(
           user.id,

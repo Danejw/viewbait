@@ -8,7 +8,7 @@
  */
 
 import React, { useState, useCallback, useMemo, useEffect } from "react";
-import { Youtube, RefreshCw, Link2, Copy, X } from "lucide-react";
+import { Youtube, RefreshCw, Link2, X, Layers } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -28,7 +28,6 @@ import { RecentThumbnailsStrip } from "@/components/studio/recent-thumbnails-str
 import { CharacterSnapshotsStrip } from "@/components/studio/character-snapshots-strip";
 import { PlaceSnapshotsStrip } from "@/components/studio/place-snapshots-strip";
 import { ViewBaitLogo } from "@/components/ui/viewbait-logo";
-import { copyToClipboardWithToast } from "@/lib/utils/clipboard";
 import { toast } from "sonner";
 
 export default function StudioViewYouTube() {
@@ -64,6 +63,8 @@ export default function StudioViewYouTube() {
   const [editingStyle, setEditingStyle] = useState<DbStyle | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [thumbnailScopeBannerDismissed, setThumbnailScopeBannerDismissed] = useState(false);
+  /** When false, thumbnail click opens Watch & Analytics modal; when true, click toggles selection for style extract */
+  const [selectionModeForExtract, setSelectionModeForExtract] = useState(false);
 
   const { tier } = useSubscription();
   const isConnected = status?.isConnected === true;
@@ -124,10 +125,16 @@ export default function StudioViewYouTube() {
   const handleExtractAndOpenEditor = useCallback(async () => {
     const style = await youtubeStyleExtract.handleExtractStyle();
     if (style) {
+      setSelectionModeForExtract(false);
       setEditingStyle(style);
       setEditorOpen(true);
     }
   }, [youtubeStyleExtract.handleExtractStyle]);
+
+  const exitSelectionMode = useCallback(() => {
+    youtubeStyleExtract.clearSelection();
+    setSelectionModeForExtract(false);
+  }, [youtubeStyleExtract.clearSelection]);
 
   const handleSaveStyle = useCallback(
     async (
@@ -262,15 +269,36 @@ export default function StudioViewYouTube() {
                 </div>
               )}
 
-              <div className="mb-4">
-                <YouTubeStyleExtractBar
-                  selectedCount={youtubeStyleExtract.selectedVideoIds.size}
-                  canExtract={youtubeStyleExtract.canExtract}
-                  isExtracting={youtubeStyleExtract.isExtracting}
-                  extractError={youtubeStyleExtract.extractError}
-                  onExtract={handleExtractAndOpenEditor}
-                  onClearError={youtubeStyleExtract.clearExtractError}
-                />
+              <div className="mb-4 flex flex-wrap items-center gap-3">
+                {!selectionModeForExtract ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-2"
+                    onClick={() => setSelectionModeForExtract(true)}
+                  >
+                    <Layers className="h-4 w-4" />
+                    Select videos to extract style
+                  </Button>
+                ) : (
+                  <>
+                    <YouTubeStyleExtractBar
+                      selectedCount={youtubeStyleExtract.selectedVideoIds.size}
+                      canExtract={youtubeStyleExtract.canExtract}
+                      isExtracting={youtubeStyleExtract.isExtracting}
+                      extractError={youtubeStyleExtract.extractError}
+                      onExtract={handleExtractAndOpenEditor}
+                      onClearError={youtubeStyleExtract.clearExtractError}
+                    />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={exitSelectionMode}
+                    >
+                      Cancel
+                    </Button>
+                  </>
+                )}
               </div>
 
               <ViewControls
@@ -307,7 +335,7 @@ export default function StudioViewYouTube() {
                 <div className="mb-4 flex flex-col gap-2 rounded-md border border-amber-500/50 bg-amber-500/10 px-3 py-2">
                   <div className="flex items-start justify-between gap-2">
                     <p className="text-sm text-amber-800 dark:text-amber-200">
-                      Thumbnail upload isn&apos;t available. Reconnect your YouTube account to enable setting thumbnails.
+                      Thumbnail upload isn&apos;t available. Click Reconnect to sign in with Google again and grant thumbnail permission.
                     </p>
                     <div className="flex shrink-0 items-center gap-1">
                       <Button
@@ -330,28 +358,6 @@ export default function StudioViewYouTube() {
                       </Button>
                     </div>
                   </div>
-                  {typeof window !== "undefined" && (
-                    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                      <span>Add this URL to Google Cloud Console → Credentials → your OAuth client → Authorized redirect URIs:</span>
-                      <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
-                        {window.location.origin}/api/youtube/connect/callback
-                      </code>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 gap-1"
-                        onClick={() =>
-                          copyToClipboardWithToast(
-                            `${window.location.origin}/api/youtube/connect/callback`,
-                            "Redirect URI copied"
-                          )
-                        }
-                      >
-                        <Copy className="h-3.5 w-3.5" />
-                        Copy
-                      </Button>
-                    </div>
-                  )}
                 </div>
               )}
 
@@ -384,8 +390,8 @@ export default function StudioViewYouTube() {
                         key={video.videoId}
                         video={video}
                         priority={index < 6}
-                        selected={youtubeStyleExtract.selectedVideoIds.has(video.videoId)}
-                        onToggleSelect={youtubeStyleExtract.toggleSelectVideo}
+                        selected={selectionModeForExtract ? youtubeStyleExtract.selectedVideoIds.has(video.videoId) : false}
+                        onToggleSelect={selectionModeForExtract ? youtubeStyleExtract.toggleSelectVideo : undefined}
                         channel={channel ? { title: channel.title, description: channel.description } : null}
                         otherChannelThumbnailUrls={filteredVideos
                           .filter((v) => v.videoId !== video.videoId)

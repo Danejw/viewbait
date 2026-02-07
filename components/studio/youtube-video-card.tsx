@@ -12,7 +12,7 @@ import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from "
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useDraggable } from "@dnd-kit/core";
 import { motion } from "framer-motion";
-import { Copy, ExternalLink, Eye, ThumbsUp, BarChart3, ScanLine, Thermometer, RefreshCw, Layers, ImagePlus } from "lucide-react";
+import { Copy, ExternalLink, Eye, ThumbsUp, BarChart3, ScanLine, Thermometer, RefreshCw, Layers, ImagePlus, Lightbulb } from "lucide-react";
 import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -42,7 +42,7 @@ import { useStudio } from "@/components/studio/studio-provider";
 import { useSubscription } from "@/lib/hooks/useSubscription";
 import { fetchImageAsBase64Client } from "@/lib/utils/fetch-image-as-base64-client";
 import { generateThumbnailHeatmap } from "@/lib/services/thumbnail-heatmap";
-import { analyzeYouTubeVideo } from "@/lib/services/youtube-video-analyze";
+import { analyzeYouTubeVideo, suggestThumbnailConcepts, type ThumbnailConcept } from "@/lib/services/youtube-video-analyze";
 import { checkChannelConsistency } from "@/lib/services/youtube-channel-consistency";
 import { buildVideoUnderstandingSummary } from "@/lib/utils/video-context-summary";
 import { copyToClipboardWithToast } from "@/lib/utils/clipboard";
@@ -129,12 +129,16 @@ export const YouTubeVideoCard = memo(function YouTubeVideoCard({
   const { state, actions } = useStudio();
   const isVideoAnalyticsLoading = state.videoAnalyticsLoadingVideoIds.includes(videoId);
   const hasAnalyticsCached = state.videoAnalyticsCache[videoId] != null;
+  const hasSuggestConceptsCached = (state.videoSuggestConceptsCache[videoId]?.length ?? 0) > 0;
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isReRolling, setIsReRolling] = useState(false);
   const [showStyleSuccessBorder, setShowStyleSuccessBorder] = useState(false);
   const [showAnalyticsSuccessBorder, setShowAnalyticsSuccessBorder] = useState(false);
   const [showHeatmapOverlay, setShowHeatmapOverlay] = useState(false);
   const [consistencyPopoverOpen, setConsistencyPopoverOpen] = useState(false);
+  const [suggestConceptsPopoverOpen, setSuggestConceptsPopoverOpen] = useState(false);
+  const [isSuggesting, setIsSuggesting] = useState(false);
+  const [suggestedConcepts, setSuggestedConcepts] = useState<ThumbnailConcept[]>([]);
   const lastConsistencyRequestTime = useRef<number>(0);
   const consistencyJustClosedRef = useRef(false);
   const wasLoadingAnalytics = useRef(false);
@@ -250,10 +254,10 @@ export const YouTubeVideoCard = memo(function YouTubeVideoCard({
         e.preventDefault();
         onToggleSelect(videoId);
       } else {
-        window.open(watchUrl, "_blank", "noopener,noreferrer");
+        actions.onOpenVideoWatchAnalytics?.({ videoId, title, thumbnailUrl });
       }
     },
-    [selectionMode, onToggleSelect, videoId, watchUrl]
+    [selectionMode, onToggleSelect, videoId, title, thumbnailUrl, actions.onOpenVideoWatchAnalytics]
   );
 
   const handleCheckboxChange = useCallback(
@@ -357,6 +361,84 @@ export const YouTubeVideoCard = memo(function YouTubeVideoCard({
 
   const canShowConsistency = (otherChannelThumbnailUrls?.length ?? 0) > 0;
 
+  const handleSuggestConcepts = useCallback(
+    async (e: React.MouseEvent) => {
+      e.stopPropagation();
+      const {
+        setVideoAnalyticsCache,
+        setVideoSuggestConceptsCache,
+      } = actions;
+      if (isSuggesting || !setVideoAnalyticsCache) return;
+
+      // Toggle off: if popover is already open, close it.
+      if (suggestConceptsPopoverOpen) {
+        setSuggestConceptsPopoverOpen(false);
+        return;
+      }
+
+      // If we already have cached concepts for this video, show them and open popover (no API call).
+      const cachedConcepts = state.videoSuggestConceptsCache[videoId];
+      if (cachedConcepts?.length) {
+        setSuggestedConcepts(cachedConcepts);
+        setSuggestConceptsPopoverOpen(true);
+        return;
+      }
+
+      let analytics = state.videoAnalyticsCache[videoId];
+      if (!analytics) {
+        setIsSuggesting(true);
+        const { analytics: fetched, error } = await analyzeYouTubeVideo(videoId);
+        if (error || !fetched) {
+          toast.error(error?.message ?? "Failed to analyze video");
+          setIsSuggesting(false);
+          return;
+        }
+        setVideoAnalyticsCache(videoId, fetched);
+        analytics = fetched;
+      }
+
+      setIsSuggesting(true);
+      const { concepts, error } = await suggestThumbnailConcepts(videoId, title, analytics);
+      setIsSuggesting(false);
+      if (error || !concepts?.length) {
+        toast.error(error?.message ?? "Failed to suggest concepts");
+        return;
+      }
+      setVideoSuggestConceptsCache?.(videoId, concepts);
+      setSuggestedConcepts(concepts);
+      setSuggestConceptsPopoverOpen(true);
+    },
+    [
+      actions,
+      isSuggesting,
+      state.videoAnalyticsCache,
+      state.videoSuggestConceptsCache,
+      suggestConceptsPopoverOpen,
+      title,
+      videoId,
+    ]
+  );
+
+  const handleUseConcept = useCallback(
+    (concept: ThumbnailConcept) => {
+      const {
+        setThumbnailText,
+        setCustomInstructions,
+        markReRollDataApplied,
+      } = actions;
+      const cached = state.videoAnalyticsCache[videoId];
+      if (!setThumbnailText || !setCustomInstructions || !markReRollDataApplied) return;
+      setThumbnailText(concept.text);
+      if (cached) {
+        setCustomInstructions(buildVideoUnderstandingSummary(cached, title, channel ?? null));
+      }
+      markReRollDataApplied();
+      setSuggestConceptsPopoverOpen(false);
+      toast.success("Using video context for this suggestion");
+    },
+    [actions, channel, state.videoAnalyticsCache, title, videoId]
+  );
+
   const handleReRollWithVideoContext = useCallback(
     async (e: React.MouseEvent) => {
       e.stopPropagation();
@@ -428,6 +510,62 @@ export const YouTubeVideoCard = memo(function YouTubeVideoCard({
         disabled={isReRolling}
         iconClassName={isReRolling ? "animate-spin" : undefined}
       />
+      <Popover open={suggestConceptsPopoverOpen} onOpenChange={setSuggestConceptsPopoverOpen}>
+        <PopoverAnchor asChild>
+          <span>
+            <ActionButton
+              icon={isSuggesting ? ViewBaitLogo : Lightbulb}
+              label={
+                suggestConceptsPopoverOpen
+                  ? "Hide concepts"
+                  : isSuggesting
+                    ? "Suggesting…"
+                    : "Suggest thumbnail concepts"
+              }
+              onClick={handleSuggestConcepts}
+              disabled={isSuggesting || isReRolling || isVideoAnalyticsLoading}
+              active={hasSuggestConceptsCached}
+              iconClassName={cn(
+                isSuggesting && "animate-spin",
+                hasSuggestConceptsCached && "text-primary"
+              )}
+            />
+          </span>
+        </PopoverAnchor>
+        <PopoverContent
+          side="top"
+          align="center"
+          sideOffset={8}
+          className="z-[10002] w-80 max-h-[min(60vh,400px)] overflow-y-auto"
+          onOpenAutoFocus={(e) => e.preventDefault()}
+          aria-describedby="suggested-concepts-list"
+        >
+          <p className="text-sm font-medium text-foreground mb-2">Thumbnail concepts from video</p>
+          <p className="text-xs text-muted-foreground mb-3">Click &quot;Use this&quot; to pre-fill the generator with video context.</p>
+          <ul id="suggested-concepts-list" className="space-y-2" role="list">
+            {suggestedConcepts.map((concept, i) => (
+              <li key={i} className="flex flex-col gap-1 rounded-md border border-border bg-muted/30 p-2">
+                <p className="text-sm text-foreground line-clamp-2">{concept.text}</p>
+                {concept.styleHint && (
+                  <p className="text-xs text-muted-foreground">{concept.styleHint}</p>
+                )}
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  className="w-fit mt-0.5"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleUseConcept(concept);
+                  }}
+                >
+                  Use this
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </PopoverContent>
+      </Popover>
       <ActionButton
         icon={isAnalyzing ? ViewBaitLogo : ScanLine}
         label="Analyze style and add to instructions"
@@ -633,35 +771,11 @@ export const YouTubeVideoCard = memo(function YouTubeVideoCard({
                   )}
                 >
                   <p
-                    className="max-w-[70%] truncate text-sm font-medium text-white drop-shadow-sm"
+                    className="max-w-full truncate text-sm font-medium text-white drop-shadow-sm"
                     title={title}
                   >
                     {title}
                   </p>
-                  <div className="flex items-center gap-1 shrink-0">
-                    {canSetThumbnail && (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 text-white hover:bg-white/20 drop-shadow-sm"
-                            aria-label="Use thumbnail for this video"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSetThumbnailPickerVideo({ videoId, title });
-                            }}
-                          >
-                            <ImagePlus className="h-4 w-4" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent side="bottom" className="text-xs">
-                          Use thumbnail for this video
-                        </TooltipContent>
-                      </Tooltip>
-                    )}
-                    <ExternalLink className="h-4 w-4 text-white drop-shadow-sm" />
-                  </div>
                 </div>
                 {hasStats && (
                   <div

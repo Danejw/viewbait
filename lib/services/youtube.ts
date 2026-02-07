@@ -18,6 +18,22 @@ import { logError, logInfo, logWarn } from '@/lib/server/utils/logger'
 const YOUTUBE_DATA_API_BASE = 'https://www.googleapis.com/youtube/v3'
 /** Upload endpoint for media (e.g. thumbnails.set); must use /upload/ in path. */
 const YOUTUBE_UPLOAD_API_BASE = 'https://www.googleapis.com/upload/youtube/v3'
+
+/**
+ * Decode JWT payload and return the "scope" claim (space-separated). Returns null if not a JWT or no scope.
+ * Used for debug logging only; does not log the token.
+ */
+function getScopeFromJwt(token: string): string | null {
+  try {
+    const parts = token.split('.')
+    if (parts.length !== 3) return null
+    const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/')
+    const payload = JSON.parse(Buffer.from(base64, 'base64').toString('utf8')) as { scope?: string }
+    return payload.scope ?? null
+  } catch {
+    return null
+  }
+}
 const YOUTUBE_ANALYTICS_API_BASE = 'https://youtubeanalytics.googleapis.com/v2'
 const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token'
 
@@ -206,6 +222,9 @@ export async function ensureValidToken(userId: string): Promise<string | null> {
   fetch('http://127.0.0.1:7250/ingest/503c3a58-0894-4f46-a41c-96a198c9eec9', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'youtube.ts:ensureValidToken:decision', message: needsRefresh ? 'Token will refresh' : 'Using stored token', data: { userIdPrefix: userId?.slice(0, 8), needsRefresh, expiresAtMs: expiresAt.getTime(), nowMs: Date.now() }, timestamp: Date.now(), sessionId: 'debug-session', hypothesisId: 'B' }) }).catch(() => {})
   // #endregion
   if (!needsRefresh) {
+    // #region agent log
+    fetch('http://127.0.0.1:7250/ingest/503c3a58-0894-4f46-a41c-96a198c9eec9', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'youtube.ts:ensureValidToken:returnStored', message: 'Using stored access token', data: { userIdPrefix: userId?.slice(0, 8), expiresAtMs: expiresAt.getTime() }, timestamp: Date.now(), sessionId: 'debug-session', hypothesisId: 'B' }) }).catch(() => {})
+    // #endregion
     return integration.access_token
   }
   
@@ -269,7 +288,12 @@ export async function ensureValidToken(userId: string): Promise<string | null> {
     operation: 'ensureValidToken',
     userId,
   })
-  
+
+  const refreshedScope = refreshResult.accessToken ? getScopeFromJwt(refreshResult.accessToken) : null
+  // #region agent log
+  fetch('http://127.0.0.1:7250/ingest/503c3a58-0894-4f46-a41c-96a198c9eec9', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'youtube.ts:ensureValidToken:returnRefreshed', message: 'Using refreshed access token', data: { userIdPrefix: userId?.slice(0, 8), refreshedTokenScope: refreshedScope ?? 'opaque_or_invalid', hasForceSsl: typeof refreshedScope === 'string' && refreshedScope.includes(YOUTUBE_THUMBNAIL_SCOPE) }, timestamp: Date.now(), sessionId: 'debug-session', hypothesisId: 'B' }) }).catch(() => {})
+  // #endregion
+
   return refreshResult.accessToken
 }
 
@@ -1421,9 +1445,14 @@ export async function fetchVideoComments(
 // ============================================================================
 // Set video thumbnail from image URL (used by agent apply_thumbnail_to_video)
 // ============================================================================
+// API reference: https://developers.google.com/youtube/v3/docs/thumbnails/set
+// - POST https://www.googleapis.com/upload/youtube/v3/thumbnails/set
+// - Max 2MB; MIME: image/jpeg, image/png, application/octet-stream
+// - Auth: at least one of youtube.force-ssl, youtube.upload, youtube, youtubepartner
+// - Errors: 400 (invalidImage, mediaBodyRequired), 403 (forbidden), 404 (videoNotFound), 429 (uploadRateLimitExceeded)
 
-const MAX_THUMBNAIL_SIZE = 2 * 1024 * 1024 // 2MB
-const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/jpg', 'image/png']
+const MAX_THUMBNAIL_SIZE = 2 * 1024 * 1024 // 2MB (per API doc)
+const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'application/octet-stream']
 
 /**
  * Result of setVideoThumbnailFromUrl. code is set when the failure is due to insufficient OAuth scope (e.g. 403).
@@ -1434,6 +1463,7 @@ export type SetVideoThumbnailResult =
 
 /**
  * Set a YouTube video's custom thumbnail from a fetchable image URL.
+ * Follows YouTube Data API thumbnails.set: https://developers.google.com/youtube/v3/docs/thumbnails/set
  * Used by the agent tool apply_thumbnail_to_video and by the set-thumbnail API route.
  */
 export async function setVideoThumbnailFromUrl(
@@ -1450,6 +1480,64 @@ export async function setVideoThumbnailFromUrl(
   // #endregion
   if (!accessToken) {
     return { success: false, error: 'Unable to get valid access token' }
+  }
+
+  const tokenScope = getScopeFromJwt(accessToken)
+  const tokenHasForceSsl = typeof tokenScope === 'string' && tokenScope.includes(YOUTUBE_THUMBNAIL_SCOPE)
+  // #region agent log
+  fetch('http://127.0.0.1:7250/ingest/503c3a58-0894-4f46-a41c-96a198c9eec9', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'youtube.ts:setVideoThumbnailFromUrl:tokenScope', message: 'Access token scope from JWT', data: { userIdPrefix: userId?.slice(0, 8), tokenScope: tokenScope ?? 'opaque_or_invalid', tokenHasForceSsl }, timestamp: Date.now(), sessionId: 'debug-session', hypothesisId: 'A' }) }).catch(() => {})
+  // #endregion
+
+  // Verify the video is on the channel this token owns (runtime evidence for ownership vs scope/limit).
+  let myChannelId: string | null = null
+  let myChannelTitle: string | null = null
+  let videoOwnedByChannel: boolean | null = null
+  try {
+    const channelsRes = await fetch(
+      `${YOUTUBE_DATA_API_BASE}/channels?part=id,snippet&mine=true`,
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    )
+    if (channelsRes.ok) {
+      const ch = (await channelsRes.json()) as { items?: Array<{ id: string; snippet?: { title?: string } }> }
+      const channel = ch?.items?.[0]
+      if (channel) {
+        myChannelId = channel.id
+        myChannelTitle = channel.snippet?.title ?? null
+      }
+    }
+    if (myChannelId) {
+      const videosRes = await fetch(
+        `${YOUTUBE_DATA_API_BASE}/videos?part=snippet&id=${encodeURIComponent(videoId)}`,
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      )
+      if (videosRes.ok) {
+        const v = (await videosRes.json()) as { items?: Array<{ snippet?: { channelId?: string } }> }
+        const videoChannelId = v?.items?.[0]?.snippet?.channelId ?? null
+        videoOwnedByChannel = videoChannelId === myChannelId
+        if (videoChannelId && videoChannelId !== myChannelId) {
+          logWarn('Set thumbnail: video is on a different channel', {
+            service: 'youtube',
+            operation: 'setVideoThumbnailFromUrl',
+            userId,
+            videoId,
+            myChannelId,
+            myChannelTitle,
+            videoChannelId,
+          })
+          return {
+            success: false,
+            error: `This video is on another channel. We're connected as "${myChannelTitle ?? myChannelId}". Reconnect with the Google account that owns the video's channel, or try a video from this channel.`,
+          }
+        }
+      }
+    }
+  } catch (e) {
+    logWarn(e instanceof Error ? e : new Error('Ownership check failed'), {
+      service: 'youtube',
+      operation: 'setVideoThumbnailFromUrl',
+      userId,
+      videoId,
+    })
   }
 
   let imageResponse: Response
@@ -1480,8 +1568,13 @@ export async function setVideoThumbnailFromUrl(
   }
 
   const contentType = imageResponse.headers.get('content-type') || ''
-  let mimeType = contentType
-  if (!mimeType || !ALLOWED_MIME_TYPES.includes(mimeType.toLowerCase())) {
+  let mimeType = contentType.split(';')[0].trim().toLowerCase()
+  if (!mimeType || !ALLOWED_MIME_TYPES.includes(mimeType)) {
+    const urlLower = imageUrl.toLowerCase()
+    mimeType = urlLower.includes('.png') ? 'image/png' : 'image/jpeg'
+  }
+  // API accepts image/jpeg, image/png, application/octet-stream; use image/* when we know type
+  if (mimeType === 'application/octet-stream') {
     const urlLower = imageUrl.toLowerCase()
     mimeType = urlLower.includes('.png') ? 'image/png' : 'image/jpeg'
   }
@@ -1503,8 +1596,71 @@ export async function setVideoThumbnailFromUrl(
     const errorData = (await uploadResponse.json().catch(() => ({}))) as {
       error?: { message?: string; errors?: Array<{ reason?: string; message?: string }> }
     }
+    const apiErrors = errorData?.error?.errors ?? []
     const message = errorData?.error?.message || 'Failed to upload thumbnail'
+
+    // Per API doc: 429 uploadRateLimitExceeded = "channel has uploaded too many thumbnails recently"
+    if (uploadResponse.status === 429) {
+      const isRateLimit = apiErrors.some(
+        (e) => e.reason === 'uploadRateLimitExceeded' || /uploadRateLimit|too many thumbnails/i.test(e.message ?? '')
+      )
+      return {
+        success: false,
+        error: isRateLimit
+          ? 'Your channel has uploaded too many thumbnails recently. Please try again later.'
+          : message,
+      }
+    }
+    // Per API doc: 404 videoNotFound = video ID wrong or video not found
+    if (uploadResponse.status === 404) {
+      const isVideoNotFound = apiErrors.some(
+        (e) => e.reason === 'videoNotFound' || /video.*not found/i.test(e.message ?? '')
+      )
+      return {
+        success: false,
+        error: isVideoNotFound
+          ? 'Video not found. Check that the video ID is correct and the video exists.'
+          : message,
+      }
+    }
     const integration = uploadResponse.status === 403 ? await getYouTubeIntegration(userId) : null
+    const dbHasThumbnailScope =
+      !!integration?.scopes_granted?.length &&
+      integration.scopes_granted.includes(YOUTUBE_THUMBNAIL_SCOPE)
+
+    // On 403, verify token scope via Google tokeninfo (conclusion of docs/checks/check-youtube-thumbnail-403-assumptions.md).
+    let tokenInfoScopes: string[] | null = null
+    let tokenHasThumbnailScopeFromGoogle: boolean | null = null
+    if (uploadResponse.status === 403 && accessToken) {
+      try {
+        const tokeninfoRes = await fetch(
+          `https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=${encodeURIComponent(accessToken)}`
+        )
+        if (tokeninfoRes.ok) {
+          const tokeninfo = (await tokeninfoRes.json()) as { scope?: string }
+          const scopeStr = tokeninfo?.scope
+          tokenInfoScopes = scopeStr ? scopeStr.trim().split(/\s+/).filter(Boolean) : []
+          tokenHasThumbnailScopeFromGoogle = tokenInfoScopes.includes(YOUTUBE_THUMBNAIL_SCOPE)
+        } else {
+          logWarn(new Error('Tokeninfo returned non-OK; falling back to DB scope'), {
+            service: 'youtube',
+            operation: 'setVideoThumbnailFromUrl',
+            userId,
+            tokeninfoStatus: tokeninfoRes.status,
+          })
+        }
+      } catch (e) {
+        logWarn(e instanceof Error ? e : new Error('Tokeninfo request failed; falling back to DB scope'), {
+          service: 'youtube',
+          operation: 'setVideoThumbnailFromUrl',
+          userId,
+        })
+      }
+    }
+
+    // #region agent log
+    fetch('http://127.0.0.1:7250/ingest/503c3a58-0894-4f46-a41c-96a198c9eec9', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'youtube.ts:setVideoThumbnailFromUrl:403', message: 'YouTube API 403 on thumbnail set', data: { userIdPrefix: userId?.slice(0, 8), videoId, status: uploadResponse.status, tokenScope: tokenScope ?? 'opaque_or_invalid', tokenHasForceSsl, dbScopesGranted: integration?.scopes_granted ?? [], dbHasThumbnailScope, tokenInfoScopes, tokenHasThumbnailScopeFromGoogle, apiErrors, myChannelId, myChannelTitle, videoOwnedByChannel }, timestamp: Date.now(), sessionId: 'debug-session', hypothesisId: 'A' }) }).catch(() => {})
+    // #endregion
     logError(new Error('YouTube API thumbnail upload error'), {
       service: 'youtube',
       operation: 'setVideoThumbnailFromUrl',
@@ -1512,20 +1668,63 @@ export async function setVideoThumbnailFromUrl(
       videoId,
       status: uploadResponse.status,
       error: message,
+      apiErrors,
       rawErrorBody: errorData,
       ...(integration ? { scopesGranted: integration.scopes_granted ?? [] } : {}),
+      dbHasThumbnailScope,
+      tokenInfoScopes,
+      tokenHasThumbnailScopeFromGoogle,
+      myChannelId,
+      myChannelTitle,
+      videoOwnedByChannel,
     })
-    // Thumbnails set 403 = "not properly authorized" or "doesn't have permission" per API docs; treat as scope so user can reconnect.
+
+    // Use tokeninfo result when available; otherwise fall back to DB. If Google says the token
+    // doesn't have the thumbnail scope, treat as scope error and suggest Reconnect.
+    const tokenHasScope =
+      tokenHasThumbnailScopeFromGoogle !== null
+        ? tokenHasThumbnailScopeFromGoogle
+        : dbHasThumbnailScope
     const isScopeError =
       uploadResponse.status === 403 &&
+      !tokenHasScope &&
       (errorData?.error?.errors?.some(
         (e) =>
           e.reason === 'insufficientPermissions' ||
           /insufficient|permission|scope|forbidden/i.test(e.message ?? '')
       ) ?? (/insufficient|permission|scope|forbidden|authorized/i.test(message) || uploadResponse.status === 403))
+
+    // When token has scope and video is owned, 403 is often YouTube's daily thumbnail limit (API returns 403, not 429). See e.g. Google issue tracker 201895457.
+    if (uploadResponse.status === 403 && tokenHasScope && videoOwnedByChannel === true) {
+      logWarn('Thumbnail 403 despite valid scope and ownership; likely daily upload limit', {
+        service: 'youtube',
+        operation: 'setVideoThumbnailFromUrl',
+        userId,
+        videoId,
+        myChannelId,
+        apiErrorReason: apiErrors[0]?.reason,
+        apiErrorLocation: apiErrors[0]?.location,
+      })
+    }
+
+    let userMessage: string
+    if (uploadResponse.status === 403) {
+      if (!tokenHasScope) {
+        userMessage =
+          'Thumbnail upload requires extra permission. Click Reconnect in the YouTube tab to sign in with Google again and grant it.'
+      } else if (tokenHasScope && videoOwnedByChannel === true) {
+        userMessage =
+          "YouTube limits how many thumbnails can be set per channel per day. You've likely hit that limit. Try again in 24 hours or check YouTube Studio."
+      } else {
+        userMessage =
+          "This video may not be on your YouTube channel, or you've hit the daily thumbnail limit. Try a video you uploaded on this channel."
+      }
+    } else {
+      userMessage = message
+    }
     return {
       success: false,
-      error: message,
+      error: userMessage,
       ...(isScopeError ? { code: 'SCOPE_REQUIRED' as const } : {}),
     }
   }

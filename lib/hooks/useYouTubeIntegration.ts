@@ -591,13 +591,13 @@ export function useYouTubeIntegration(): UseYouTubeIntegrationReturn {
   }, [isAuthenticated]);
 
   /**
-   * Reconnect by starting dedicated YouTube OAuth (authorize route).
-   * We exchange the code with Google ourselves so the stored token has the requested scopes.
-   * After OAuth, user is redirected back to /studio.
+   * Reconnect using app-owned YouTube OAuth so we request the exact YouTube scopes
+   * (including youtube.force-ssl and youtube.upload). User is redirected to
+   * /api/youtube/connect/authorize → Google → /api/youtube/connect/callback → /studio?view=youtube.
    */
   const reconnect = useCallback(() => {
     setState(prev => ({ ...prev, error: null }));
-    const next = typeof window !== "undefined" ? encodeURIComponent("/studio") : "/studio";
+    const next = encodeURIComponent("/studio?view=youtube");
     window.location.href = `/api/youtube/connect/authorize?next=${next}`;
   }, []);
 

@@ -8,7 +8,8 @@
 import type { 
   DbThumbnail, 
   ThumbnailInsert, 
-  ThumbnailUpdate
+  ThumbnailUpdate,
+  ThumbnailLivePeriod,
 } from '@/lib/types/database'
 
 export interface ThumbnailsQueryOptions {
@@ -122,6 +123,33 @@ export async function getThumbnail(id: string): Promise<{
   } catch (error) {
     return {
       thumbnail: null,
+      error: error instanceof Error ? error : new Error('Network error'),
+    }
+  }
+}
+
+/**
+ * Get live periods for a thumbnail (when it was promoted to YouTube videos).
+ * User must own the thumbnail.
+ */
+export async function getThumbnailLivePeriods(thumbnailId: string): Promise<{
+  periods: ThumbnailLivePeriod[]
+  error: Error | null
+}> {
+  try {
+    const response = await fetch(`/api/thumbnails/${thumbnailId}/live-periods`)
+    if (!response.ok) {
+      const errorData = await response.json()
+      return {
+        periods: [],
+        error: new Error(errorData.error || 'Failed to fetch live periods'),
+      }
+    }
+    const data = await response.json()
+    return { periods: data.periods ?? [], error: null }
+  } catch (error) {
+    return {
+      periods: [],
       error: error instanceof Error ? error : new Error('Network error'),
     }
   }

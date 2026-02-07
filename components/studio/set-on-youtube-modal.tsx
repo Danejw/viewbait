@@ -9,6 +9,7 @@
  */
 
 import React, { useCallback, useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Dialog,
   DialogContent,
@@ -47,6 +48,7 @@ export function SetOnYouTubeModal({
   onOpenChange,
   onSuccess,
 }: SetOnYouTubeModalProps) {
+  const queryClient = useQueryClient();
   const { reconnect } = useYouTubeIntegration();
   const [videos, setVideos] = useState<YouTubeVideoItem[]>([]);
   const [videosLoading, setVideosLoading] = useState(false);
@@ -94,18 +96,15 @@ export function SetOnYouTubeModal({
         thumbnail_id: thumbnailId,
       });
       if (result.success) {
-        toast.success("Thumbnail updated on YouTube.");
+        queryClient.invalidateQueries({ queryKey: ["thumbnail-live-periods", thumbnailId] });
+        toast.success("Thumbnail set. View performance in thumbnail details.");
         onOpenChange(false);
         onSuccess?.();
       } else {
         if (result.code === "SCOPE_REQUIRED") {
-          const description = result.redirect_uri_hint
-            ? `Add this URL to Google Cloud Console → Credentials → OAuth client → Authorized redirect URIs, then click Reconnect:\n${result.redirect_uri_hint}`
-            : undefined;
           toast.error(
-            "Thumbnail upload requires extra permission. Reconnect your YouTube account (or add the redirect URI to GCP).",
+            "Thumbnail upload requires extra permission. Reconnect your YouTube account to enable it.",
             {
-              description,
               action: {
                 label: "Reconnect",
                 onClick: () => reconnect(),
@@ -125,7 +124,7 @@ export function SetOnYouTubeModal({
     } finally {
       setLoading(false);
     }
-  }, [resolvedVideoId, thumbnailId, onOpenChange, onSuccess, reconnect]);
+  }, [resolvedVideoId, thumbnailId, queryClient, onOpenChange, onSuccess, reconnect]);
 
   const handleOpenChange = useCallback(
     (next: boolean) => {

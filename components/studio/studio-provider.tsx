@@ -29,12 +29,15 @@ import { applyQrWatermark } from "@/lib/utils/watermarkUtils";
 import { DeleteConfirmationModal } from "@/components/studio/delete-confirmation-modal";
 import { ThumbnailEditModal, type ThumbnailEditData } from "@/components/studio/thumbnail-edit-modal";
 import { YouTubeVideoAnalyticsModal } from "@/components/studio/youtube-video-analytics-modal";
+import { YouTubeVideoWatchAndAnalyticsModal } from "@/components/studio/youtube-video-watch-and-analytics-modal";
 import { ImageModal, PaletteViewModal } from "@/components/ui/modal";
 import { SnapshotViewModal } from "@/components/studio/snapshot-view-modal";
 import { SetOnYouTubeModal } from "@/components/studio/set-on-youtube-modal";
+import { ThumbnailLivePerformanceBlock } from "@/components/studio/thumbnail-live-performance-block";
 import {
   analyzeYouTubeVideo,
   type YouTubeVideoAnalytics,
+  type ThumbnailConcept,
 } from "@/lib/services/youtube-video-analyze";
 
 /** Payload for opening the snapshot view modal (full-size image, draggable to Faces/References) */
@@ -146,12 +149,17 @@ export interface StudioState {
   videoAnalyticsError: string | null;
   /** Cache of analytics by videoId; session-only, cleared on refresh */
   videoAnalyticsCache: Record<string, YouTubeVideoAnalytics>;
+  /** Cache of suggested thumbnail concepts by videoId; session-only, so user can toggle popover and see same concepts */
+  videoSuggestConceptsCache: Record<string, ThumbnailConcept[]>;
   /** Video ids currently being analyzed (drives spinners and effect) */
   videoAnalyticsLoadingVideoIds: string[];
   /** Metadata for each loading id so completion can set modal video */
   videoAnalyticsLoadingVideos: Record<string, { videoId: string; title: string; thumbnailUrl: string; channel?: { title: string; description?: string } }>;
   /** Channel context for the analytics modal (set when opening from YouTube My channel). */
   videoAnalyticsChannelContext: { title: string; description?: string } | null;
+  /** Watch & Analytics modal (embedded player + YouTube Analytics API metrics); opened on thumbnail click */
+  videoWatchAnalyticsModalOpen: boolean;
+  videoWatchAnalyticsVideo: { videoId: string; title: string; thumbnailUrl: string } | null;
   /** Cache of thumbnail style descriptions by imageUrl or thumbnailId; session-only, avoids re-analyzing */
   thumbnailStyleAnalysisCache: Record<string, string>;
   /** Character snapshots from video frame extraction (FFmpeg.wasm); session-only, keyed by videoId */
@@ -273,6 +281,9 @@ export interface StudioActions {
     channel?: { title: string; description?: string } | null
   ) => void;
   closeVideoAnalyticsModal: () => void;
+  /** Open Watch & Analytics modal (embedded player + YouTube Analytics API metrics); used when user clicks video thumbnail */
+  onOpenVideoWatchAnalytics: (video: { videoId: string; title: string; thumbnailUrl: string }) => void;
+  closeVideoWatchAnalyticsModal: () => void;
   /** Append video understanding context block to custom instructions (key: "video understanding context"). */
   appendToCustomInstructions: (summary: string) => void;
   /** Set character snapshots for a video (from FFmpeg frame extraction) */
@@ -310,6 +321,8 @@ export interface StudioActions {
   clearReRollDataApplied: () => void;
   /** Store video analytics in cache (e.g. from re-roll flow so Video analytics modal and future re-rolls use it). */
   setVideoAnalyticsCache: (videoId: string, analytics: YouTubeVideoAnalytics) => void;
+  /** Store suggested thumbnail concepts in cache so user can toggle popover on/off and see same concepts. */
+  setVideoSuggestConceptsCache: (videoId: string, concepts: ThumbnailConcept[]) => void;
   /** Set sort for Results panel (Create tab) */
   setResultsSort: (orderBy: "created_at" | "title" | "share_click_count", orderDirection: "asc" | "desc") => void;
 }
@@ -639,9 +652,12 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
       videoAnalyticsLoading: false,
       videoAnalyticsError: null,
       videoAnalyticsCache: {},
+      videoSuggestConceptsCache: {},
       videoAnalyticsLoadingVideoIds: [],
       videoAnalyticsLoadingVideos: {},
       videoAnalyticsChannelContext: null,
+      videoWatchAnalyticsModalOpen: false,
+      videoWatchAnalyticsVideo: null,
       thumbnailStyleAnalysisCache: {},
       characterSnapshotsByVideoId: {},
       placeSnapshotsByVideoId: {},
@@ -1339,6 +1355,18 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
     setState((s) => ({ ...s, videoAnalyticsModalOpen: false, videoAnalyticsChannelContext: null }));
   }, []);
 
+  const onOpenVideoWatchAnalytics = useCallback((video: { videoId: string; title: string; thumbnailUrl: string }) => {
+    setState((s) => ({
+      ...s,
+      videoWatchAnalyticsModalOpen: true,
+      videoWatchAnalyticsVideo: video,
+    }));
+  }, []);
+
+  const closeVideoWatchAnalyticsModal = useCallback(() => {
+    setState((s) => ({ ...s, videoWatchAnalyticsModalOpen: false, videoWatchAnalyticsVideo: null }));
+  }, []);
+
   /** Open the Video Analytics modal with pre-fetched result (e.g. from chat youtube_analyze_video). */
   const openVideoAnalyticsWithResult = useCallback(
     (
@@ -1603,6 +1631,8 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
     onRequestVideoAnalytics,
     openVideoAnalyticsWithResult,
     closeVideoAnalyticsModal,
+    onOpenVideoWatchAnalytics,
+    closeVideoWatchAnalyticsModal,
     setCharacterSnapshots: (videoId, snapshots) =>
       setState((s) => ({ ...s, characterSnapshotsByVideoId: { ...s.characterSnapshotsByVideoId, [videoId]: snapshots } })),
     clearCharacterSnapshots: (videoId) =>
@@ -1654,6 +1684,8 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
       setState((s) => ({ ...s, reRollDataJustApplied: false })),
     setVideoAnalyticsCache: (videoId, analytics) =>
       setState((s) => ({ ...s, videoAnalyticsCache: { ...s.videoAnalyticsCache, [videoId]: analytics } })),
+    setVideoSuggestConceptsCache: (videoId, concepts) =>
+      setState((s) => ({ ...s, videoSuggestConceptsCache: { ...s.videoSuggestConceptsCache, [videoId]: concepts } })),
     setResultsSort: (orderBy, orderDirection) =>
       setState((s) => ({ ...s, resultsOrderBy: orderBy, resultsOrderDirection: orderDirection })),
     applyFormStateUpdates: (updates) => {
@@ -1841,6 +1873,9 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
           src={watermarkedThumbnailModalUrl ?? state.thumbnailToView.imageUrl}
           alt={state.thumbnailToView.name}
           title={state.thumbnailToView.name}
+          footer={
+            <ThumbnailLivePerformanceBlock thumbnailId={state.thumbnailToView.id} />
+          }
         />
       )}
       
@@ -1907,6 +1942,15 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
         onAppendToCustomInstructions={actions.appendToCustomInstructions}
         onSetCharacterSnapshots={actions.setCharacterSnapshots}
         onSetPlaceSnapshots={actions.setPlaceSnapshots}
+      />
+
+      {/* Watch & Analytics modal (embedded player + YouTube Analytics API); opened on thumbnail click */}
+      <YouTubeVideoWatchAndAnalyticsModal
+        open={state.videoWatchAnalyticsModalOpen}
+        onOpenChange={(open) => {
+          if (!open) closeVideoWatchAnalyticsModal();
+        }}
+        video={state.videoWatchAnalyticsVideo}
       />
 
       {/* Set on YouTube modal (gallery → pick video → set thumbnail) */}

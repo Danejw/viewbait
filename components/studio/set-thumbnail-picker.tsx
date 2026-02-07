@@ -9,6 +9,7 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import {
   Dialog,
@@ -17,6 +18,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { LoadMoreButton } from "@/components/studio/load-more-button";
 import { useStudio } from "@/components/studio/studio-provider";
 import { getCombinedThumbnailsList } from "@/lib/utils/studio-thumbnails";
 import { setVideoThumbnail } from "@/lib/services/youtube-set-thumbnail";
@@ -41,7 +43,9 @@ export function SetThumbnailPicker({
   onOpenChange,
   onSuccess,
 }: SetThumbnailPickerProps) {
+  const queryClient = useQueryClient();
   const { data, actions } = useStudio();
+  const { hasNextPage, fetchNextPage, isFetchingNextPage } = data;
   const { reconnect } = useYouTubeIntegration();
   const [selected, setSelected] = useState<Thumbnail | null>(null);
   const [loading, setLoading] = useState(false);
@@ -66,19 +70,27 @@ export function SetThumbnailPicker({
     if (!selected) return;
     setLoading(true);
     try {
-      const result = await setVideoThumbnail(videoId, { thumbnail_id: selected.id });
+      const result = await setVideoThumbnail(videoId, {
+        thumbnail_id: selected.id,
+        video_title: videoTitle,
+      });
       if (result.success) {
-        toast.success("Thumbnail updated on YouTube.");
+        queryClient.invalidateQueries({ queryKey: ["thumbnail-live-periods", selected.id] });
+        toast.success("Thumbnail set. View performance in thumbnail details.", {
+          action: {
+            label: "View performance",
+            onClick: () => {
+              actions.onViewThumbnail(selected);
+              onOpenChange(false);
+            },
+          },
+        });
         onOpenChange(false);
         setSelected(null);
         onSuccess?.();
       } else {
         if (result.code === "SCOPE_REQUIRED") {
-          const description = result.redirect_uri_hint
-            ? `Add this URL to Google Cloud Console → Credentials → OAuth client → Authorized redirect URIs, then click Reconnect:\n${result.redirect_uri_hint}`
-            : undefined;
-          toast.error("Thumbnail upload requires extra permission. Reconnect your YouTube account (or add the redirect URI to GCP).", {
-            description,
+          toast.error("Thumbnail upload requires extra permission. Reconnect your YouTube account to enable it.", {
             action: {
               label: "Reconnect",
               onClick: () => reconnect(),
@@ -95,7 +107,7 @@ export function SetThumbnailPicker({
     } finally {
       setLoading(false);
     }
-  }, [selected, videoId, onOpenChange, onSuccess, reconnect]);
+  }, [selected, videoId, videoTitle, queryClient, actions, onOpenChange, onSuccess, reconnect]);
 
   const handleOpenChange = useCallback(
     (next: boolean) => {
@@ -161,45 +173,58 @@ export function SetThumbnailPicker({
               Choose a thumbnail to set as this video&apos;s thumbnail on YouTube.
             </p>
             <div
-              className="grid min-h-0 flex-1 grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-4 overflow-y-auto hide-scrollbar scroll-smooth p-4"
-              style={{ scrollBehavior: reducedMotion ? "auto" : "smooth" }}
-              role="listbox"
-              aria-label="Your thumbnails"
+              className="flex min-h-0 flex-1 flex-col overflow-hidden"
+              role="presentation"
             >
-              {selectableList.map((t) => (
-                <motion.button
-                  key={t.id}
-                  ref={(el) => {
-                    thumbnailRefsMap.current[t.id] = el;
-                  }}
-                  type="button"
-                  role="option"
-                  aria-selected={selected?.id === t.id}
-                  className={cn(
-                    "relative aspect-video w-full rounded-xl border-2 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
-                    selected?.id === t.id
-                      ? "border-primary ring-2 ring-primary/40"
-                      : "border-transparent hover:border-muted-foreground/40 hover:ring-2 hover:ring-muted-foreground/20"
-                  )}
-                  onClick={() => handleSelect(t)}
-                  onFocus={handleFocus}
-                  whileHover={{
-                    scale: reducedMotion ? 1 : 1.06,
-                    y: reducedMotion ? 0 : -8,
-                    zIndex: reducedMotion ? undefined : 10,
-                    boxShadow: reducedMotion ? undefined : "0 16px 40px -10px rgb(0 0 0 / 0.25), 0 12px 20px -8px rgb(0 0 0 / 0.15)",
-                  }}
-                  transition={{ type: "spring", stiffness: 400, damping: 28 }}
-                >
-                  <span className="block h-full w-full overflow-hidden rounded-[10px]">
-                    <img
-                      src={t.thumbnail800wUrl || t.thumbnail400wUrl || t.imageUrl}
-                      alt={t.name}
-                      className="h-full w-full object-cover"
-                    />
-                  </span>
-                </motion.button>
-              ))}
+              <div
+                className="grid min-h-0 flex-1 grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-4 overflow-y-auto hide-scrollbar scroll-smooth p-4"
+                style={{ scrollBehavior: reducedMotion ? "auto" : "smooth" }}
+                role="listbox"
+                aria-label="Your thumbnails"
+              >
+                {selectableList.map((t) => (
+                  <motion.button
+                    key={t.id}
+                    ref={(el) => {
+                      thumbnailRefsMap.current[t.id] = el;
+                    }}
+                    type="button"
+                    role="option"
+                    aria-selected={selected?.id === t.id}
+                    className={cn(
+                      "relative aspect-video w-full rounded-xl border-2 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
+                      selected?.id === t.id
+                        ? "border-primary ring-2 ring-primary/40"
+                        : "border-transparent hover:border-muted-foreground/40 hover:ring-2 hover:ring-muted-foreground/20"
+                    )}
+                    onClick={() => handleSelect(t)}
+                    onFocus={handleFocus}
+                    whileHover={{
+                      scale: reducedMotion ? 1 : 1.06,
+                      y: reducedMotion ? 0 : -8,
+                      zIndex: reducedMotion ? undefined : 10,
+                      boxShadow: reducedMotion ? undefined : "0 16px 40px -10px rgb(0 0 0 / 0.25), 0 12px 20px -8px rgb(0 0 0 / 0.15)",
+                    }}
+                    transition={{ type: "spring", stiffness: 400, damping: 28 }}
+                  >
+                    <span className="block h-full w-full overflow-hidden rounded-[10px]">
+                      <img
+                        src={t.thumbnail800wUrl || t.thumbnail400wUrl || t.imageUrl}
+                        alt={t.name}
+                        className="h-full w-full object-cover"
+                      />
+                    </span>
+                  </motion.button>
+                ))}
+              </div>
+              {hasNextPage && (
+                <div className="shrink-0 border-t px-4 py-3">
+                  <LoadMoreButton
+                    onLoadMore={fetchNextPage}
+                    loading={isFetchingNextPage}
+                  />
+                </div>
+              )}
             </div>
             {selected && (
               <div className="flex shrink-0 items-center justify-between gap-2 border-t pt-4">

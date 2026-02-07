@@ -68,3 +68,50 @@ export async function analyzeYouTubeVideo(
     }
   }
 }
+
+/** Thumbnail concept returned by suggest-thumbnail-concepts API. */
+export interface ThumbnailConcept {
+  text: string
+  styleHint?: string
+}
+
+/**
+ * Suggest 2–4 thumbnail concept prompts from video analytics.
+ * Client must pass analytics (from cache or from a prior analyze call). Pro tier only.
+ */
+export async function suggestThumbnailConcepts(
+  videoId: string,
+  videoTitle: string,
+  analytics: YouTubeVideoAnalytics
+): Promise<{ concepts: ThumbnailConcept[] | null; error: Error | null }> {
+  try {
+    const response = await fetch('/api/youtube/videos/suggest-thumbnail-concepts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        videoId: videoId.trim(),
+        videoTitle: videoTitle.trim(),
+        analytics,
+      }),
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      return {
+        concepts: null,
+        error: new Error(errorData.error || 'Failed to suggest thumbnail concepts'),
+      }
+    }
+
+    const data = await response.json()
+    return {
+      concepts: Array.isArray(data.concepts) ? data.concepts : null,
+      error: null,
+    }
+  } catch (error) {
+    return {
+      concepts: null,
+      error: error instanceof Error ? error : new Error('Network error'),
+    }
+  }
+}

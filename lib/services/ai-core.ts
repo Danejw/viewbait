@@ -648,6 +648,79 @@ export async function callGeminiWithYouTubeVideoAndStructuredOutput(
 }
 
 /**
+ * Call Google Gemini API for text-only input with structured JSON output.
+ * Uses responseMimeType and responseJsonSchema for parseable JSON. Use for concept suggestion, etc.
+ */
+export async function callGeminiTextStructuredOutput(
+  systemPrompt: string | null,
+  userPrompt: string,
+  responseJsonSchema: Record<string, unknown>,
+  model: string = 'gemini-2.5-flash'
+): Promise<Record<string, unknown>> {
+  const apiKey = process.env.GEMINI_API_KEY
+  if (!apiKey) {
+    throw new Error('GEMINI_API_KEY environment variable is not set')
+  }
+
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`
+  const combinedPrompt = [systemPrompt, userPrompt].filter(Boolean).join('\n\n')
+
+  const requestBody = {
+    contents: [
+      {
+        role: 'user',
+        parts: [{ text: combinedPrompt }],
+      },
+    ],
+    generationConfig: {
+      responseMimeType: 'application/json',
+      responseJsonSchema: responseJsonSchema,
+      temperature: 0.5,
+      topK: 40,
+      topP: 0.95,
+      maxOutputTokens: 2048,
+    },
+  }
+
+  const response = await retryWithBackoff(
+    () =>
+      fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': apiKey,
+        },
+        body: JSON.stringify(requestBody),
+      })
+  )
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    const sanitizedError = sanitizeApiErrorResponse(errorText)
+    throw new Error(`Gemini API error: ${response.status} - ${sanitizedError}`)
+  }
+
+  const data = await response.json()
+  const candidate = data.candidates?.[0]
+  const responseParts = candidate?.content?.parts ?? []
+  const textPart = responseParts.find((p: { text?: string }) => p.text != null)
+  const text = textPart?.text
+
+  if (text == null || typeof text !== 'string') {
+    const finishReason = candidate?.finishReason ?? 'UNKNOWN'
+    throw new Error(
+      `No text in Gemini API response (finishReason=${finishReason}). Structured output may not be supported for this request.`
+    )
+  }
+
+  try {
+    return JSON.parse(text) as Record<string, unknown>
+  } catch {
+    throw new Error(`Gemini returned invalid JSON. First 200 chars: ${String(text).slice(0, 200)}`)
+  }
+}
+
+/**
  * Call Google Gemini API for image generation (simpler version for style preview)
  */
 export async function callGeminiImageGenerationSimple(

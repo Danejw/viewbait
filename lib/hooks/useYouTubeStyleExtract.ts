@@ -22,6 +22,7 @@ export interface YouTubeStyleExtractVideo {
 export interface UseYouTubeStyleExtractReturn {
   selectedVideoIds: Set<string>;
   toggleSelectVideo: (videoId: string) => void;
+  clearSelection: () => void;
   canExtract: boolean;
   handleExtractStyle: () => Promise<DbStyle | null>;
   isExtracting: boolean;
@@ -57,6 +58,10 @@ export function useYouTubeStyleExtract(
       }
       return next;
     });
+  }, []);
+
+  const clearSelection = useCallback(() => {
+    setSelectedVideoIds(new Set());
   }, []);
 
   const canExtract =
@@ -118,6 +123,7 @@ export function useYouTubeStyleExtract(
   return {
     selectedVideoIds,
     toggleSelectVideo,
+    clearSelection,
     canExtract,
     handleExtractStyle,
     isExtracting,

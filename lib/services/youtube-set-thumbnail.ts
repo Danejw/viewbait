@@ -20,6 +20,8 @@ export interface SetVideoThumbnailParams {
   thumbnail_id?: string
   /** Alternative: fetchable image URL. */
   image_url?: string
+  /** Optional video title for the live period (shown in thumbnail details). */
+  video_title?: string
 }
 
 /**
@@ -34,6 +36,7 @@ export async function setVideoThumbnail(
   if (params.thumbnail_id) body.thumbnail_id = params.thumbnail_id
   else if (params.image_url) body.image_url = params.image_url
   else return { success: false, error: 'thumbnail_id or image_url required', code: 'YOUTUBE_API_ERROR' }
+  if (params.video_title != null && params.video_title !== '') body.video_title = params.video_title
 
   const res = await fetch(`/api/youtube/videos/${encodeURIComponent(videoId)}/set-thumbnail`, {
     method: 'POST',

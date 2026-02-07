@@ -18,6 +18,7 @@ import {
   isYouTubeConnected,
   setVideoThumbnailFromUrl,
 } from '@/lib/services/youtube'
+import { recordPromotion } from '@/lib/services/live-thumbnail'
 
 /** Short-lived signed URL expiry (seconds) when resolving thumbnail_id for one-time fetch. */
 const THUMBNAIL_SIGNED_URL_EXPIRY_SECONDS = 60
@@ -27,6 +28,8 @@ export interface SetThumbnailRequest {
   thumbnail_id?: string
   /** Alternative: client provides a fetchable image URL (e.g. long-lived signed URL). */
   image_url?: string
+  /** Optional video title for the live period row (human-readable in thumbnail details). */
+  video_title?: string
 }
 
 /**
@@ -68,22 +71,16 @@ export async function POST(
 
     const hasScope = await hasThumbnailScope(user.id)
     if (!hasScope) {
-      const redirectUriHint = new URL(
-        '/api/youtube/connect/callback',
-        request.url
-      ).toString()
       logInfo('Set thumbnail blocked: no thumbnail scope; suggest Reconnect', {
         route: 'POST /api/youtube/videos/[id]/set-thumbnail',
         userId: user.id,
-        redirect_uri_hint: redirectUriHint,
       })
       return NextResponse.json(
         {
           success: false,
           error:
-            'Thumbnail upload requires extra permission. Click Reconnect in the YouTube tab. If Reconnect fails, add the redirect URI below to Google Cloud Console → Credentials → your OAuth client → Authorized redirect URIs.',
+            'Thumbnail upload requires extra permission. Click Reconnect in the YouTube tab to sign in with Google again and grant it.',
           code: 'SCOPE_REQUIRED',
-          redirect_uri_hint: redirectUriHint,
         },
         { status: 403 }
       )
@@ -157,6 +154,20 @@ export async function POST(
     const result = await setVideoThumbnailFromUrl(user.id, videoId, resolvedImageUrl)
 
     if (result.success) {
+      if (thumbnailId) {
+        const videoTitle = body.video_title?.trim() || undefined
+        try {
+          await recordPromotion(supabase, user.id, thumbnailId, videoId, videoTitle)
+        } catch (err) {
+          logError(err instanceof Error ? err : new Error(String(err)), {
+            route: 'POST /api/youtube/videos/[id]/set-thumbnail',
+            userId: user.id,
+            videoId,
+            thumbnailId,
+          })
+          // Do not fail the response: thumbnail was set successfully
+        }
+      }
       logInfo('Video thumbnail set successfully', {
         route: 'POST /api/youtube/videos/[id]/set-thumbnail',
         userId: user.id,
@@ -187,7 +198,7 @@ export async function POST(
         error: result.error || 'Failed to upload thumbnail',
         code: 'YOUTUBE_API_ERROR',
       },
-      { status: 502 }
+      { status: 403 }
     )
   } catch (error) {
     return handleApiError(

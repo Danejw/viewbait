@@ -112,6 +112,28 @@ export interface DbThumbnail {
   share_click_count?: number // Clicks when viewed via shared project gallery link
 }
 
+/**
+ * Row from thumbnail_live_periods: one continuous span where a ViewBait thumbnail
+ * was live on a YouTube video. ended_at null = still live.
+ */
+export interface ThumbnailLivePeriod {
+  id: string
+  user_id: string
+  thumbnail_id: string
+  video_id: string
+  started_at: string
+  ended_at: string | null
+  video_title: string | null
+  views: number | null
+  watch_time_minutes: number | null
+  average_view_duration_seconds: number | null
+  impressions: number | null
+  impressions_ctr_percent: number | null
+  metrics_fetched_at: string | null
+  created_at: string
+  updated_at: string
+}
+
 export interface DbProject {
   id: string
   user_id: string

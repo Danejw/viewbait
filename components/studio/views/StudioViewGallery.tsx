@@ -108,6 +108,11 @@ function StudioViewGallery() {
     [thumbnails]
   );
 
+  const breakpointCols = useMemo(
+    () => getMasonryBreakpointCols(zoomLevel),
+    [zoomLevel]
+  );
+
   const handleSortChange = useCallback((value: string) => setSortValue(value), []);
   const handleFavoritesToggle = useCallback((newFavoritesOnly: boolean) => setFavoritesOnly(newFavoritesOnly), []);
   const handleProjectFilterChange = useCallback((value: string) => setProjectFilter(value), []);

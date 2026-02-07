@@ -165,7 +165,8 @@ function ModalDescription({
 }
 
 /**
- * ImageModal - A specialized modal for displaying full-size images
+ * ImageModal - A specialized modal for displaying full-size images.
+ * Optional footer (e.g. Live performance block for thumbnails) is rendered below the image.
  */
 interface ImageModalProps {
   open: boolean
@@ -173,9 +174,11 @@ interface ImageModalProps {
   src: string
   alt: string
   title?: string
+  /** Optional content below the image (e.g. live thumbnail performance) */
+  footer?: React.ReactNode
 }
 
-function ImageModal({ open, onOpenChange, src, alt, title }: ImageModalProps) {
+function ImageModal({ open, onOpenChange, src, alt, title, footer }: ImageModalProps) {
   return (
     <Modal open={open} onOpenChange={onOpenChange}>
       <ModalContent
@@ -198,6 +201,11 @@ function ImageModal({ open, onOpenChange, src, alt, title }: ImageModalProps) {
             loading="eager"
           />
         </div>
+        {footer && (
+          <div className="border-t border-border bg-muted/30 px-4 py-3">
+            {footer}
+          </div>
+        )}
       </ModalContent>
     </Modal>
   )

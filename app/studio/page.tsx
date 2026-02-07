@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import { toast } from "sonner";
 import {
   StudioProvider,
   StudioFrame,
@@ -43,6 +44,31 @@ function StudioViewFromQuery() {
       }
     }
   }, [searchParams, role, setView]);
+
+  return null;
+}
+
+/**
+ * Surfaces YouTube OAuth callback errors from ?error= and optional ?redirect_uri_hint=.
+ * Shows a toast and clears the params from the URL so the user sees what went wrong.
+ */
+function StudioYouTubeOAuthErrorFromQuery() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const handled = useRef<string | null>(null);
+
+  useEffect(() => {
+    const error = searchParams.get("error");
+    if (!error || handled.current === error) return;
+    handled.current = error;
+    const decoded = error.replace(/\+/g, " ");
+    toast.error(`YouTube reconnect failed: ${decoded}`);
+    const next = new URLSearchParams(searchParams.toString());
+    next.delete("error");
+    next.delete("redirect_uri_hint");
+    const qs = next.toString();
+    router.replace(qs ? `?${qs}` : window.location.pathname, { scroll: false });
+  }, [searchParams, router]);
 
   return null;
 }
@@ -121,6 +147,7 @@ export default function StudioPage() {
         <StudioDndContext>
           <Suspense fallback={null}>
             <ProcessCheckoutOnReturn />
+            <StudioYouTubeOAuthErrorFromQuery />
             <StudioViewFromQuery />
             <StudioProjectFromQuery />
           </Suspense>
