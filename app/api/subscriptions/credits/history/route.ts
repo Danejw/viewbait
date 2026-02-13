@@ -11,7 +11,7 @@ import {
   validationErrorResponse,
   databaseErrorResponse,
 } from '@/lib/server/utils/error-handler'
-import { handleApiError } from '@/lib/server/utils/api-helpers'
+import { handleApiError, parseQueryParams } from '@/lib/server/utils/api-helpers'
 import { logError } from '@/lib/server/utils/logger'
 import { NextResponse } from 'next/server'
 import type { CreditTransaction } from '@/lib/types/database'
@@ -29,23 +29,14 @@ export async function GET(request: Request) {
     const supabase = await createClient()
     const user = await requireAuth(supabase)
 
-    // Parse query parameters
+    // Parse query parameters (lenient: invalid limit/offset use default or capped)
     const { searchParams } = new URL(request.url)
-    const limitParam = searchParams.get('limit')
-    const offsetParam = searchParams.get('offset')
+    const { limit, offset } = parseQueryParams(request, {
+      defaultLimit: 50,
+      maxLimit: 100,
+      defaultOffset: 0,
+    })
     const typeFilter = searchParams.get('type')
-
-    // Validate and parse limit
-    const limit = limitParam ? parseInt(limitParam, 10) : 50
-    if (isNaN(limit) || limit < 1 || limit > 100) {
-      return validationErrorResponse('Limit must be between 1 and 100')
-    }
-
-    // Validate and parse offset
-    const offset = offsetParam ? parseInt(offsetParam, 10) : 0
-    if (isNaN(offset) || offset < 0) {
-      return validationErrorResponse('Offset must be a non-negative number')
-    }
 
     // Build query (RLS enforces user can only see own transactions)
     let query = supabase

@@ -11,6 +11,12 @@ import { NextResponse } from 'next/server'
 import { type Resolution } from '@/lib/constants/subscription-tiers'
 import { getTierByProductId, getResolutionCredits } from '@/lib/server/data/subscription-tiers'
 import { getTierForUser } from '@/lib/server/utils/tier'
+import { getCustomAssetCounts } from '@/lib/server/utils/custom-asset-limits'
+import {
+  FREE_TIER_MAX_CUSTOM_FACES,
+  FREE_TIER_MAX_CUSTOM_PALETTES,
+  FREE_TIER_MAX_CUSTOM_STYLES,
+} from '@/lib/constants/free-tier-limits'
 import { callGeminiImageGeneration } from '@/lib/services/ai-core'
 import { getEmotionDescription, getPoseDescription } from '@/lib/utils/ai-helpers'
 import { logError } from '@/lib/server/utils/logger'
@@ -26,11 +32,11 @@ import {
   tierLimitResponse,
   configErrorResponse,
   databaseErrorResponse,
-  storageErrorResponse,
-  aiServiceErrorResponse,
 } from '@/lib/server/utils/error-handler'
 import { handleApiError } from '@/lib/server/utils/api-helpers'
 import { getProjectByIdForAccess } from '@/lib/server/data/projects'
+import { getSubscriptionRow } from '@/lib/server/data/subscription'
+import { deleteThumbnailById, deleteThumbnailsByIds } from '@/lib/server/data/thumbnails'
 import { createNotificationIfNew } from '@/lib/server/notifications/create'
 import { SIGNED_URL_EXPIRY_ONE_YEAR_SECONDS } from '@/lib/server/utils/url-refresh'
 
@@ -379,7 +385,7 @@ export async function POST(request: Request) {
     // Get user tier and subscription (tier for limits, subscription for credits)
     const [tier, subscriptionResult] = await Promise.all([
       getTierForUser(supabase, user.id),
-      supabase.from('user_subscriptions').select('*').eq('user_id', user.id).maybeSingle(),
+      getSubscriptionRow(supabase, user.id),
     ])
 
     if (subscriptionResult.error) {
@@ -396,16 +402,23 @@ export async function POST(request: Request) {
       )
     }
 
-    // Restrict custom style/palette/face usage to Starter+
+    // Restrict custom style/palette/face usage: Starter+ unlimited; free tier allowed one each
     const hasCustomAssets =
       !!body.style ||
       !!body.palette ||
       (body.faceCharacters?.length ?? 0) > 0 ||
       (body.faceImages?.length ?? 0) > 0
     if (!tier.can_create_custom && hasCustomAssets) {
-      return tierLimitResponse(
-        'Custom styles, palettes, and face references require Starter or higher.'
-      )
+      const counts = await getCustomAssetCounts(supabase, user.id)
+      const withinFreeLimit =
+        counts.faceCount <= FREE_TIER_MAX_CUSTOM_FACES &&
+        counts.styleCount <= FREE_TIER_MAX_CUSTOM_STYLES &&
+        counts.paletteCount <= FREE_TIER_MAX_CUSTOM_PALETTES
+      if (!withinFreeLimit) {
+        return tierLimitResponse(
+          'Custom styles, palettes, and face references require Starter or higher.'
+        )
+      }
     }
 
     // Validate resolution access
@@ -650,7 +663,7 @@ export async function POST(request: Request) {
       .map(r => r.thumbnailId)
       .filter((id): id is string => !!id)
     if (failedThumbnailIds.length > 0) {
-      await supabase.from('thumbnails').delete().in('id', failedThumbnailIds)
+      await deleteThumbnailsByIds(supabase, failedThumbnailIds)
     }
 
     // Batch: deduct credits only for successful variations (after generation)
@@ -694,7 +707,7 @@ export async function POST(request: Request) {
       if (!singleResult.success) {
         // Clean up failed thumbnail record
         if (singleResult.thumbnailId) {
-          await supabase.from('thumbnails').delete().eq('id', singleResult.thumbnailId)
+          await deleteThumbnailById(supabase, singleResult.thumbnailId)
         }
         
         return NextResponse.json(
@@ -721,7 +734,7 @@ export async function POST(request: Request) {
       if (!creditResult.success) {
         // Clean up thumbnail record on credit deduction failure
         if (singleResult.thumbnailId) {
-          await supabase.from('thumbnails').delete().eq('id', singleResult.thumbnailId)
+          await deleteThumbnailById(supabase, singleResult.thumbnailId)
         }
         
         if (creditResult.reason === 'INSUFFICIENT') {

@@ -11,7 +11,6 @@ import {
   notFoundResponse,
   validationErrorResponse,
   databaseErrorResponse,
-  serverErrorResponse,
 } from '@/lib/server/utils/error-handler'
 import { handleApiError } from '@/lib/server/utils/api-helpers'
 import { logError } from '@/lib/server/utils/logger'
@@ -22,6 +21,8 @@ import {
   updateProject,
   deleteProject,
   validateEditorSlug,
+  getProjectByShareSlug,
+  getProjectByEditorSlug,
 } from '@/lib/server/data/projects'
 
 /** Generate a short unique slug for share/editor links */
@@ -69,8 +70,8 @@ export async function PATCH(
         if (existing && !existing.share_slug) {
           let slug = generateShortSlug()
           for (let attempts = 0; attempts < 5; attempts++) {
-            const { data: conflict } = await supabase.from('projects').select('id').eq('share_slug', slug).maybeSingle()
-            if (!conflict) break
+            const { data: conflict } = await getProjectByShareSlug(supabase, slug)
+            if (!conflict || conflict.id === id) break
             slug = generateShortSlug()
           }
           update.share_slug = slug
@@ -83,8 +84,8 @@ export async function PATCH(
       if (existing && !existing.editor_slug) {
         let slug = generateShortSlug()
         for (let attempts = 0; attempts < 5; attempts++) {
-          const { data: conflict } = await supabase.from('projects').select('id').eq('editor_slug', slug).maybeSingle()
-          if (!conflict) break
+          const { data: conflict } = await getProjectByEditorSlug(supabase, slug)
+          if (!conflict || conflict.id === id) break
           slug = generateShortSlug()
         }
         update.editor_slug = slug

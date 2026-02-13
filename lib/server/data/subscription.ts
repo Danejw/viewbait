@@ -9,6 +9,8 @@ import { createClient } from '@/lib/supabase/server'
 import { requireAuth } from '@/lib/server/utils/auth'
 import { getTierNameByProductId } from '@/lib/server/data/subscription-tiers'
 import type { TierName } from '@/lib/constants/subscription-tiers'
+import type { SupabaseClient } from '@supabase/supabase-js'
+import type { UserSubscription } from '@/lib/types/database'
 
 export interface FetchSubscriptionResult {
   subscribed: boolean
@@ -21,6 +23,23 @@ export interface FetchSubscriptionResult {
   error: Error | null
 }
 
+export async function getSubscriptionRow(
+  supabase: SupabaseClient,
+  userId: string
+): Promise<{ data: UserSubscription | null; error: Error | null }> {
+  const { data, error } = await supabase
+    .from('user_subscriptions')
+    .select('*')
+    .eq('user_id', userId)
+    .maybeSingle()
+
+  if (error) {
+    return { data: null, error: error as Error }
+  }
+
+  return { data: data as UserSubscription | null, error: null }
+}
+
 /**
  * Fetch subscription status for the authenticated user
  */
@@ -29,14 +48,9 @@ export async function fetchSubscription(): Promise<FetchSubscriptionResult> {
     const supabase = await createClient()
     const user = await requireAuth(supabase)
 
-    const { data: subscription, error: dbError } = await supabase
-      .from('user_subscriptions')
-      .select('*')
-      .eq('user_id', user.id)
-      .single()
+    const { data: subscription, error: dbError } = await getSubscriptionRow(supabase, user.id)
 
-    if (dbError && dbError.code !== 'PGRST116') {
-      // PGRST116 is "not found" - that's okay, return free tier
+    if (dbError) {
       return {
         subscribed: false,
         status: 'free',

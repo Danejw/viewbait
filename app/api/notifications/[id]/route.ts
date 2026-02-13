@@ -15,6 +15,11 @@ import {
 import { handleApiError } from '@/lib/server/utils/api-helpers'
 import { logError } from '@/lib/server/utils/logger'
 import { NextResponse } from 'next/server'
+import {
+  getNotificationById,
+  markNotificationRead,
+  archiveNotification,
+} from '@/lib/server/data/notifications'
 
 /**
  * GET /api/notifications/[id]
@@ -29,12 +34,7 @@ export async function GET(
     const user = await requireAuth(supabase)
     const { id } = await params
 
-    const { data: notification, error } = await supabase
-      .from('notifications')
-      .select('*')
-      .eq('id', id)
-      .eq('user_id', user.id)
-      .single()
+    const { data: notification, error } = await getNotificationById(supabase, user.id, id)
 
     if (error) {
       logError(error, {
@@ -90,10 +90,7 @@ export async function PATCH(
     let result
 
     if (action === 'read') {
-      // Use RPC function to mark as read
-      const { data, error } = await supabase.rpc('rpc_mark_notification_read', {
-        notification_id: id,
-      })
+      const { data, error } = await markNotificationRead(supabase, id)
 
       if (error) {
         logError(error, {
@@ -107,10 +104,7 @@ export async function PATCH(
 
       result = data
     } else if (action === 'archive') {
-      // Use RPC function to archive
-      const { data, error } = await supabase.rpc('rpc_archive_notification', {
-        notification_id: id,
-      })
+      const { data, error } = await archiveNotification(supabase, id)
 
       if (error) {
         logError(error, {

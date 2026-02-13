@@ -13,6 +13,7 @@ import {
   serverErrorResponse,
 } from '@/lib/server/utils/error-handler'
 import { createCachedResponse } from '@/lib/server/utils/cache-headers'
+import { parseQueryParams } from '@/lib/server/utils/api-helpers'
 import { NextResponse } from 'next/server'
 import { logError } from '@/lib/server/utils/logger'
 
@@ -29,9 +30,11 @@ export async function GET(request: Request) {
     const supabase = await createClient()
 
     // Parse query parameters
-    const { searchParams } = new URL(request.url)
-    const limit = parseInt(searchParams.get('limit') || '20', 10)
-    const offset = parseInt(searchParams.get('offset') || '0', 10)
+    const { limit, offset } = parseQueryParams(request, {
+      defaultLimit: 20,
+      maxLimit: 100,
+      defaultOffset: 0,
+    })
 
     // Query public thumbnails - select only needed fields
     // Filter out thumbnails without image_url at the database level if possible

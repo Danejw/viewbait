@@ -457,6 +457,42 @@ export async function fetchThumbnailsForSharedProject(
 }
 
 /**
+ * Delete one thumbnail row by id.
+ * Use a session client; RLS enforces ownership.
+ */
+export async function deleteThumbnailById(
+  supabase: SupabaseClient,
+  thumbnailId: string
+): Promise<{ error: Error | null }> {
+  const { error } = await supabase
+    .from('thumbnails')
+    .delete()
+    .eq('id', thumbnailId)
+
+  return { error: error ? (error as Error) : null }
+}
+
+/**
+ * Delete multiple thumbnail rows by id.
+ * Use a session client; RLS enforces ownership.
+ */
+export async function deleteThumbnailsByIds(
+  supabase: SupabaseClient,
+  ids: string[]
+): Promise<{ error: Error | null }> {
+  if (ids.length === 0) {
+    return { error: null }
+  }
+
+  const { error } = await supabase
+    .from('thumbnails')
+    .delete()
+    .in('id', ids)
+
+  return { error: error ? (error as Error) : null }
+}
+
+/**
  * Get a signed image URL for a thumbnail owned by the user.
  * Used by the agent apply_thumbnail_to_video tool to resolve thumbnail_id to a fetchable URL.
  */

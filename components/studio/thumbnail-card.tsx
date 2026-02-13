@@ -409,6 +409,7 @@ export const ThumbnailCard = memo(function ThumbnailCard({
   const queryClient = useQueryClient();
   const cachedHeatmapDataUrl = useQuery({
     queryKey: [HEATMAP_QUERY_KEY, id],
+    queryFn: () => Promise.resolve(undefined as unknown as string),
     enabled: false,
   }).data as string | undefined;
 

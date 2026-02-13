@@ -13,6 +13,7 @@ import {
 } from '@/lib/server/utils/error-handler'
 import { handleApiError } from '@/lib/server/utils/api-helpers'
 import { getTierForUser } from '@/lib/server/utils/tier'
+import { getCustomAssetCounts, canHaveFaceWithinFreeTier } from '@/lib/server/utils/custom-asset-limits'
 import { SIGNED_URL_EXPIRY_ONE_YEAR_SECONDS } from '@/lib/server/utils/url-refresh'
 import { logError } from '@/lib/server/utils/logger'
 import { NextResponse } from 'next/server'
@@ -24,7 +25,10 @@ export async function POST(request: Request) {
 
     const tier = await getTierForUser(supabase, user.id)
     if (!tier.can_create_custom) {
-      return tierLimitResponse('Custom styles, palettes, and faces require Starter or higher.')
+      const counts = await getCustomAssetCounts(supabase, user.id)
+      if (!canHaveFaceWithinFreeTier(counts)) {
+        return tierLimitResponse('Free tier allows one face. Upgrade for more.')
+      }
     }
 
     // Parse form data

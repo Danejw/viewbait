@@ -10,6 +10,7 @@ import { databaseErrorResponse } from '@/lib/server/utils/error-handler'
 import { handleApiError } from '@/lib/server/utils/api-helpers'
 import { logError } from '@/lib/server/utils/logger'
 import { NextResponse } from 'next/server'
+import { markAllNotificationsRead } from '@/lib/server/data/notifications'
 
 /**
  * POST /api/notifications/mark-all-read
@@ -20,8 +21,7 @@ export async function POST() {
     const supabase = await createClient()
     const user = await requireAuth(supabase)
 
-    // Use RPC function to mark all as read
-    const { data: count, error } = await supabase.rpc('rpc_mark_all_notifications_read')
+    const { count, error } = await markAllNotificationsRead(supabase)
 
     if (error) {
       logError(error, {

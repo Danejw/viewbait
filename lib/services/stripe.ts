@@ -220,7 +220,7 @@ export async function createCheckoutSession(
     const customerId = await getOrCreateStripeCustomer(userId, userEmail)
 
     // Determine success and cancel URLs
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL
     const successUrl = `${baseUrl}/studio?session_id={CHECKOUT_SESSION_ID}`
     const cancelUrl = `${baseUrl}/studio`
 
@@ -579,7 +579,7 @@ export async function createCustomerPortalSession(
     const stripe = getStripe()
 
     // Determine return URL
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL
     const returnUrl = `${baseUrl}/studio`
 
     // Create portal session

@@ -101,7 +101,7 @@ export default function SubscriptionModal({
     return resolutions.join(", ");
   };
 
-  const getFeatureList = (tierConfig: TierConfig) => {
+  const getFeatureList = (tierConfig: TierConfig, tierName: TierName) => {
     const features: string[] = [];
 
     features.push(`${tierConfig.credits_per_month} credits/mo`);
@@ -139,6 +139,14 @@ export default function SubscriptionModal({
 
     if (tierConfig.early_access) {
       features.push("Early access");
+    }
+
+    // Pro: YouTube integration and sharing/collaboration
+    if (tierName === "pro") {
+      features.push("YouTube integration (set thumbnail, channel, assistant)");
+      features.push("Share project galleries");
+      features.push("Let others rank thumbnails in shared gallery");
+      features.push("Add editors so others can add to the gallery");
     }
 
     return features;

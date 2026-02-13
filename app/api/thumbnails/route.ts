@@ -12,7 +12,7 @@ import {
   validationErrorResponse,
   databaseErrorResponse,
 } from '@/lib/server/utils/error-handler'
-import { handleApiError } from '@/lib/server/utils/api-helpers'
+import { handleApiError, parseQueryParams } from '@/lib/server/utils/api-helpers'
 import { createCachedResponse } from '@/lib/server/utils/cache-headers'
 import { logError } from '@/lib/server/utils/logger'
 import { NextResponse } from 'next/server'
@@ -35,18 +35,28 @@ export async function GET(request: Request) {
 
     // Parse query parameters
     const { searchParams } = new URL(request.url)
-    const limit = parseInt(searchParams.get('limit') || '24', 10)
-    const cursor = searchParams.get('cursor') // Cursor for pagination (created_at timestamp or id)
-    const orderBy = (searchParams.get('orderBy') || 'created_at') as 'created_at' | 'title' | 'share_click_count'
-    const orderDirection = searchParams.get('orderDirection') || 'desc'
+    const {
+      limit,
+      cursor,
+      orderBy,
+      orderDirection,
+    } = parseQueryParams(request, {
+      defaultLimit: 24,
+      maxLimit: 100,
+      defaultOrderBy: 'created_at',
+      defaultOrderDirection: 'desc',
+      allowedOrderBy: ['created_at', 'title', 'share_click_count'],
+    })
     const favoritesOnly = searchParams.get('favoritesOnly') === 'true'
     const projectId = searchParams.get('projectId') || null
+    const resolvedOrderBy = orderBy as 'created_at' | 'title' | 'share_click_count'
+    const resolvedOrderDirection = orderDirection as 'asc' | 'desc'
 
     // Build query using shared builder
     let query = buildThumbnailsQuery(supabase, user, {
       favoritesOnly,
-      orderBy,
-      orderDirection: orderDirection as 'asc' | 'desc',
+      orderBy: resolvedOrderBy,
+      orderDirection: resolvedOrderDirection,
       projectId: projectId || undefined,
     })
 
@@ -54,8 +64,8 @@ export async function GET(request: Request) {
     query = applyCursorPagination(query, {
       limit: limit + 1, // Fetch one extra to determine if there's a next page
       cursor: cursor || null,
-      orderBy,
-      orderDirection: orderDirection as 'asc' | 'desc',
+      orderBy: resolvedOrderBy,
+      orderDirection: resolvedOrderDirection,
       cursorColumn: 'id', // Use id as cursor for tie-breaking when orderBy is not created_at
     })
 
@@ -76,7 +86,7 @@ export async function GET(request: Request) {
     
     // Get cursor for next page (use created_at of last item, or id as fallback)
     const nextCursor = thumbnails.length > 0 
-      ? (orderBy === 'created_at' 
+      ? (resolvedOrderBy === 'created_at' 
           ? thumbnails[thumbnails.length - 1].created_at 
           : thumbnails[thumbnails.length - 1].id)
       : null
@@ -155,4 +165,3 @@ export async function POST(request: Request) {
     return handleApiError(error, 'POST /api/thumbnails', 'create-thumbnail', undefined, 'Failed to create thumbnail')
   }
 }
-

@@ -12,7 +12,7 @@ import {
   validationErrorResponse,
   databaseErrorResponse,
 } from '@/lib/server/utils/error-handler'
-import { handleApiError } from '@/lib/server/utils/api-helpers'
+import { handleApiError, parseQueryParams } from '@/lib/server/utils/api-helpers'
 import { NextResponse } from 'next/server'
 import { logError } from '@/lib/server/utils/logger'
 
@@ -29,8 +29,11 @@ export async function GET(request: Request) {
     // Parse query parameters
     const { searchParams } = new URL(request.url)
     const query = searchParams.get('q')
-    const limit = parseInt(searchParams.get('limit') || '20', 10)
-    const offset = parseInt(searchParams.get('offset') || '0', 10)
+    const { limit, offset } = parseQueryParams(request, {
+      defaultLimit: 20,
+      maxLimit: 100,
+      defaultOffset: 0,
+    })
 
     if (!query || !query.trim()) {
       return validationErrorResponse('Search query is required')

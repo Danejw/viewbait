@@ -16,7 +16,7 @@
   } from "react";
   import Link from "next/link";
   import Image from "next/image";
-  import { useSearchParams } from "next/navigation";
+  import { useRouter, useSearchParams } from "next/navigation";
   import { ChevronRight, ExternalLink, RefreshCw, Zap } from "lucide-react";
   import { toast } from "sonner";
   import { OnboardingProvider } from "@/lib/contexts/onboarding-context";
@@ -52,8 +52,10 @@
 
   /** Inner flow that uses Studio context; must be rendered inside StudioProvider + OnboardingProvider */
   function OnboardingFlow() {
+    const router = useRouter();
     const searchParams = useSearchParams();
     const { user } = useAuth();
+    const [isSkippingToStudio, setIsSkippingToStudio] = useState(false);
     const [postCompletionRedirect, setPostCompletionRedirect] = useState("/studio");
     const {
       state: { thumbnailText, selectedStyle, includeFaces, selectedFaces, isGenerating },
@@ -192,6 +194,19 @@
       setIncludeFacesRef.current(false);
     }, []);
 
+    /** Skip onboarding: mark completed then navigate to studio so middleware allows access. */
+    const handleSkipToStudio = useCallback(async () => {
+      if (isSkippingToStudio) return;
+      setIsSkippingToStudio(true);
+      const { error } = await markOnboardingCompleted();
+      if (error) {
+        toast.error("Could not skip onboarding. Please try again.");
+        setIsSkippingToStudio(false);
+        return;
+      }
+      router.push("/studio");
+    }, [isSkippingToStudio]);
+
     const selectedStyleName =
       selectedStyle &&
       [...(defaultStyles || []), ...(styles || [])].find((s) => s.id === selectedStyle)?.name;
@@ -292,8 +307,10 @@
             </div>
           </Link>
 
-          <Link
-            href="/studio"
+          <button
+            type="button"
+            onClick={handleSkipToStudio}
+            disabled={isSkippingToStudio}
             className="btn-crt"
             style={{
               padding: "12px 24px",
@@ -303,15 +320,15 @@
               color: "#000",
               fontSize: "14px",
               fontWeight: 700,
-              cursor: "pointer",
+              cursor: isSkippingToStudio ? "wait" : "pointer",
               position: "relative",
               overflow: "hidden",
               textDecoration: "none",
               display: "inline-block",
             }}
           >
-            Skip to Studio
-          </Link>
+            {isSkippingToStudio ? "..." : "Skip to Studio"}
+          </button>
         </nav>
 
         {/* Confetti on success */}
@@ -591,7 +608,7 @@
                     Creating your thumbnail
                   </p>
                   <p className="generating-text mono">
-                    AI is working its magic<span>...</span>
+                    Working our magic<span>...</span>
                   </p>
                 </div>
               </div>

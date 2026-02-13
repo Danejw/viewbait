@@ -29,6 +29,7 @@ import {
 } from '@/lib/server/utils/error-handler'
 import { handleApiError } from '@/lib/server/utils/api-helpers'
 import { getEditCreditCost } from '@/lib/server/data/subscription-tiers'
+import { deleteThumbnailById } from '@/lib/server/data/thumbnails'
 
 export interface EditThumbnailRequest {
   thumbnailId: string
@@ -175,7 +176,6 @@ Requirements:
     // Call AI core service to edit thumbnail
     // Note: editPrompt is user input, but it's sanitized and limited to 500 chars
     let aiResult
-    let generationFailed = false
     let timeoutOccurred = false
     
     try {
@@ -185,7 +185,6 @@ Requirements:
         processedReferenceImages.length > 0 ? processedReferenceImages : undefined
       )
     } catch (error) {
-      generationFailed = true
       timeoutOccurred = error instanceof TimeoutError
       
       // Refund credits if generation failed after deduction
@@ -230,8 +229,6 @@ Requirements:
     }
 
     if (!aiResult) {
-      generationFailed = true
-      
       // Refund credits if generation failed
       const refundIdempotencyKey = crypto.randomUUID()
       const refundResult = await incrementCreditsAtomic(
@@ -323,7 +320,7 @@ Requirements:
 
     if (uploadError) {
       // Clean up the database record if upload fails
-      await supabase.from('thumbnails').delete().eq('id', newThumbnailId)
+      await deleteThumbnailById(supabase, newThumbnailId)
       
       // Refund credits if storage upload fails after generation
       const refundIdempotencyKey = crypto.randomUUID()
@@ -441,7 +438,7 @@ Requirements:
 
     if (signedUrlError || !signedUrlData?.signedUrl) {
       // Clean up the database record and storage file if URL creation fails
-      await supabase.from('thumbnails').delete().eq('id', newThumbnailId)
+      await deleteThumbnailById(supabase, newThumbnailId)
       await supabase.storage.from('thumbnails').remove([storagePath])
       
       // Refund credits if URL creation fails
