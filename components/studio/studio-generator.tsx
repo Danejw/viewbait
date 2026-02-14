@@ -146,13 +146,13 @@ export function StudioGeneratorThumbnailText() {
 
   return (
     <div className="mb-6">
-      <label className="mb-2 mt-4 block text-sm font-medium">Thumbnail Text</label>
+      <label className="mb-2 mt-4 block text-sm font-medium">Thumbnail Title</label>
       <div className="relative">
         <Input
           ref={thumbnailTextRef}
           value={thumbnailText}
           onChange={(e) => setThumbnailText(e.target.value)}
-          placeholder="Enter thumbnail text..."
+          placeholder="Enter a title for your thumbnail..."
           className="pr-10"
         />
         <Button
