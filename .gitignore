@@ -52,3 +52,4 @@ next-env.d.ts
 # Allow committing the curated content brainstorm deliverable
 !/docs/brainstorms/
 !/docs/brainstorms/content_topics_brainstorm.md
+!/docs/brainstorms/technical_solutions_brainstorm.md
