@@ -48,7 +48,7 @@ BEGIN
   v_new_comment := jsonb_build_object(
     'user_id', CASE WHEN p_user_id IS NOT NULL THEN p_user_id::text ELSE NULL END,
     'comment', p_comment_text,
-    'created_at', to_jsonb(now()::text)
+    'created_at', to_jsonb(now())#>>'{}'
   );
 
   -- Append new comment to array
