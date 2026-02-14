@@ -45,10 +45,11 @@ BEGIN
   WHERE id = p_thumbnail_id;
 
   -- Create new comment object
+  -- to_jsonb(now()) automatically converts timestamp to ISO 8601 JSON string
   v_new_comment := jsonb_build_object(
     'user_id', CASE WHEN p_user_id IS NOT NULL THEN p_user_id::text ELSE NULL END,
     'comment', p_comment_text,
-    'created_at', to_jsonb(now())#>>'{}'
+    'created_at', to_jsonb(now())
   );
 
   -- Append new comment to array
