@@ -27,6 +27,7 @@ import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ViewBaitLogo } from "@/components/ui/viewbait-logo";
 import { useStudio } from "@/components/studio/studio-provider";
+import { useAuth } from "@/lib/hooks/useAuth";
 import { useSubscription } from "@/lib/hooks/useSubscription";
 import { StudioChatPanel } from "@/components/studio/studio-chat";
 import { useFaces } from "@/lib/hooks/useFaces";
@@ -246,6 +247,7 @@ export function StudioGeneratorStyleReferences() {
     state: { includeStyleReferences, styleReferences },
     actions: { setIncludeStyleReferences, addStyleReference, removeStyleReference },
   } = useStudio();
+  const { user } = useAuth();
   const [isDraggingFile, setIsDraggingFile] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -261,17 +263,19 @@ export function StudioGeneratorStyleReferences() {
     id: DROP_ZONE_IDS.STYLE_REFERENCES,
   });
 
-  const getUserId = useCallback(async (): Promise<string | null> => {
+  /** Resolve user id for upload path; prefer auth user to avoid redundant /api/profiles. */
+  const getUserIdForUpload = useCallback(async (): Promise<string | null> => {
+    if (user?.id) return user.id;
     const res = await fetch("/api/profiles");
     if (!res.ok) return null;
     const data = await res.json();
     return data?.profile?.id ?? null;
-  }, []);
+  }, [user?.id]);
 
   const uploadImage = useCallback(
     async (file: File): Promise<string | null> => {
       setUploadError(null);
-      const userId = await getUserId();
+      const userId = await getUserIdForUpload();
       if (!userId) {
         setUploadError("Sign in to add style references");
         return null;
@@ -294,7 +298,7 @@ export function StudioGeneratorStyleReferences() {
       const data = await res.json();
       return data?.url ?? data?.path ?? null;
     },
-    [getUserId, styleReferences.length]
+    [getUserIdForUpload, styleReferences.length]
   );
 
   const addFiles = useCallback(

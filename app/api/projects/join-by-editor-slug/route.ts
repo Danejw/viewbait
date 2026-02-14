@@ -14,11 +14,10 @@ import {
   validationErrorResponse,
   notFoundResponse,
   databaseErrorResponse,
-  rateLimitResponse,
 } from '@/lib/server/utils/error-handler'
 import { handleApiError } from '@/lib/server/utils/api-helpers'
 import { logError } from '@/lib/server/utils/logger'
-import { checkRateLimit } from '@/lib/server/utils/rate-limit'
+import { enforceRateLimit } from '@/lib/server/utils/rate-limit'
 import { NextResponse } from 'next/server'
 import {
   getProjectByEditorSlug,
@@ -26,17 +25,13 @@ import {
   validateEditorSlug,
 } from '@/lib/server/data/projects'
 
-/** Max join-by-editor-slug requests per user per minute (reduces slug enumeration / abuse). */
-const JOIN_BY_EDITOR_SLUG_LIMIT_PER_MINUTE = 10
-
 export async function POST(request: Request) {
   try {
     const supabase = await createClient()
     const user = await requireAuth(supabase)
 
-    if (!checkRateLimit(`join-editor-slug:${user.id}`, JOIN_BY_EDITOR_SLUG_LIMIT_PER_MINUTE)) {
-      return rateLimitResponse('Too many join attempts. Please try again in a minute.')
-    }
+    const rateLimitRes = enforceRateLimit('join-editor-slug', request, user.id)
+    if (rateLimitRes) return rateLimitRes
 
     let body: { editor_slug?: string }
     try {

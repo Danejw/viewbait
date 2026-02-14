@@ -7,6 +7,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/hooks/useAuth";
 import * as projectsService from "@/lib/services/projects";
 import type { DbProject, ProjectDefaultSettings } from "@/lib/types/database";
@@ -106,13 +107,28 @@ export function useProjects(): UseProjectsReturn {
   };
 }
 
+const SHARED_GALLERY_POLL_MS = 60 * 1000;
+
 /**
  * Hook for fetching a shared project gallery by slug (public, no auth).
- * Refetches periodically so the page updates when the owner adds thumbnails.
+ * Refetches periodically while the tab is visible so the page updates when
+ * the owner adds thumbnails. Polling pauses when the tab is hidden to avoid
+ * unnecessary requests; refetchOnWindowFocus ensures fresh data when the user returns.
  */
 export function useSharedProjectGallery(slug: string | null) {
+  const [isTabVisible, setIsTabVisible] = useState(true);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const onVisibilityChange = () => {
+      setIsTabVisible(document.visibilityState !== "hidden");
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", onVisibilityChange);
+  }, []);
+
   const query = useQuery({
-    queryKey: sharedProjectGalleryQueryKeys.slug(slug ?? ''),
+    queryKey: sharedProjectGalleryQueryKeys.slug(slug ?? ""),
     queryFn: async () => {
       if (!slug) return null;
       const result = await projectsService.getSharedProjectGallery(slug);
@@ -120,8 +136,9 @@ export function useSharedProjectGallery(slug: string | null) {
       return result.data;
     },
     enabled: !!slug,
-    staleTime: 60 * 1000,
-    refetchInterval: 60 * 1000,
+    staleTime: SHARED_GALLERY_POLL_MS,
+    refetchInterval: isTabVisible ? SHARED_GALLERY_POLL_MS : false,
+    refetchOnWindowFocus: true,
   });
 
   return {

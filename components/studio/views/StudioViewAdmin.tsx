@@ -6,23 +6,23 @@
  */
 
 import { useEffect } from "react";
-import { useAuth } from "@/lib/hooks/useAuth";
+import { useUserRole } from "@/lib/hooks/useUserRole";
 import { useStudio } from "@/components/studio/studio-provider";
 import { ViewHeader } from "@/components/studio/view-controls";
 import { AdminViewContent } from "@/components/admin/admin-view-content";
 import { Card, CardContent } from "@/components/ui/card";
 
 export default function StudioViewAdmin() {
-  const { role } = useAuth();
+  const { isAdmin, isLoading } = useUserRole();
   const { actions: { setView } } = useStudio();
 
   useEffect(() => {
-    if (role !== "admin") {
+    if (!isLoading && !isAdmin) {
       setView("generator");
     }
-  }, [role, setView]);
+  }, [isAdmin, isLoading, setView]);
 
-  if (role !== "admin") {
+  if (isLoading || !isAdmin) {
     return (
       <div>
         <ViewHeader title="Admin" description="Application analytics and internal tools." />

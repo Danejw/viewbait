@@ -42,3 +42,12 @@ export {
 export { useModalManager, type UseModalManagerReturn } from './useModalManager'
 export { useGeneratorMode, type UseGeneratorModeReturn } from './useGeneratorMode'
 export { useGridZoom } from './useGridZoom'
+export {
+  useYouTubeVideosList,
+  type UseYouTubeVideosListReturn,
+  type YouTubeVideoItem,
+} from './useYouTubeVideosList'
+export {
+  useThumbnailLivePeriodsBatch,
+  type UseThumbnailLivePeriodsBatchOptions,
+} from './useThumbnailLivePeriodsBatch'

@@ -14,7 +14,7 @@ import { useAuth } from "@/lib/hooks/useAuth";
 import * as notificationsService from "@/lib/services/notifications";
 import type { Notification } from "@/lib/types/database";
 
-const NOTIFICATIONS_LIST_LIMIT = 50;
+const NOTIFICATIONS_LIST_LIMIT = 10;
 
 export interface UseNotificationByIdReturn {
   notification: Notification | null;
@@ -38,13 +38,13 @@ export function useNotificationById(id: string | null): UseNotificationByIdRetur
     queryFn: async (): Promise<Notification | null> => {
       if (!id || !user?.id) return null;
 
-      // Cache-first: check existing list cache (same key as useNotifications)
+      // Cache-first: check existing list cache (infinite query shape from useNotifications)
       const listData = queryClient.getQueryData<{
-        notifications: Notification[];
-        count: number;
-        unreadCount: number;
+        pages: { notifications: Notification[]; count: number; unreadCount: number }[];
+        pageParams: number[];
       }>(["notifications", user.id, NOTIFICATIONS_LIST_LIMIT]);
-      const fromList = listData?.notifications?.find((n) => n.id === id);
+      const allFromList = listData?.pages?.flatMap((p) => p.notifications) ?? [];
+      const fromList = allFromList.find((n) => n.id === id);
       if (fromList) return fromList;
 
       // Not in list cache; fetch by id (e.g. deep link)

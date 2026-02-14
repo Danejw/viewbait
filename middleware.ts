@@ -63,6 +63,11 @@ function isPublicRoute(pathname: string): boolean {
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
 
+  // Redirect /admin to studio admin view without loading the page component
+  if (pathname === "/admin") {
+    return NextResponse.redirect(new URL("/studio?view=admin", request.url));
+  }
+
   if (isPublicRoute(pathname)) {
     return NextResponse.next({ request });
   }

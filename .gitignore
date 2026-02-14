@@ -40,3 +40,11 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# docs (audits, brainstorms, checks, critiques, guides, plans)
+/docs/audits/
+/docs/brainstorms/
+/docs/checks/
+/docs/critiques/
+/docs/guides/
+/docs/plans/

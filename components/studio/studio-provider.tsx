@@ -561,11 +561,6 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
   // Auth hook for user context
   const { user, isAuthenticated } = useAuth();
   const { canCreateCustomAssets, hasWatermark, tier } = useSubscription();
-  const { status } = useYouTubeIntegration();
-  const canSetYouTubeThumbnail =
-    tier === "pro" &&
-    (status?.isConnected === true) &&
-    (status?.scopesGranted?.includes(YOUTUBE_THUMBNAIL_SCOPE) ?? false);
 
   // Thumbnail generation hook (cooldown duration based on subscription tier)
   const cooldownMs = getGenerateCooldownMs(tier);
@@ -674,6 +669,15 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
       setOnYouTubeThumbnail: null,
     };
   });
+
+  // YouTube integration: only fetch videos list when on YouTube or Assistant view to avoid 404s when not connected
+  const { status } = useYouTubeIntegration({
+    enableVideosList: state.currentView === "youtube" || state.currentView === "assistant",
+  });
+  const canSetYouTubeThumbnail =
+    tier === "pro" &&
+    (status?.isConnected === true) &&
+    (status?.scopesGranted?.includes(YOUTUBE_THUMBNAIL_SCOPE) ?? false);
 
   // Thumbnails data hook (React Query); filter by activeProjectId when set; sort from state for Create tab
   const {

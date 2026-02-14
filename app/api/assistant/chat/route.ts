@@ -7,6 +7,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { getOptionalAuth } from '@/lib/server/utils/auth'
+import { enforceRateLimit } from '@/lib/server/utils/rate-limit'
 import { NextResponse } from 'next/server'
 import { callGeminiWithFunctionCalling, type FunctionCallingResult } from '@/lib/services/ai-core'
 import { processGroundingCitations } from '@/lib/utils/citation-processor'
@@ -457,6 +458,9 @@ export async function POST(request: Request) {
         { status: 401 }
       )
     }
+
+    const rateLimitRes = enforceRateLimit('assistant-chat', request, user.id)
+    if (rateLimitRes) return rateLimitRes
 
     // Check if streaming is requested
     const url = new URL(request.url)

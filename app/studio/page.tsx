@@ -18,23 +18,23 @@ import { StudioDndContext } from "@/components/studio/studio-dnd-context";
 import { ProcessCheckoutOnReturn } from "@/components/studio/process-checkout-return";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { useAuth } from "@/lib/hooks/useAuth";
 import { useStudio } from "@/components/studio/studio-provider";
+import { useUserRole } from "@/lib/hooks/useUserRole";
 
 /**
  * Syncs ?view=admin and ?view=roadmap from URL to studio view when user is admin (for /admin redirect and bookmarks).
+ * Role is fetched from the roles table via useUserRole.
  */
 function StudioViewFromQuery() {
   const searchParams = useSearchParams();
-  const { profile } = useAuth();
-  const role = profile?.is_admin ? "admin" : "member";
+  const { isAdmin } = useUserRole();
   const { actions: { setView } } = useStudio();
   const applied = useRef(false);
 
   useEffect(() => {
     if (applied.current) return;
     const view = searchParams.get("view");
-    if (role === "admin") {
+    if (isAdmin) {
       if (view === "admin") {
         applied.current = true;
         setView("admin");
@@ -43,7 +43,7 @@ function StudioViewFromQuery() {
         setView("roadmap");
       }
     }
-  }, [searchParams, role, setView]);
+  }, [searchParams, isAdmin, setView]);
 
   return null;
 }

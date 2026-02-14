@@ -176,7 +176,8 @@ export function useStyles(options: UseStylesOptions = {}): UseStylesReturn {
   const favoriteIds = favoriteIdsData || new Set<string>();
 
   /**
-   * Mutation for creating a style
+   * Mutation for creating a style.
+   * Invalidation: list only (new item); public/favorites unchanged.
    */
   const createMutation = useMutation({
     mutationFn: stylesService.createStyle,
@@ -188,7 +189,8 @@ export function useStyles(options: UseStylesOptions = {}): UseStylesReturn {
   });
 
   /**
-   * Mutation for updating a style
+   * Mutation for updating a style.
+   * Invalidation: list only; public/favorites only if payload changes them.
    */
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: Parameters<typeof stylesService.updateStyle>[1] }) =>
@@ -199,7 +201,8 @@ export function useStyles(options: UseStylesOptions = {}): UseStylesReturn {
   });
 
   /**
-   * Mutation for deleting a style
+   * Mutation for deleting a style.
+   * Invalidation: list only; item removed from list.
    */
   const deleteMutation = useMutation({
     mutationFn: ({ id, userId }: { id: string; userId: string }) =>
@@ -210,7 +213,8 @@ export function useStyles(options: UseStylesOptions = {}): UseStylesReturn {
   });
 
   /**
-   * Mutation for toggling public status
+   * Mutation for toggling public status.
+   * Invalidation: list + public list (visibility changed); favorites unchanged.
    */
   const togglePublicMutation = useMutation({
     mutationFn: stylesService.toggleStylePublic,
@@ -221,7 +225,8 @@ export function useStyles(options: UseStylesOptions = {}): UseStylesReturn {
   });
 
   /**
-   * Mutation for toggling favorite
+   * Mutation for toggling favorite.
+   * Invalidation: favorites only; list and public list unchanged.
    */
   const toggleFavoriteMutation = useMutation({
     mutationFn: ({ id }: { id: string }) =>

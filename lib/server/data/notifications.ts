@@ -43,6 +43,8 @@ function validationError(message: string): CreateNotificationResult {
 
 /**
  * Core notifications query used by API routes and server wrappers.
+ * Uses a single RPC to return list, count, and unread count in one round-trip.
+ * Requires an authenticated Supabase client (auth.uid() used in RPC).
  */
 export async function listNotifications(
   supabase: SupabaseClient,
@@ -50,32 +52,18 @@ export async function listNotifications(
   options: FetchNotificationsOptions = {}
 ): Promise<FetchNotificationsResult> {
   const {
-    limit = 50,
+    limit = 10,
     offset = 0,
     unreadOnly = false,
     archivedOnly = false,
   } = options
 
-  let query = supabase
-    .from('notifications')
-    .select('*', { count: 'exact' })
-    .eq('user_id', userId)
-
-  if (unreadOnly) {
-    query = query.eq('is_read', false)
-  }
-
-  if (archivedOnly) {
-    query = query.eq('is_archived', true)
-  } else {
-    query = query.eq('is_archived', false)
-  }
-
-  query = query
-    .order('created_at', { ascending: false })
-    .range(offset, offset + limit - 1)
-
-  const { data, count, error } = await query
+  const { data: rpcData, error } = await supabase.rpc('get_notifications_with_counts', {
+    p_limit: limit,
+    p_offset: offset,
+    p_unread_only: unreadOnly,
+    p_archived_only: archivedOnly,
+  })
 
   if (error) {
     return {
@@ -86,11 +74,23 @@ export async function listNotifications(
     }
   }
 
-  const unreadCount = await getUnreadCount(supabase, userId)
+  const row = Array.isArray(rpcData) ? rpcData[0] : rpcData
+  if (!row || typeof row !== 'object') {
+    return {
+      notifications: [],
+      count: 0,
+      unreadCount: 0,
+      error: null,
+    }
+  }
+
+  const notifications = (row.notifications as Notification[]) ?? []
+  const count = typeof row.count === 'number' ? row.count : Number(row.count) || 0
+  const unreadCount = typeof row.unread_count === 'number' ? row.unread_count : Number(row.unread_count) || 0
 
   return {
-    notifications: (data as Notification[]) || [],
-    count: count || 0,
+    notifications: Array.isArray(notifications) ? notifications : [],
+    count,
     unreadCount,
     error: null,
   }

@@ -5,6 +5,7 @@
  * All database operations are server-side only.
  */
 
+import { fetchWithTimeout, DEFAULT_LIST_DETAIL_TIMEOUT_MS } from '@/lib/utils/fetch-with-timeout'
 import type { Notification } from '@/lib/types/database'
 
 export interface NotificationsQueryOptions {
@@ -26,7 +27,7 @@ export async function getNotifications(
   error: Error | null
 }> {
   const {
-    limit = 50,
+    limit = 10,
     offset = 0,
     unreadOnly = false,
     archivedOnly = false,
@@ -40,8 +41,11 @@ export async function getNotifications(
       ...(archivedOnly && { archivedOnly: 'true' }),
     })
 
-    const response = await fetch(`/api/notifications?${params.toString()}`)
-    
+    const response = await fetchWithTimeout(`/api/notifications?${params.toString()}`, {
+      credentials: 'include',
+      timeoutMs: DEFAULT_LIST_DETAIL_TIMEOUT_MS,
+    })
+
     if (!response.ok) {
       const errorData = await response.json()
       return {

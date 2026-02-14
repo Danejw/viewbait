@@ -141,12 +141,16 @@ export default function SubscriptionModal({
       features.push("Early access");
     }
 
-    // Pro: YouTube integration and sharing/collaboration
+    // Starter, Advanced, Pro: project gallery sharing and ranking
+    if (tierName === "starter" || tierName === "advanced" || tierName === "pro") {
+      features.push("Share your projects gallery");
+      features.push("Measure click rates to rank thumbnails in project gallery");
+      features.push("Share gallery so others can create thumbnails");
+    }
+
+    // Pro only: YouTube integrations
     if (tierName === "pro") {
-      features.push("YouTube integration (set thumbnail, channel, assistant)");
-      features.push("Share project galleries");
-      features.push("Let others rank thumbnails in shared gallery");
-      features.push("Add editors so others can add to the gallery");
+      features.push("YouTube integrations");
     }
 
     return features;
@@ -213,7 +217,7 @@ export default function SubscriptionModal({
 
                 <CardContent className="flex flex-1 flex-col gap-4">
                   <ul className="flex-1 space-y-2.5 text-sm text-muted-foreground">
-                    {getFeatureList(tierConfig).map((feature, index) => (
+                    {getFeatureList(tierConfig, tierName).map((feature, index) => (
                       <li key={index} className="flex items-start gap-2">
                         <Check className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
                         <span className="break-words leading-relaxed">{feature}</span>

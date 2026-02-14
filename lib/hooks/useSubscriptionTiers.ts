@@ -25,15 +25,23 @@ async function fetchTiers(): Promise<TiersResponse> {
   return response.json()
 }
 
+export interface UseSubscriptionTiersOptions {
+  /** When false, the tiers query does not run (e.g. when user is unauthenticated). Default true. */
+  enabled?: boolean
+}
+
 /**
  * Hook to get subscription tiers
- * 
+ *
+ * @param options.enabled - If false, the query does not run. Default true so callers that don't pass it still fetch.
  * @returns Object with tiers data, loading state, and helper functions
  */
-export function useSubscriptionTiers() {
+export function useSubscriptionTiers(options?: UseSubscriptionTiersOptions) {
+  const { enabled = true } = options ?? {}
   const { data, isLoading, error } = useQuery<TiersResponse>({
     queryKey: ['subscription-tiers'],
     queryFn: fetchTiers,
+    enabled,
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 10 * 60 * 1000, // 10 minutes (formerly cacheTime)
   })

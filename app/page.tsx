@@ -3,12 +3,23 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import dynamic from "next/dynamic";
 import { Crown } from "lucide-react";
-import { LenisRoot } from "@/components/landing/lenis-root";
 import { PublicBetaBanner } from "@/components/landing/public-beta-banner";
 import { ScrollReveal } from "@/components/landing/scroll-reveal";
-import { FeedbackModal } from "@/components/feedback-modal";
 import { useAuth } from "@/lib/hooks/useAuth";
+
+/** Lazy-load Lenis after FCP to avoid initial TBT from rAF loop; smooth scroll loads later. */
+const LenisRootLazy = dynamic(
+  () => import("@/components/landing/lenis-root").then((m) => ({ default: m.LenisRoot })),
+  { ssr: false }
+);
+
+/** Lazy-load FeedbackModal so Dialog/sonner/form are not in the critical path. */
+const FeedbackModalLazy = dynamic(
+  () => import("@/components/feedback-modal").then((m) => ({ default: m.FeedbackModal })),
+  { ssr: false }
+);
 
 const HERO_WORDS = ["ATTENTION", "CLICKS", "VIEWS", "RESULTS"];
 const GENERATION_PROMPT =
@@ -49,9 +60,51 @@ export default function ViewBaitLanding() {
   const [isMobile, setIsMobile] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [scrollY, setScrollY] = useState(0);
+  const [lenisReady, setLenisReady] = useState(false);
 
   /** Studio entry: signed-in users go to studio, others to auth. */
   const studioOrAuthHref = isAuthenticated ? "/studio" : "/auth";
+
+  /** Throttled scroll listener for nav (background when scrollY > 50). Runs until Lenis takes over; then Lenis drives scrollY. */
+  useEffect(() => {
+    let rafId: number | null = null;
+    let lastY = 0;
+    let lastSetTime = 0;
+    const throttleMs = 100;
+
+    const handleScroll = () => {
+      if (rafId != null) return;
+      rafId = requestAnimationFrame(() => {
+        rafId = null;
+        const y = typeof window !== "undefined" ? window.scrollY ?? document.documentElement.scrollTop : 0;
+        const now = Date.now();
+        if (now - lastSetTime >= throttleMs || Math.abs(y - lastY) > 80) {
+          lastY = y;
+          lastSetTime = now;
+          setScrollY(y);
+        }
+      });
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    handleScroll();
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+      if (rafId != null) cancelAnimationFrame(rafId);
+    };
+  }, []);
+
+  /** After FCP, enable Lenis smooth scroll so it loads in the background and takes over without blocking initial paint. */
+  useEffect(() => {
+    const timeout = 2000;
+    const id =
+      typeof requestIdleCallback !== "undefined"
+        ? requestIdleCallback(() => setLenisReady(true), { timeout })
+        : window.setTimeout(() => setLenisReady(true), timeout);
+    return () =>
+      typeof cancelIdleCallback !== "undefined" ? cancelIdleCallback(id as number) : window.clearTimeout(id as number);
+  }, []);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -70,21 +123,31 @@ export default function ViewBaitLanding() {
       setActiveWord((prev) => (prev + 1) % HERO_WORDS.length);
     }, 2500);
 
+    /** Typewriter: throttle to ~80ms (was 50ms) to reduce TBT while keeping the effect. */
     let charIndex = 0;
-    const typeInterval = setInterval(() => {
+    let lastTs = 0;
+    let rafTypewriterId: number | null = null;
+    const tick = (ts: number) => {
+      if (lastTs !== 0 && ts - lastTs < 80) {
+        rafTypewriterId = requestAnimationFrame(tick);
+        return;
+      }
+      lastTs = ts;
       if (charIndex <= GENERATION_PROMPT.length) {
         setGeneratingText(GENERATION_PROMPT.slice(0, charIndex));
         charIndex++;
       } else {
         charIndex = 0;
       }
-    }, 50);
+      rafTypewriterId = requestAnimationFrame(tick);
+    };
+    rafTypewriterId = requestAnimationFrame(tick);
 
     return () => {
       window.removeEventListener("resize", checkMobile);
       window.removeEventListener("mousemove", handleMouseMove);
       clearInterval(wordInterval);
-      clearInterval(typeInterval);
+      if (rafTypewriterId != null) cancelAnimationFrame(rafTypewriterId);
     };
   }, [isMobile]);
 
@@ -102,8 +165,8 @@ export default function ViewBaitLanding() {
         overflowX: "hidden",
       }}
     >
-      <LenisRoot>
-        {(scrollY) => (
+      {(() => {
+        const renderContent = (navScrollY: number) => (
           <>
             {/* Global CRT effects */}
             <div className="global-scanlines" aria-hidden />
@@ -197,9 +260,9 @@ export default function ViewBaitLanding() {
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
-          background: scrollY > 50 ? "rgba(3,3,3,0.95)" : "transparent",
-          backdropFilter: scrollY > 50 ? "blur(20px) saturate(180%)" : "none",
-          borderBottom: scrollY > 50 ? "1px solid rgba(255,255,255,0.03)" : "none",
+          background: navScrollY > 50 ? "rgba(3,3,3,0.95)" : "transparent",
+          backdropFilter: navScrollY > 50 ? "blur(20px) saturate(180%)" : "none",
+          borderBottom: navScrollY > 50 ? "1px solid rgba(255,255,255,0.03)" : "none",
           transition: "all 0.4s ease",
         }}
       >
@@ -598,6 +661,7 @@ export default function ViewBaitLanding() {
                       src={HERO_THUMBNAIL_SRC}
                       alt="ViewBait thumbnail preview"
                       fill
+                      priority
                       sizes="(max-width: 768px) 100vw, 560px"
                       className="object-cover"
                       onError={() => setHeroImageError(true)}
@@ -984,6 +1048,7 @@ export default function ViewBaitLanding() {
                         fill
                         sizes="(max-width: 640px) 25vw, 120px"
                         className="object-cover"
+                        loading="lazy"
                         onError={() => setFaceImageErrors((prev) => ({ ...prev, [i]: true }))}
                       />
                     ) : (
@@ -1104,6 +1169,7 @@ export default function ViewBaitLanding() {
                           fill
                           sizes="(max-width: 640px) 80px, 120px"
                           className="object-cover"
+                          loading="lazy"
                           onError={() => setStyleImageErrors((prev) => ({ ...prev, [i]: true }))}
                         />
                         <div
@@ -1454,6 +1520,9 @@ export default function ViewBaitLanding() {
                   "AI Title Enhancement",
                   "Custom styles, palettes & faces",
                   "Permanent storage",
+                  "Share your projects gallery",
+                  "Measure click rates to rank thumbnails",
+                  "Share gallery so others can create thumbnails",
                 ],
                 cta: "Select Plan",
                 highlighted: true,
@@ -1473,6 +1542,9 @@ export default function ViewBaitLanding() {
                   "Custom styles, palettes & faces",
                   "Permanent storage",
                   "Priority generation",
+                  "Share your projects gallery",
+                  "Measure click rates to rank thumbnails",
+                  "Share gallery so others can create thumbnails",
                 ],
                 cta: "Select Plan",
                 highlighted: false,
@@ -1493,6 +1565,10 @@ export default function ViewBaitLanding() {
                   "Permanent storage",
                   "Priority generation",
                   "Early access",
+                  "YouTube integrations",
+                  "Share your projects gallery",
+                  "Measure click rates to rank thumbnails",
+                  "Share gallery so others can create thumbnails",
                 ],
                 cta: "Select Plan",
                 highlighted: false,
@@ -1887,11 +1963,14 @@ export default function ViewBaitLanding() {
             © {new Date().getFullYear()} VIEWBAIT
           </div>
         </div>
-        <FeedbackModal open={feedbackOpen} onClose={() => setFeedbackOpen(false)} />
+        {feedbackOpen && (
+          <FeedbackModalLazy open={feedbackOpen} onClose={() => setFeedbackOpen(false)} />
+        )}
       </footer>
           </>
-        )}
-      </LenisRoot>
+        );
+        return lenisReady ? <LenisRootLazy>{renderContent}</LenisRootLazy> : renderContent(scrollY);
+      })()}
     </div>
   );
 }

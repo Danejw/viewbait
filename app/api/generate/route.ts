@@ -22,6 +22,7 @@ import { getEmotionDescription, getPoseDescription } from '@/lib/utils/ai-helper
 import { logError } from '@/lib/server/utils/logger'
 import { generateThumbnailVariants } from '@/lib/server/utils/image-variants'
 import { requireAuth } from '@/lib/server/utils/auth'
+import { enforceRateLimit } from '@/lib/server/utils/rate-limit'
 import { decrementCreditsAtomic } from '@/lib/server/utils/credits'
 import { isUUID, validateStyleIdentifier } from '@/lib/server/utils/uuid-validation'
 import { TimeoutError } from '@/lib/utils/retry-with-backoff'
@@ -367,6 +368,9 @@ export async function POST(request: Request) {
   try {
     const supabase = await createClient()
     const user = await requireAuth(supabase)
+
+    const rateLimitRes = enforceRateLimit('generate', request, user.id)
+    if (rateLimitRes) return rateLimitRes
 
     // Parse request body
     const body: GenerateThumbnailRequest = await request.json()

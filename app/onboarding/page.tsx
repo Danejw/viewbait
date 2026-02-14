@@ -14,6 +14,7 @@
     useEffect,
     useRef,
   } from "react";
+  import dynamic from "next/dynamic";
   import Link from "next/link";
   import Image from "next/image";
   import { useRouter, useSearchParams } from "next/navigation";
@@ -22,12 +23,20 @@
   import { OnboardingProvider } from "@/lib/contexts/onboarding-context";
   import { StudioProvider, StudioDndContext, useStudio } from "@/components/studio";
   import { ChatDropHandlerProvider } from "@/components/studio/chat-drop-handler-context";
-  import {
-    StudioGeneratorThumbnailText,
-    StudioGeneratorFaces,
-    StudioGeneratorStyleSelection,
-    StudioGeneratorSubmit,
-  } from "@/components/studio/studio-generator";
+  import { StudioGeneratorThumbnailText } from "@/components/studio/studio-generator";
+  /** Lazy-load step 2+ generator UI so step 1 (Name) doesn't pay for face/style/submit bundles. */
+  const StudioGeneratorFaces = dynamic(
+    () => import("@/components/studio/studio-generator").then((m) => ({ default: m.StudioGeneratorFaces })),
+    { ssr: false }
+  );
+  const StudioGeneratorStyleSelection = dynamic(
+    () => import("@/components/studio/studio-generator").then((m) => ({ default: m.StudioGeneratorStyleSelection })),
+    { ssr: false }
+  );
+  const StudioGeneratorSubmit = dynamic(
+    () => import("@/components/studio/studio-generator").then((m) => ({ default: m.StudioGeneratorSubmit })),
+    { ssr: false }
+  );
   import { useThumbnails } from "@/lib/hooks/useThumbnails";
   import { useStyles } from "@/lib/hooks/useStyles";
   import { useAuth } from "@/lib/hooks/useAuth";
@@ -50,8 +59,213 @@
     "Your thumbnail is ready",
   ];
 
+  /**
+   * Minimal Welcome shell: no Studio/Onboarding providers, no useStyles/useThumbnails.
+   * Renders first so FCP/LCP are fast; on "Get started" the parent mounts the full flow with initialStep=1.
+   */
+  function OnboardingWelcomeShell({ onGetStarted }: { onGetStarted: () => void }) {
+    const router = useRouter();
+    const [isSkippingToStudio, setIsSkippingToStudio] = useState(false);
+
+    async function handleSkipToStudio() {
+      setIsSkippingToStudio(true);
+      const { error } = await markOnboardingCompleted();
+      setIsSkippingToStudio(false);
+      if (error) {
+        toast.error("Could not skip. Try again.");
+        return;
+      }
+      router.push("/studio");
+    }
+
+    return (
+      <div
+        className="landing-page min-h-screen flex flex-col"
+        style={{
+          minHeight: "100vh",
+          position: "relative",
+          overflowX: "hidden",
+        }}
+      >
+        <div className="global-scanlines" aria-hidden style={{ pointerEvents: "none" }} />
+        <div className="crt-vignette" aria-hidden style={{ pointerEvents: "none" }} />
+        <div className="interference-line" aria-hidden style={{ pointerEvents: "none" }} />
+        <div className="noise" aria-hidden style={{ pointerEvents: "none" }} />
+
+        <nav
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            zIndex: 10001,
+            padding: "16px var(--landing-padding-x)",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            background: "rgba(3,3,3,0.95)",
+            backdropFilter: "blur(20px) saturate(180%)",
+            borderBottom: "1px solid rgba(255,255,255,0.03)",
+            transition: "all 0.4s ease",
+          }}
+        >
+          <Link
+            href="/"
+            style={{ display: "flex", alignItems: "center", gap: "10px", textDecoration: "none", color: "inherit" }}
+            aria-label="Back to home"
+          >
+            <div
+              style={{
+                width: "36px",
+                height: "36px",
+                background: "#ff0000",
+                borderRadius: "10px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                position: "relative",
+                boxShadow: "0 0 30px rgba(255,0,0,0.4), inset 0 0 20px rgba(255,255,255,0.1)",
+              }}
+            >
+              <div className="crop-mark tl" style={{ width: "6px", height: "6px", borderColor: "rgba(255,255,255,0.5)" }} />
+              <div className="crop-mark br" style={{ width: "6px", height: "6px", borderColor: "rgba(255,255,255,0.5)" }} />
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+                <path
+                  d="M 10 3 H 8 C 5.23858 3 3 5.23858 3 8 V 16 C 3 18.7614 5.23858 21 8 21 H 16 C 18.7614 21 21 18.7614 21 16 V 8 C 21 5.23858 18.7614 3 16 3 H 15"
+                  stroke="white"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <path
+                  d="M 3 13 L 8.5 8.5 L 12 12 L 15.5 9.5 L 21 14.5"
+                  stroke="white"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </div>
+            <div>
+              <span
+                className="crt-text-heavy"
+                style={{
+                  fontSize: "18px",
+                  fontWeight: 900,
+                  letterSpacing: "-0.02em",
+                  display: "block",
+                  lineHeight: 1,
+                }}
+              >
+                VIEWBAIT
+              </span>
+              <span
+                className="mono hide-mobile crt-text"
+                style={{
+                  fontSize: "9px",
+                  color: "#555",
+                  letterSpacing: "0.1em",
+                }}
+              >
+                THUMBNAIL STUDIO
+              </span>
+            </div>
+          </Link>
+
+          <button
+            type="button"
+            onClick={handleSkipToStudio}
+            disabled={isSkippingToStudio}
+            className="btn-crt"
+            style={{
+              padding: "12px 24px",
+              background: "#fff",
+              border: "none",
+              borderRadius: "10px",
+              color: "#000",
+              fontSize: "14px",
+              fontWeight: 700,
+              cursor: isSkippingToStudio ? "wait" : "pointer",
+              position: "relative",
+              overflow: "hidden",
+              textDecoration: "none",
+              display: "inline-block",
+            }}
+          >
+            {isSkippingToStudio ? "..." : "Skip to Studio"}
+          </button>
+        </nav>
+
+        <main
+          className="flex-1 flex flex-col items-center justify-center w-full mx-auto max-w-[min(100%,480px)] sm:max-w-[520px] md:max-w-[600px] lg:max-w-[680px] xl:max-w-[720px] 2xl:max-w-[800px]"
+          style={{
+            padding: "100px var(--landing-padding-x) 40px",
+            position: "relative",
+            zIndex: 1,
+          }}
+        >
+          <div className="progress-container w-full">
+            {[0, 1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="progress-step">
+                <div className="progress-step-fill" style={{ width: i === 0 ? "100%" : "0%" }} />
+              </div>
+            ))}
+          </div>
+
+          <div className="text-center mb-6 w-full">
+            <span
+              className="mono crt-text block mb-2"
+              style={{ fontSize: "11px", color: "#ff4444", letterSpacing: "0.1em" }}
+            >
+              STEP 1 OF {TOTAL_STEPS}
+            </span>
+            <h1
+              className="crt-text-heavy"
+              style={{
+                fontSize: "clamp(20px, 5vw, 28px)",
+                fontWeight: 800,
+                letterSpacing: "-0.02em",
+              }}
+            >
+              {STEP_NAMES[0]}
+            </h1>
+          </div>
+
+          <div className="onboarding-card w-full">
+            <div className="crop-mark tl" />
+            <div className="crop-mark tr" />
+            <div className="crop-mark bl" />
+            <div className="crop-mark br" />
+            <div className="relative z-[1]">
+              <p
+                className="crt-text mb-5"
+                style={{ fontSize: "16px", color: "#aaa", lineHeight: 1.7 }}
+              >
+                I noticed this is your first time here. Let&rsquo;s walk you through the steps to create your first thumbnail. It only takes a minute.
+              </p>
+              <p
+                className="crt-text mb-6"
+                style={{ fontSize: "14px", color: "#777", lineHeight: 1.6 }}
+              >
+                You&rsquo;ll name your thumbnail, optionally add your face, pick a style, and we&rsquo;ll generate it. Ready when you are.
+              </p>
+              <button
+                type="button"
+                className="btn-primary w-full"
+                onClick={onGetStarted}
+              >
+                Get started
+                <ChevronRight size={18} strokeWidth={2.5} />
+              </button>
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
   /** Inner flow that uses Studio context; must be rendered inside StudioProvider + OnboardingProvider */
-  function OnboardingFlow() {
+  function OnboardingFlow({ initialStep = 0 }: { initialStep?: number }) {
     const router = useRouter();
     const searchParams = useSearchParams();
     const { user } = useAuth();
@@ -62,18 +276,21 @@
       actions: { setIncludeStyles, setThumbnailText, setSelectedStyle, setIncludeFaces, clearLastGeneratedThumbnail },
       data: { lastGeneratedThumbnail },
     } = useStudio();
+
+    const [step, setStep] = useState(initialStep);
+
+    /** Defer thumbnails until generate/success step to avoid network and JS work before first paint. */
     const { thumbnails } = useThumbnails({
       userId: user?.id,
-      enabled: !!user?.id,
+      enabled: !!user?.id && step >= 4,
       limit: 5,
     });
+    /** Defer styles until style step (3) so Welcome/Name/Face don't pay for it. */
     const { defaultStyles, styles } = useStyles({
-      enabled: true,
-      autoFetch: true,
+      enabled: step >= 3,
+      autoFetch: step >= 3,
       includeDefaults: true,
     });
-
-    const [step, setStep] = useState(0);
     const [generatedThumbnail, setGeneratedThumbnail] = useState<Thumbnail | null>(null);
     const prevThumbnailsCountRef = useRef(0);
     const wasGeneratingRef = useRef(false);
@@ -683,6 +900,12 @@
   }
 
   export default function OnboardingPage() {
+    const [flowStarted, setFlowStarted] = useState(false);
+
+    if (!flowStarted) {
+      return <OnboardingWelcomeShell onGetStarted={() => setFlowStarted(true)} />;
+    }
+
     return (
       <OnboardingProvider isOnboarding>
         <TooltipProvider delayDuration={0}>
@@ -690,7 +913,7 @@
             <ChatDropHandlerProvider>
               <StudioDndContext>
                 <React.Suspense fallback={null}>
-                  <OnboardingFlow />
+                  <OnboardingFlow initialStep={1} />
                 </React.Suspense>
               </StudioDndContext>
             </ChatDropHandlerProvider>

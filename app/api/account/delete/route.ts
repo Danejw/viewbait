@@ -32,6 +32,9 @@ export async function POST(request: Request) {
     const supabase = await createClient()
     const user = await requireAuth(supabase)
 
+    const rateLimitRes = enforceRateLimit('account-delete', request, user.id)
+    if (rateLimitRes) return rateLimitRes
+
     // Parse request body
     let body: { password?: string }
     try {

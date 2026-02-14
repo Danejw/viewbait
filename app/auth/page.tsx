@@ -6,9 +6,11 @@
  * Combined sign-in and sign-up page with tab navigation.
  * Redirects authenticated users to the studio.
  * Uses the same header and footer as the root landing page.
+ * FeedbackModal is lazy-loaded and only mounted when user opens Contact (reduces initial bundle/TBT).
  */
 
 import { useState, useEffect, Suspense } from "react";
+import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Mail } from "lucide-react";
@@ -19,8 +21,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FeedbackModal } from "@/components/feedback-modal";
 import { getAllowedRedirect } from "@/lib/utils/redirect-allowlist";
+
+/** Lazy-load FeedbackModal (Dialog/sonner) so auth first paint and LCP are not delayed. */
+const FeedbackModalLazy = dynamic(
+  () => import("@/components/feedback-modal").then((m) => ({ default: m.FeedbackModal })),
+  { ssr: false }
+);
 
 /**
  * Google Icon SVG Component
@@ -749,7 +756,9 @@ function AuthForm() {
             © {new Date().getFullYear()} VIEWBAIT
           </div>
         </div>
-        <FeedbackModal open={feedbackOpen} onClose={() => setFeedbackOpen(false)} />
+        {feedbackOpen && (
+          <FeedbackModalLazy open onClose={() => setFeedbackOpen(false)} />
+        )}
       </footer>
     </div>
   );

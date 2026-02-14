@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { setVideoThumbnail } from "@/lib/services/youtube-set-thumbnail";
 import { useYouTubeIntegration } from "@/lib/hooks/useYouTubeIntegration";
+import { useYouTubeVideosList } from "@/lib/hooks/useYouTubeVideosList";
 import { parseYouTubeVideoId } from "@/lib/utils/youtube";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -50,38 +51,19 @@ export function SetOnYouTubeModal({
 }: SetOnYouTubeModalProps) {
   const queryClient = useQueryClient();
   const { reconnect } = useYouTubeIntegration();
-  const [videos, setVideos] = useState<YouTubeVideoItem[]>([]);
-  const [videosLoading, setVideosLoading] = useState(false);
-  const [videosError, setVideosError] = useState<string | null>(null);
+  const { videos, isLoading: videosLoading, error: videosError } = useYouTubeVideosList({ enabled: open });
   const [selectedVideoId, setSelectedVideoId] = useState<string | null>(null);
   const [pasteInput, setPasteInput] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const fetchVideos = useCallback(async () => {
-    setVideosLoading(true);
-    setVideosError(null);
-    try {
-      const response = await fetch("/api/youtube/videos");
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to fetch videos");
-      }
-      setVideos(Array.isArray(data.videos) ? data.videos : []);
-    } catch (err) {
-      setVideosError(err instanceof Error ? err.message : "Failed to load videos");
-      setVideos([]);
-    } finally {
-      setVideosLoading(false);
-    }
-  }, []);
+  const videosErrorMsg = videosError ?? null;
 
   useEffect(() => {
     if (open) {
       setSelectedVideoId(null);
       setPasteInput("");
-      fetchVideos();
     }
-  }, [open, fetchVideos]);
+  }, [open]);
 
   const resolvedVideoId =
     selectedVideoId ||
@@ -173,8 +155,8 @@ export function SetOnYouTubeModal({
           <label className="text-sm font-medium">Or pick a recent video</label>
           {videosLoading ? (
             <p className="text-sm text-muted-foreground">Loading your videos…</p>
-          ) : videosError ? (
-            <p className="text-sm text-destructive">{videosError}</p>
+          ) : videosErrorMsg ? (
+            <p className="text-sm text-destructive">{videosErrorMsg}</p>
           ) : videos.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               No videos found. Paste a video ID or URL above.

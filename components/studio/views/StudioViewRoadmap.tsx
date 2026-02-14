@@ -11,7 +11,7 @@
 import { useCallback, useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { useAuth } from "@/lib/hooks/useAuth";
+import { useUserRole } from "@/lib/hooks/useUserRole";
 import { useStudio } from "@/components/studio/studio-provider";
 import { ViewHeader } from "@/components/studio/view-controls";
 import { Button } from "@/components/ui/button";
@@ -77,7 +77,7 @@ export const ROADMAP_DOCS = [
 type RoadmapDocSlug = (typeof ROADMAP_DOCS)[number]["slug"];
 
 export default function StudioViewRoadmap() {
-  const { role } = useAuth();
+  const { isAdmin, isLoading } = useUserRole();
   const { actions: { setView } } = useStudio();
   const [activeTab, setActiveTab] = useState<RoadmapDocSlug>("new_features");
   const [contentByDoc, setContentByDoc] = useState<Partial<Record<RoadmapDocSlug, string>>>({});
@@ -110,17 +110,17 @@ export default function StudioViewRoadmap() {
   }, [contentByDoc]);
 
   useEffect(() => {
-    if (role !== "admin") {
+    if (!isLoading && !isAdmin) {
       setView("generator");
     }
-  }, [role, setView]);
+  }, [isAdmin, isLoading, setView]);
 
   useEffect(() => {
-    if (role !== "admin") return;
+    if (!isAdmin) return;
     fetchDoc(activeTab);
-  }, [role, activeTab, fetchDoc]);
+  }, [isAdmin, activeTab, fetchDoc]);
 
-  if (role !== "admin") {
+  if (isLoading || !isAdmin) {
     return (
       <div>
         <ViewHeader title="Roadmap" description="Brainstorms and roadmap docs." />

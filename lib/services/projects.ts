@@ -4,6 +4,7 @@
  * Handles project CRUD via secure API routes.
  */
 
+import { fetchWithTimeout, DEFAULT_LIST_DETAIL_TIMEOUT_MS } from '@/lib/utils/fetch-with-timeout'
 import type {
   DbProject,
   ProjectInsert,
@@ -38,7 +39,10 @@ export async function getProjects(): Promise<{
   error: Error | null
 }> {
   try {
-    const response = await fetch('/api/projects')
+    const response = await fetchWithTimeout('/api/projects', {
+      credentials: 'include',
+      timeoutMs: DEFAULT_LIST_DETAIL_TIMEOUT_MS,
+    })
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}))
       return {

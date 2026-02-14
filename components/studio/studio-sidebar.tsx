@@ -37,8 +37,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { ViewBaitLogo } from "@/components/ui/viewbait-logo";
 import { useStudio, useStudioState, type StudioView } from "@/components/studio/studio-provider";
+import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/hooks/useAuth";
+import { useUserRole } from "@/lib/hooks/useUserRole";
 import { useNotifications } from "@/lib/hooks/useNotifications";
+import { clearUserCache } from "@/lib/utils/clear-user-cache";
 import { useSubscription } from "@/lib/hooks/useSubscription";
 import SubscriptionModal from "@/components/subscription-modal";
 import ReferralModal from "@/components/referral-modal";
@@ -104,7 +107,7 @@ export function StudioSidebarNav() {
     actions: { setView },
   } = useStudio();
   const { tier, productId } = useSubscription();
-  const { role } = useAuth();
+  const { isAdmin } = useUserRole();
   const [subscriptionModalOpen, setSubscriptionModalOpen] = useState(false);
 
   const renderItem = (item: NavItem, isChild = false) => {
@@ -203,7 +206,7 @@ export function StudioSidebarNav() {
             )}
           </React.Fragment>
         ))}
-        {role === "admin" && (() => {
+        {isAdmin && (() => {
           const adminNavItem: NavItem = {
             label: "Admin",
             view: "admin",
@@ -349,6 +352,7 @@ export function StudioSidebarUser() {
   const { user, profile, signOut, isLoading: authLoading } = useAuth();
   const { unreadCount } = useNotifications({ autoFetch: true });
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [referralModalOpen, setReferralModalOpen] = useState(false);
   const [accountModalOpen, setAccountModalOpen] = useState(false);
 
@@ -369,12 +373,11 @@ export function StudioSidebarUser() {
       ? (nameParts[0][0] + nameParts[nameParts.length - 1][0]).toUpperCase().slice(0, 2)
       : displayName.slice(0, 2).toUpperCase();
 
-  // Sign out handler: sign out then redirect to auth page so user can sign back in
+  // Sign out handler: sign out, clear user cache, then redirect to root
   const handleSignOut = async () => {
-    const { error } = await signOut();
-    if (!error) {
-      router.replace("/auth");
-    }
+    await signOut();
+    clearUserCache(queryClient);
+    router.replace("/");
   };
 
   if (leftSidebarCollapsed) {

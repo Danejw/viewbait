@@ -34,7 +34,7 @@ export async function GET(request: Request) {
     // Parse query parameters
     const { searchParams } = new URL(request.url)
     const { limit, offset } = parseQueryParams(request, {
-      defaultLimit: 50,
+      defaultLimit: 10,
       maxLimit: 100,
       defaultOffset: 0,
     })

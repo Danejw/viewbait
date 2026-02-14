@@ -57,10 +57,11 @@
 
 ### Commands
 - **Lint:** `npm run lint` (ESLint with Next.js config)
-- **Test:** Not configured
+- **Test:** `npm test` / `npm run test:run`
 - **Build:** `npm run build`
 - **Dev:** `npm run dev`
 - **Start:** `npm start`
+- **Performance/network score:** `npm run score` (app must be running). Prints 0–100 Lighthouse performance score; see [docs/audits/performance-score.md](../docs/audits/performance-score.md). Variants: `npm run score:landing`, `npm run score:studio`.
 
 ### Migration Workflow
 - Not implemented (no Supabase migrations or database setup found)

@@ -8,6 +8,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { requireAuth } from '@/lib/server/utils/auth'
+import { enforceRateLimit } from '@/lib/server/utils/rate-limit'
 import { NextResponse } from 'next/server'
 import { logError } from '@/lib/server/utils/logger'
 import { handleApiError } from '@/lib/server/utils/api-helpers'
@@ -168,6 +169,9 @@ export async function POST(request: Request) {
     const supabase = await createClient()
     const user = await requireAuth(supabase)
     userId = user.id
+
+    const rateLimitRes = enforceRateLimit('account-export', request, user.id)
+    if (rateLimitRes) return rateLimitRes
 
     const errors: Array<{ table: string; error: string }> = []
 

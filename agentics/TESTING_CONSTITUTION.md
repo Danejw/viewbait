@@ -189,6 +189,19 @@ npm test -- --watch
 npm test -- calculateDiscount.test.ts
 ```
 
+### Performance and network score (when relevant)
+
+When changing front-end performance, network usage, or load behavior, run the repeatable performance score and compare before/after:
+
+```bash
+# Start the app first (e.g. npm run dev), then in another terminal:
+npm run score           # default URL (http://localhost:3000)
+npm run score:landing   # landing page
+npm run score:studio    # /studio page
+```
+
+The script prints a single **Score: N** (0–100) and writes `docs/audits/performance-score.json`. Use it to verify that changes did not regress speed or network optimization. Full details: [docs/audits/performance-score.md](../docs/audits/performance-score.md).
+
 ### Step 4: Refactor (if necessary)
 
 If tests pass, improve the code:

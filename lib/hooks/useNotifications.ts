@@ -7,9 +7,10 @@
  * Subscribes to Supabase Realtime for instant updates.
  */
 
-import { useEffect, useRef, useCallback } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useRef, useCallback, useMemo } from "react";
+import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "./useAuth";
+import { shouldRefetchOnFocus } from "@/lib/utils/focus-refetch";
 import { createClient } from "@/lib/supabase/client";
 import * as notificationsService from "@/lib/services/notifications";
 import type { Notification } from "@/lib/types/database";
@@ -29,17 +30,21 @@ export interface UseNotificationsReturn {
   error: Error | null;
   totalCount: number;
   hasMore: boolean;
-  
+  isLoadingMore: boolean;
+
   // Actions
   markAsRead: (id: string) => Promise<boolean>;
   markAllAsRead: () => Promise<boolean>;
   archive: (id: string) => Promise<boolean>;
   refresh: () => Promise<void>;
+  loadMore: () => Promise<void>;
 }
 
+const NOTIFICATIONS_PAGE_LIMIT = 10;
+
 export function useNotifications(options: UseNotificationsOptions = {}): UseNotificationsReturn {
-  const { 
-    limit = 50, 
+  const {
+    limit = NOTIFICATIONS_PAGE_LIMIT,
     autoFetch = true,
     initialData,
     initialUnreadCount = 0,
@@ -47,47 +52,63 @@ export function useNotifications(options: UseNotificationsOptions = {}): UseNoti
   const { user, isAuthenticated } = useAuth();
   const queryClient = useQueryClient();
   const subscriptionRef = useRef<{ unsubscribe: () => void } | null>(null);
+  /** When true, skip refetch from realtime so we don't hammer the API after 5xx. */
+  const apiErrorRef = useRef(false);
 
-  // Query key for React Query cache
+  // Query key for React Query cache (infinite query)
   const queryKey = ['notifications', user?.id, limit];
 
-  // Main query for notifications list
   const {
-    data: queryData,
+    data,
     isLoading,
     error: queryError,
     refetch: refetchNotifications,
-  } = useQuery({
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery({
     queryKey,
-    queryFn: async () => {
+    queryFn: async ({ pageParam }) => {
       if (!user) {
-        return { notifications: [], count: 0, unreadCount: 0 };
+        return { notifications: [] as Notification[], count: 0, unreadCount: 0, offset: 0 };
       }
-
+      const offset = pageParam as number;
       const { notifications, count, unreadCount, error } = await notificationsService.getNotifications({
         limit,
-        offset: 0,
+        offset,
       });
-
-      if (error) {
-        throw error;
-      }
-
-      return { notifications, count, unreadCount };
+      if (error) throw error;
+      return { notifications, count, unreadCount, offset };
+    },
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, allPages) => {
+      const totalLoaded = allPages.reduce((sum, p) => sum + p.notifications.length, 0);
+      return totalLoaded < lastPage.count ? totalLoaded : undefined;
     },
     enabled: autoFetch && !!user && isAuthenticated,
-    initialData: initialData && initialUnreadCount !== undefined 
-      ? { notifications: initialData, count: initialData.length, unreadCount: initialUnreadCount }
-      : undefined,
-    staleTime: 2 * 60 * 1000, // 2 minutes (real-time data, but allow some caching)
-    gcTime: 10 * 60 * 1000, // 10 minutes cache time
-    refetchOnWindowFocus: true, // Refetch on focus for notifications (user might have new notifications)
+    staleTime: 2 * 60 * 1000, // 2 minutes
+    gcTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: (query) =>
+      shouldRefetchOnFocus() && !query.state.error,
+    retry: 0, // Avoid repeated requests on 5xx; one request per trigger
   });
 
-  const notifications = queryData?.notifications || [];
-  const totalCount = queryData?.count || 0;
-  const unreadCount = queryData?.unreadCount || 0;
-  const hasMore = notifications.length < totalCount;
+  // Track error state so realtime callback doesn't refetch when API is failing
+  useEffect(() => {
+    apiErrorRef.current = !!queryError;
+  }, [queryError]);
+
+  const notifications = useMemo(
+    () => data?.pages.flatMap((p) => p.notifications) ?? [],
+    [data]
+  );
+  const totalCount = data?.pages[0]?.count ?? 0;
+  const unreadCount = data?.pages[0]?.unreadCount ?? 0;
+  const hasMore = (hasNextPage ?? false) && notifications.length < totalCount;
+
+  const loadMore = useCallback(async () => {
+    if (hasNextPage && !isFetchingNextPage) await fetchNextPage();
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   // Set up Realtime subscription
   useEffect(() => {
@@ -124,28 +145,30 @@ export function useNotifications(options: UseNotificationsOptions = {}): UseNoti
           
           // Only add if not archived
           if (!newNotification.is_archived) {
-            queryClient.setQueryData(queryKey, (old: { notifications: Notification[]; count: number; unreadCount: number } | undefined) => {
-              if (!old) {
+            queryClient.setQueryData(
+              queryKey,
+              (old: { pages: { notifications: Notification[]; count: number; unreadCount: number }[]; pageParams: number[] } | undefined) => {
+                if (!old?.pages?.length) {
+                  return {
+                    pages: [{ notifications: [newNotification], count: 1, unreadCount: newNotification.is_read ? 0 : 1 }],
+                    pageParams: [0],
+                  };
+                }
+                const first = old.pages[0];
+                const exists = first.notifications.some((n) => n.id === newNotification.id);
+                if (exists) return old;
+                const updatedFirst = {
+                  ...first,
+                  notifications: [newNotification, ...first.notifications],
+                  count: first.count + 1,
+                  unreadCount: first.unreadCount + (newNotification.is_read ? 0 : 1),
+                };
                 return {
-                  notifications: [newNotification],
-                  count: 1,
-                  unreadCount: newNotification.is_read ? 0 : 1,
+                  ...old,
+                  pages: [updatedFirst, ...old.pages.slice(1)],
                 };
               }
-
-              // Check if notification already exists (avoid duplicates)
-              const exists = old.notifications.some(n => n.id === newNotification.id);
-              if (exists) {
-                return old;
-              }
-
-              // Prepend new notification and update counts
-              return {
-                notifications: [newNotification, ...old.notifications],
-                count: old.count + 1,
-                unreadCount: old.unreadCount + (newNotification.is_read ? 0 : 1),
-              };
-            });
+            );
           }
         }
       )
@@ -167,40 +190,24 @@ export function useNotifications(options: UseNotificationsOptions = {}): UseNoti
             return;
           }
 
-          queryClient.setQueryData(queryKey, (old: { notifications: Notification[]; count: number; unreadCount: number } | undefined) => {
-            if (!old) {
-              return {
-                notifications: [updatedNotification],
-                count: 1,
-                unreadCount: updatedNotification.is_read ? 0 : 1,
-              };
+          queryClient.setQueryData(
+            queryKey,
+            (old: { pages: { notifications: Notification[]; count: number; unreadCount: number }[]; pageParams: number[] } | undefined) => {
+              if (!old?.pages?.length) return old;
+              const first = old.pages[0];
+              const updatedNotifications = first.notifications.map((n) =>
+                n.id === updatedNotification.id ? updatedNotification : n
+              );
+              const wasUnread = oldNotification && !oldNotification.is_read && !oldNotification.is_archived;
+              const isUnread = !updatedNotification.is_read && !updatedNotification.is_archived;
+              let newUnreadCount = first.unreadCount;
+              if (wasUnread && !isUnread) newUnreadCount = Math.max(0, newUnreadCount - 1);
+              else if (!wasUnread && isUnread) newUnreadCount += 1;
+              const filtered = updatedNotifications.filter((n) => !n.is_archived);
+              const updatedFirst = { ...first, notifications: filtered, unreadCount: newUnreadCount };
+              return { ...old, pages: [updatedFirst, ...old.pages.slice(1)] };
             }
-
-            // Update the notification in the list
-            const updatedNotifications = old.notifications.map(n =>
-              n.id === updatedNotification.id ? updatedNotification : n
-            );
-
-            // Calculate unread count change
-            const wasUnread = oldNotification && !oldNotification.is_read && !oldNotification.is_archived;
-            const isUnread = !updatedNotification.is_read && !updatedNotification.is_archived;
-            let newUnreadCount = old.unreadCount;
-            
-            if (wasUnread && !isUnread) {
-              newUnreadCount = Math.max(0, newUnreadCount - 1);
-            } else if (!wasUnread && isUnread) {
-              newUnreadCount = newUnreadCount + 1;
-            }
-
-            // Remove if archived and we're not showing archived
-            const filteredNotifications = updatedNotifications.filter(n => !n.is_archived);
-
-            return {
-              notifications: filteredNotifications,
-              count: old.count,
-              unreadCount: newUnreadCount,
-            };
-          });
+          );
         }
       )
       .subscribe((status) => {
@@ -208,21 +215,20 @@ export function useNotifications(options: UseNotificationsOptions = {}): UseNoti
           console.log('Subscribed to notifications realtime');
         } else if (status === 'CHANNEL_ERROR') {
           // Realtime may not be enabled for notifications table
-          // This is non-critical - we'll fall back to polling via refetch
           if (process.env.NODE_ENV === 'development') {
             console.warn(
               'Notifications realtime subscription failed. ' +
               'This may be because Realtime replication is not enabled for the notifications table. ' +
-              'Notifications will still work via polling. ' +
               'To enable Realtime: Supabase Dashboard → Database → Replication → Enable for notifications table'
             );
           }
-          // Refetch on error to ensure data is still available
-          refetchNotifications();
+          // Only refetch if API isn't already failing (avoid hammering on 5xx)
+          if (!apiErrorRef.current) refetchNotifications();
         } else if (status === 'TIMED_OUT') {
-          console.warn('Notifications realtime subscription timed out, reconnecting...');
-          // Refetch on timeout
-          refetchNotifications();
+          if (process.env.NODE_ENV === 'development') {
+            console.warn('Notifications realtime subscription timed out.');
+          }
+          if (!apiErrorRef.current) refetchNotifications();
         }
       });
 
@@ -310,9 +316,11 @@ export function useNotifications(options: UseNotificationsOptions = {}): UseNoti
     error: queryError as Error | null || markAsReadMutation.error as Error | null || archiveMutation.error as Error | null || markAllAsReadMutation.error as Error | null,
     totalCount,
     hasMore,
+    isLoadingMore: isFetchingNextPage,
     markAsRead,
     markAllAsRead,
     archive,
     refresh,
+    loadMore,
   };
 }

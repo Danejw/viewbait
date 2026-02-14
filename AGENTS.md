@@ -107,6 +107,8 @@ When rules conflict, apply in this order:
 2. Run tests - all must pass
 3. Verify TypeScript types - no `any` without justification
 4. Check for security violations (service role, RLS bypass, etc.)
+5. **Performance/network:** When touching front-end performance or network behavior, run `npm run score` (app must be running). Record or compare the 0–100 score to catch regressions. See [docs/audits/performance-score.md](docs/audits/performance-score.md).
+
 
 ### Step 7: Review
 1. Verify compliance with stop conditions
@@ -146,6 +148,7 @@ When rules conflict, apply in this order:
 | Product context | `agentics/PROJECT_FACTS.md`, `agentics/VISION.md` |
 | Security concerns | `docs/security_principles.md` |
 | Performance | `docs/optimization_principles.md` |
+| **Performance/network score** | **`npm run score`** - Run with app up; 0–100 metric. See [docs/audits/performance-score.md](docs/audits/performance-score.md) |
 
 ---
 

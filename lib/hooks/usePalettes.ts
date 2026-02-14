@@ -157,7 +157,8 @@ export function usePalettes(options: UsePalettesOptions = {}): UsePalettesReturn
   const favoriteIds = favoriteIdsData || new Set<string>();
 
   /**
-   * Mutation for creating a palette
+   * Mutation for creating a palette.
+   * Invalidation: list only; public/favorites unchanged.
    */
   const createMutation = useMutation({
     mutationFn: palettesService.createPalette,
@@ -169,7 +170,8 @@ export function usePalettes(options: UsePalettesOptions = {}): UsePalettesReturn
   });
 
   /**
-   * Mutation for updating a palette
+   * Mutation for updating a palette.
+   * Invalidation: list only; public/favorites only if payload changes them.
    */
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: Parameters<typeof palettesService.updatePalette>[1] }) =>
@@ -180,7 +182,8 @@ export function usePalettes(options: UsePalettesOptions = {}): UsePalettesReturn
   });
 
   /**
-   * Mutation for deleting a palette
+   * Mutation for deleting a palette.
+   * Invalidation: list only; item removed from list.
    */
   const deleteMutation = useMutation({
     mutationFn: ({ id, userId }: { id: string; userId: string }) =>
@@ -191,7 +194,8 @@ export function usePalettes(options: UsePalettesOptions = {}): UsePalettesReturn
   });
 
   /**
-   * Mutation for toggling public status
+   * Mutation for toggling public status.
+   * Invalidation: list + public list (visibility changed); favorites unchanged.
    */
   const togglePublicMutation = useMutation({
     mutationFn: palettesService.togglePalettePublic,
@@ -202,7 +206,8 @@ export function usePalettes(options: UsePalettesOptions = {}): UsePalettesReturn
   });
 
   /**
-   * Mutation for toggling favorite
+   * Mutation for toggling favorite.
+   * Invalidation: favorites only; list and public list unchanged.
    */
   const toggleFavoriteMutation = useMutation({
     mutationFn: ({ id }: { id: string }) =>

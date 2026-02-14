@@ -8,7 +8,9 @@
  */
 
 import { useState, useCallback, useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/hooks/useAuth";
+import { useYouTubeVideosList } from "@/lib/hooks/useYouTubeVideosList";
 import { logClientError, logClientInfo } from "@/lib/utils/client-logger";
 
 // ============================================================================
@@ -153,6 +155,11 @@ export interface YouTubeIntegrationActions {
 
 export type UseYouTubeIntegrationReturn = YouTubeIntegrationState & YouTubeIntegrationActions;
 
+export interface UseYouTubeIntegrationOptions {
+  /** When false, the videos list query does not run. Default true. Set false when not on YouTube/Assistant view to avoid 404s. */
+  enableVideosList?: boolean;
+}
+
 // ============================================================================
 // Hook Implementation
 // ============================================================================
@@ -160,9 +167,14 @@ export type UseYouTubeIntegrationReturn = YouTubeIntegrationState & YouTubeInteg
 /**
  * Hook for managing YouTube integration state and actions
  */
-export function useYouTubeIntegration(): UseYouTubeIntegrationReturn {
+export function useYouTubeIntegration(
+  options: UseYouTubeIntegrationOptions = {}
+): UseYouTubeIntegrationReturn {
+  const { enableVideosList = true } = options;
   const { isAuthenticated } = useAuth();
-  
+  const queryClient = useQueryClient();
+  const youtubeVideosList = useYouTubeVideosList({ enabled: enableVideosList });
+
   const [state, setState] = useState<YouTubeIntegrationState>({
     status: null,
     channel: null,
@@ -362,131 +374,17 @@ export function useYouTubeIntegration(): UseYouTubeIntegrationReturn {
     }
   }, [isAuthenticated]);
 
-  /**
-   * Fetch latest videos from YouTube (resets the list)
-   */
+  /** Fetch/reset videos list (delegates to shared React Query cache). */
   const fetchVideos = useCallback(async () => {
     if (!isAuthenticated) return;
+    await youtubeVideosList.refetch();
+  }, [isAuthenticated, youtubeVideosList.refetch]);
 
-    setState(prev => ({ ...prev, isRefreshing: true, error: null }));
-
-    try {
-      const response = await fetch("/api/youtube/videos");
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to fetch videos");
-      }
-
-      if (data.videos) {
-        const deduped = dedupeVideosById(data.videos);
-        setState(prev => ({
-          ...prev,
-          videos: deduped,
-          videosHasMore: data.hasMore || false,
-          videosNextPageToken: data.nextPageToken || null,
-          isRefreshing: false,
-        }));
-
-        logClientInfo("YouTube videos fetched", {
-          operation: "fetch-youtube-videos",
-          component: "useYouTubeIntegration",
-          count: deduped.length,
-          hasMore: data.hasMore,
-        });
-      } else {
-        setState(prev => ({ 
-          ...prev, 
-          videos: [],
-          videosHasMore: false,
-          videosNextPageToken: null,
-          isRefreshing: false 
-        }));
-      }
-    } catch (error) {
-      const err = error instanceof Error ? error : new Error(String(error));
-      logClientError(err, {
-        operation: "fetch-youtube-videos",
-        component: "useYouTubeIntegration",
-      });
-      setState(prev => ({
-        ...prev,
-        isRefreshing: false,
-        error: err.message,
-      }));
-    }
-  }, [isAuthenticated]);
-
-  /**
-   * Load more videos (appends to existing list)
-   */
+  /** Load more videos (delegates to shared React Query cache). */
   const loadMoreVideos = useCallback(async () => {
     if (!isAuthenticated) return;
-
-    const currentToken = state.videosNextPageToken;
-    if (!currentToken || !state.videosHasMore) {
-      return; // No more videos to load
-    }
-    if (state.isRefreshing) {
-      return; // Prevent concurrent load-more (avoids appending same page twice)
-    }
-
-    setState(prev => ({ ...prev, isRefreshing: true, error: null }));
-
-    try {
-      const response = await fetch(`/api/youtube/videos?pageToken=${encodeURIComponent(currentToken)}`);
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to load more videos");
-      }
-
-      if (data.videos && data.videos.length > 0) {
-        setState(prev => {
-          const merged = [...prev.videos];
-          const seenIds = new Set(merged.map((v) => v.videoId));
-          for (const v of data.videos) {
-            if (v.videoId && !seenIds.has(v.videoId)) {
-              merged.push(v);
-              seenIds.add(v.videoId);
-            }
-          }
-          return {
-            ...prev,
-            videos: merged,
-            videosHasMore: data.hasMore || false,
-            videosNextPageToken: data.nextPageToken || null,
-            isRefreshing: false,
-          };
-        });
-
-        logClientInfo("More YouTube videos loaded", {
-          operation: "load-more-youtube-videos",
-          component: "useYouTubeIntegration",
-          count: data.videos.length,
-          totalCount: state.videos.length + data.videos.length,
-          hasMore: data.hasMore,
-        });
-      } else {
-        setState(prev => ({ 
-          ...prev, 
-          videosHasMore: false,
-          videosNextPageToken: null,
-          isRefreshing: false 
-        }));
-      }
-    } catch (error) {
-      logClientError(error, {
-        operation: "load-more-youtube-videos",
-        component: "useYouTubeIntegration",
-      });
-      setState(prev => ({
-        ...prev,
-        isRefreshing: false,
-        error: error instanceof Error ? error.message : "Failed to load more videos",
-      }));
-    }
-  }, [isAuthenticated, state.videosNextPageToken, state.videosHasMore, state.videos.length, state.isRefreshing]);
+    await youtubeVideosList.loadMore();
+  }, [isAuthenticated, youtubeVideosList.loadMore]);
 
   /**
    * Fetch videos with detailed analytics (latest 10)
@@ -554,20 +452,13 @@ export function useYouTubeIntegration(): UseYouTubeIntegrationReturn {
         throw new Error(data.error || "Failed to disconnect");
       }
 
-      // Update status to disconnected
+      queryClient.removeQueries({ queryKey: ["youtube", "videos"] });
       setState(prev => ({
         ...prev,
-        status: prev.status ? {
-          ...prev.status,
-          isConnected: false,
-          revokedAt: new Date().toISOString(),
-        } : null,
+        status: prev.status ? { ...prev.status, isConnected: false, revokedAt: new Date().toISOString() } : null,
         channel: null,
         analytics: null,
         analyticsDateRange: null,
-        videos: [],
-        videosHasMore: false,
-        videosNextPageToken: null,
         videosWithAnalytics: [],
         isRefreshing: false,
       }));
@@ -588,7 +479,7 @@ export function useYouTubeIntegration(): UseYouTubeIntegrationReturn {
         error: error instanceof Error ? error.message : "Failed to disconnect",
       }));
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, queryClient]);
 
   /**
    * Reconnect using app-owned YouTube OAuth so we request the exact YouTube scopes
@@ -629,6 +520,10 @@ export function useYouTubeIntegration(): UseYouTubeIntegrationReturn {
 
   return {
     ...state,
+    videos: youtubeVideosList.videos,
+    videosHasMore: youtubeVideosList.hasMore,
+    videosNextPageToken: youtubeVideosList.nextPageToken,
+    isRefreshing: state.isRefreshing || youtubeVideosList.isRefreshing,
     refreshStatus,
     fetchChannel,
     fetchAnalytics,

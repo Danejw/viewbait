@@ -8,16 +8,18 @@ import { useLenisScroll } from "@/components/landing/lenis-root";
 export interface LandingNavProps {
   /** When provided, nav links update custom cursor on hover (e.g. root page). Optional. */
   setCursorVariant?: (v: "default" | "hover") => void;
+  /** When provided (e.g. legal pages without Lenis), used for nav background. Otherwise useLenisScroll(). */
+  scrollY?: number;
 }
 
 /**
  * Shared fixed nav for landing and legal pages. Logo, Product/Pricing/Creators, Open Studio, mobile menu.
- * Must be rendered inside LenisRoot so useLenisScroll() provides scrollY.
+ * Uses useLenisScroll() when inside LenisRoot; pass scrollY when using native scroll (e.g. legal pages).
  */
-export function LandingNav({ setCursorVariant }: LandingNavProps) {
+export function LandingNav({ setCursorVariant, scrollY: scrollYProp }: LandingNavProps) {
   const { isAuthenticated } = useAuth();
   const lenisScroll = useLenisScroll();
-  const scrollY = lenisScroll?.scrollY ?? 0;
+  const scrollY = scrollYProp ?? lenisScroll?.scrollY ?? 0;
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);

@@ -8,6 +8,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { requireAuth } from '@/lib/server/utils/auth'
+import { enforceRateLimit } from '@/lib/server/utils/rate-limit'
 import { getTierNameForUser } from '@/lib/server/utils/tier'
 import { logError, logInfo } from '@/lib/server/utils/logger'
 import { NextResponse } from 'next/server'
@@ -360,6 +361,9 @@ export async function POST(request: Request) {
   try {
     const supabase = await createClient()
     const user = await requireAuth(supabase)
+
+    const rateLimitRes = enforceRateLimit('agent-chat', request, user.id)
+    if (rateLimitRes) return rateLimitRes
 
     const tierName = await getTierNameForUser(supabase, user.id)
     if (tierName !== 'pro') {

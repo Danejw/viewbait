@@ -5,6 +5,7 @@
  * All database operations are server-side only.
  */
 
+import { fetchWithTimeout, DEFAULT_LIST_DETAIL_TIMEOUT_MS } from '@/lib/utils/fetch-with-timeout'
 import type { 
   DbThumbnail, 
   ThumbnailInsert, 
@@ -62,9 +63,9 @@ export async function getThumbnails(
       ...(projectId && { projectId }),
     })
     const url = `/api/thumbnails?${params.toString()}`;
-    const response = await fetch(url, {
-      cache: 'no-store',
+    const response = await fetchWithTimeout(url, {
       credentials: 'include',
+      timeoutMs: DEFAULT_LIST_DETAIL_TIMEOUT_MS,
     })
     
     if (!response.ok) {
@@ -137,7 +138,10 @@ export async function getThumbnailLivePeriods(thumbnailId: string): Promise<{
   error: Error | null
 }> {
   try {
-    const response = await fetch(`/api/thumbnails/${thumbnailId}/live-periods`)
+    const response = await fetchWithTimeout(
+      `/api/thumbnails/${thumbnailId}/live-periods`,
+      { credentials: 'include', timeoutMs: DEFAULT_LIST_DETAIL_TIMEOUT_MS }
+    )
     if (!response.ok) {
       const errorData = await response.json()
       return {
@@ -150,6 +154,40 @@ export async function getThumbnailLivePeriods(thumbnailId: string): Promise<{
   } catch (error) {
     return {
       periods: [],
+      error: error instanceof Error ? error : new Error('Network error'),
+    }
+  }
+}
+
+/**
+ * Get live periods for multiple thumbnails in one request.
+ * Returns a map of thumbnailId -> periods. Only includes thumbnails owned by the user.
+ */
+export async function getThumbnailLivePeriodsBatch(thumbnailIds: string[]): Promise<{
+  periodsByThumbnailId: Record<string, ThumbnailLivePeriod[]>
+  error: Error | null
+}> {
+  if (thumbnailIds.length === 0) {
+    return { periodsByThumbnailId: {}, error: null }
+  }
+  try {
+    const ids = thumbnailIds.slice(0, 20).join(',')
+    const response = await fetchWithTimeout(
+      `/api/thumbnails/live-periods?ids=${encodeURIComponent(ids)}`,
+      { credentials: 'include', timeoutMs: DEFAULT_LIST_DETAIL_TIMEOUT_MS }
+    )
+    if (!response.ok) {
+      const errorData = await response.json()
+      return {
+        periodsByThumbnailId: {},
+        error: new Error(errorData.error || 'Failed to fetch live periods'),
+      }
+    }
+    const data = await response.json()
+    return { periodsByThumbnailId: data.periodsByThumbnailId ?? {}, error: null }
+  } catch (error) {
+    return {
+      periodsByThumbnailId: {},
       error: error instanceof Error ? error : new Error('Network error'),
     }
   }

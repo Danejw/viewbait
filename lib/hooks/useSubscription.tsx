@@ -11,12 +11,14 @@ import {
   createContext,
   useContext,
   useEffect,
+  useRef,
   useState,
   useCallback,
   useMemo,
   type ReactNode,
 } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { shouldRefetchOnFocus } from "@/lib/utils/focus-refetch";
 import { useAuth } from "./useAuth";
 import {
   type TierName,
@@ -90,18 +92,26 @@ interface SubscriptionProviderProps {
   children: ReactNode;
 }
 
-// Auto-refresh interval (60 seconds)
-const REFRESH_INTERVAL = 60 * 1000;
+// Poll more frequently for a short window after tier/checkout change
+const REFRESH_INTERVAL_FAST_MS = 60 * 1000; // 1 minute
+const REFRESH_INTERVAL_STABLE_MS = 5 * 60 * 1000; // 5 minutes when stable
+const POST_CHANGE_WINDOW_MS = 2 * 60 * 1000; // 2 minutes of fast polling after change
 
 export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
-  const { user, isAuthenticated, isConfigured: authConfigured } = useAuth();
-  const { tiers, resolutionCredits, getTierByProductId } = useTiers();
+  const { user, isAuthenticated, isLoading: authLoading, isConfigured: authConfigured } = useAuth();
+  const { tiers, resolutionCredits, getTierByProductId } = useTiers({
+    enabled: !authLoading && isAuthenticated,
+  });
 
   const [tier, setTier] = useState<TierName>("free");
   const [creditsRemaining, setCreditsRemaining] = useState(10);
   const [creditsTotal, setCreditsTotal] = useState(10);
   const [subscriptionEnd, setSubscriptionEnd] = useState<string | null>(null);
   const [productId, setProductId] = useState<string | null>(null);
+
+  /** After tier/productId change, poll faster until this timestamp. */
+  const lastTierChangeUntilRef = useRef(0);
+  const previousProductIdRef = useRef<string | null>(null);
 
   const tierConfig = useMemo(() => {
     const config = getTierByProductId(productId);
@@ -112,12 +122,9 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
   const isConfigured = authConfigured && isSupabaseConfigured();
 
   /**
-   * Fetch subscription status using React Query with automatic polling
-   * React Query handles:
-   * - Automatic refetching at intervals (60 seconds)
-   * - Pausing when tab is hidden (refetchIntervalInBackground: false)
-   * - Refreshing when tab becomes visible (refetchOnWindowFocus: true)
-   * - Cleanup and deduplication
+   * Fetch subscription status using React Query with adaptive polling:
+   * - Stable: poll every 5 minutes.
+   * - After tier/checkout change: poll every 60s for 2 minutes, then revert to 5 min.
    */
   const {
     data: subscriptionData,
@@ -188,23 +195,32 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
       }
     },
     enabled: isAuthenticated && isConfigured && !!user,
-    refetchInterval: REFRESH_INTERVAL, // Poll every 60 seconds
-    refetchIntervalInBackground: false, // Pause when tab is hidden
-    refetchOnWindowFocus: true, // Refresh when tab becomes visible
-    staleTime: 30 * 1000, // Consider data stale after 30 seconds
+    refetchInterval: () =>
+      Date.now() < lastTierChangeUntilRef.current
+        ? REFRESH_INTERVAL_FAST_MS
+        : REFRESH_INTERVAL_STABLE_MS,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: shouldRefetchOnFocus,
+    staleTime: 30 * 1000,
   });
 
   /**
-   * Update local state from React Query data
+   * Update local state from React Query data; track tier/productId change for adaptive polling.
    */
   useEffect(() => {
     if (subscriptionData) {
+      const newProductId = subscriptionData.productId ?? null;
+      if (previousProductIdRef.current !== newProductId) {
+        lastTierChangeUntilRef.current = Date.now() + POST_CHANGE_WINDOW_MS;
+        previousProductIdRef.current = newProductId;
+      }
       setTier(subscriptionData.tier);
       setCreditsRemaining(subscriptionData.creditsRemaining);
       setCreditsTotal(subscriptionData.creditsTotal);
       setSubscriptionEnd(subscriptionData.subscriptionEnd);
-      setProductId(subscriptionData.productId);
+      setProductId(newProductId);
     } else if (!isAuthenticated && !user) {
+      previousProductIdRef.current = null;
       // Only reset if we're truly not authenticated (no user) AND we don't have existing subscription state
       // This prevents resetting during temporary auth state changes
       setTier("free");
