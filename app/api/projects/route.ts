@@ -15,7 +15,7 @@ import { handleApiError } from '@/lib/server/utils/api-helpers'
 import { logError } from '@/lib/server/utils/logger'
 import { NextResponse } from 'next/server'
 import type { ProjectInsert, ProjectDefaultSettings } from '@/lib/types/database'
-import { listProjectsWithShared, createProject } from '@/lib/server/data/projects'
+import { listProjectsWithShared, createProject, listProjects } from '@/lib/server/data/projects'
 import { createNotificationIfNew } from '@/lib/server/notifications/create'
 
 export const revalidate = 60
