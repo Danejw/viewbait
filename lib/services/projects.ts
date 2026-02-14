@@ -245,3 +245,44 @@ export async function recordSharedProjectClick(
     // Fire-and-forget: do not surface errors to the user
   }
 }
+
+/**
+ * Add a comment to a thumbnail in a shared project gallery (public, optional auth).
+ * Returns the updated comments array.
+ */
+export async function addThumbnailComment(
+  slug: string,
+  thumbnailId: string,
+  comment: string
+): Promise<{
+  comments: Array<{ user_id: string | null; comment: string; created_at: string }> | null
+  error: Error | null
+}> {
+  try {
+    const response = await fetch(`/api/projects/share/${encodeURIComponent(slug)}/comment`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ thumbnailId, comment }),
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      return {
+        comments: null,
+        error: new Error(errorData.error || 'Failed to add comment'),
+      }
+    }
+
+    const data = await response.json()
+    return {
+      comments: data.comments || null,
+      error: null,
+    }
+  } catch (error) {
+    return {
+      comments: null,
+      error: error instanceof Error ? error : new Error('Network error'),
+    }
+  }
+}

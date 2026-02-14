@@ -234,6 +234,11 @@ export default function SharedProjectGalleryPage() {
                     key={thumb.id}
                     thumbnail={thumb}
                     onClick={handleThumbnailClick}
+                    shareSlug={slug}
+                    onCommentAdded={() => {
+                      // Refetch gallery data to get updated comments
+                      void refetch();
+                    }}
                   />
                 ))}
               </MasonryGrid>
