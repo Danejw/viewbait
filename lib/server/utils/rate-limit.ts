@@ -35,6 +35,10 @@ export const RATE_LIMIT_CONFIG = {
     limitPerWindow: 10,
     message: 'Too many join attempts. Please try again in a minute.',
   },
+  'track': {
+    limitPerWindow: 120,
+    message: 'Too many analytics requests. Please try again in a minute.',
+  },
 } as const
 
 export type RateLimitRouteId = keyof typeof RATE_LIMIT_CONFIG

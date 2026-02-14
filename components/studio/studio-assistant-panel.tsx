@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import SubscriptionModal from '@/components/subscription-modal'
 import { ChatMessage } from '@/components/studio/chat-message'
+import { track } from '@/lib/analytics/track'
 import { DynamicUIRenderer, type UIComponentName } from '@/components/studio/dynamic-ui-renderer'
 import { useStudio } from '@/components/studio/studio-provider'
 import { useStyles } from '@/lib/hooks/useStyles'
@@ -274,6 +275,7 @@ export function StudioAssistantPanel({ tier, productId, className }: StudioAssis
 
     setInputValue('')
     setError(null)
+    track('assistant_message_sent')
     const userMessage: AssistantMessage = { role: 'user', content: text }
     setMessages((prev) => [...prev, userMessage])
     setIsLoading(true)
@@ -308,6 +310,7 @@ export function StudioAssistantPanel({ tier, productId, className }: StudioAssis
       }
 
       if (!res.ok) {
+        track('error', { context: 'assistant', message: 'agent_failed' })
         if (data.code === 'TIER_REQUIRED') {
           setSubscriptionModalOpen(true)
         } else {
@@ -317,6 +320,7 @@ export function StudioAssistantPanel({ tier, productId, className }: StudioAssis
         return
       }
 
+      track('assistant_response_received')
       if (data.form_state_updates && studio?.actions?.applyFormStateUpdates) {
         const resolved = resolveFormStateUpdates(data.form_state_updates)
         studio.actions.applyFormStateUpdates(resolved as Record<string, any>)

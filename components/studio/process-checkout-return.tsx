@@ -14,6 +14,7 @@ import { useEffect, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useSubscription } from "@/lib/hooks/useSubscription";
 import { logClientError } from "@/lib/utils/client-logger";
+import { track } from "@/lib/analytics/track";
 
 export function ProcessCheckoutOnReturn() {
   const searchParams = useSearchParams();
@@ -39,15 +40,18 @@ export function ProcessCheckoutOnReturn() {
 
         if (!res.ok) {
           const data = await res.json().catch(() => ({}));
-          logClientError(new Error(data?.error ?? `Process checkout failed: ${res.status}`), {
+          const errMsg = data?.error ?? `Process checkout failed: ${res.status}`;
+          logClientError(new Error(errMsg), {
             operation: "process-checkout-return",
             component: "ProcessCheckoutOnReturn",
             sessionId: sessionId.slice(0, 20),
           });
+          track("error", { context: "checkout", message: String(errMsg).slice(0, 200) });
           processedSessionIdRef.current = null;
           return;
         }
 
+        track("checkout_completed");
         if (!replaceDoneRef.current) {
           replaceDoneRef.current = true;
           router.replace("/studio", { scroll: false });

@@ -22,6 +22,7 @@ import {
   MessageSquare,
   LayoutDashboard,
   MapPin,
+  BarChart3,
 } from "lucide-react";
 import Link from "next/link";
 import { ThemeToggleSimple } from "@/components/theme-toggle";
@@ -213,6 +214,7 @@ export function StudioSidebarNav() {
             icon: LayoutDashboard,
             children: [
               { label: "Roadmap", view: "roadmap", icon: MapPin },
+              { label: "Analytics", view: "analytics", icon: BarChart3 },
             ],
           };
           return (

@@ -12,6 +12,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useYouTubeVideosList } from "@/lib/hooks/useYouTubeVideosList";
 import { logClientError, logClientInfo } from "@/lib/utils/client-logger";
+import { track } from "@/lib/analytics/track";
 
 // ============================================================================
 // Types
@@ -488,6 +489,7 @@ export function useYouTubeIntegration(
    */
   const reconnect = useCallback(() => {
     setState(prev => ({ ...prev, error: null }));
+    track('youtube_connect_started');
     const next = encodeURIComponent("/studio?view=youtube");
     window.location.href = `/api/youtube/connect/authorize?next=${next}`;
   }, []);

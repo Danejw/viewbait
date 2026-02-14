@@ -22,6 +22,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getAllowedRedirect } from "@/lib/utils/redirect-allowlist";
+import { track } from "@/lib/analytics/track";
 
 /** Lazy-load FeedbackModal (Dialog/sonner) so auth first paint and LCP are not delayed. */
 const FeedbackModalLazy = dynamic(
@@ -117,6 +118,7 @@ function AuthForm() {
       if (error) {
         setError(error.message || "Failed to sign in");
       } else {
+        track("sign_in");
         // Redirect will happen automatically via useEffect
         router.push(redirectTo);
       }
@@ -187,6 +189,8 @@ function AuthForm() {
       if (error) {
         setError(error.message || "Failed to sign in with Google");
         setLoading(false);
+      } else {
+        track("sign_in");
       }
       // If successful, Google OAuth will redirect the user
     } catch (err) {

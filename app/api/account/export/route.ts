@@ -7,6 +7,7 @@
  */
 
 import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { requireAuth } from '@/lib/server/utils/auth'
 import { enforceRateLimit } from '@/lib/server/utils/rate-limit'
 import { NextResponse } from 'next/server'
@@ -380,6 +381,7 @@ export async function POST(request: Request) {
       subscription,
       credit_transactions: creditTransactions,
       notification_preferences: notificationPreferences,
+      analytics_events: analyticsEvents,
       storage_files: {
         thumbnails: thumbnailUrls,
         faces: faceUrls,

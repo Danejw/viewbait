@@ -13,6 +13,7 @@ import { AuthProvider } from "@/lib/hooks/useAuth";
 import { SubscriptionProvider } from "@/lib/hooks/useSubscription";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ClearUserCacheOnLogout } from "@/components/clear-user-cache-on-logout";
+import { AnalyticsTracker } from "@/components/analytics-tracker";
 import { Toaster } from "@/components/ui/sonner";
 import { PwaRegister } from "@/components/pwa-register";
 
@@ -44,6 +45,7 @@ export function Providers({ children }: ProvidersProps) {
     >
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
+          <AnalyticsTracker />
           <ClearUserCacheOnLogout />
           <SubscriptionProvider>
             {children}

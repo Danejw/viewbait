@@ -194,7 +194,10 @@ export async function GET(request: NextRequest) {
       scopesCount: scopes.length,
     })
 
-    const res = NextResponse.redirect(`${baseUrl}${nextCookie}`, { status: 302 })
+    const successUrl = nextCookie.includes('?')
+      ? `${baseUrl}${nextCookie}&youtube_connect=success`
+      : `${baseUrl}${nextCookie}?youtube_connect=success`
+    const res = NextResponse.redirect(successUrl, { status: 302 })
     clearStateCookies(res)
     return res
   } catch (e) {

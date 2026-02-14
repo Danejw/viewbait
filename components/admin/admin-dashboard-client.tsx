@@ -165,7 +165,7 @@ export function AdminDashboardClient() {
 
   if (loading && !data) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 m-2">
         <div className="flex items-center gap-2">
           <Skeleton className="h-9 w-24" />
           <Skeleton className="h-9 w-24" />
@@ -237,7 +237,7 @@ export function AdminDashboardClient() {
     subscriptions.byStatus["active"] ?? subscriptions.byStatus["trialing"] ?? 0;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 m-2">
       <div className="flex flex-wrap items-center gap-2">
         {RANGE_OPTIONS.map((opt) => (
           <Button

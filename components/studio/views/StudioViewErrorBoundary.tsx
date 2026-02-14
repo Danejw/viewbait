@@ -11,6 +11,7 @@ import React, { Component, type ErrorInfo, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { AlertCircle } from "lucide-react";
+import { track } from "@/lib/analytics/track";
 
 export interface StudioViewErrorBoundaryProps {
   children: ReactNode;
@@ -32,6 +33,10 @@ export class StudioViewErrorBoundary extends Component<StudioViewErrorBoundaryPr
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
     console.error("[StudioViewErrorBoundary]", error, errorInfo);
+    track("error", {
+      context: "error_boundary",
+      message: (error?.message ?? String(error)).slice(0, 200),
+    });
   }
 
   handleRetry = (): void => {

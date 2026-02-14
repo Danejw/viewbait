@@ -66,5 +66,22 @@ describe('rate-limit', () => {
       const body = await res!.json() as { error?: string }
       expect(body.error).toContain('generation')
     })
+
+    it('track route returns 429 when limit exceeded (anon identity)', async () => {
+      const request = new Request('https://example.com')
+      const routeId = 'track'
+      expect(RATE_LIMIT_CONFIG[routeId]).toBeDefined()
+      const limit = RATE_LIMIT_CONFIG[routeId].limitPerWindow
+
+      for (let i = 0; i < limit; i++) {
+        const res = enforceRateLimit(routeId, request, null)
+        expect(res).toBeNull()
+      }
+      const rateLimited = enforceRateLimit(routeId, request, null)
+      expect(rateLimited).not.toBeNull()
+      expect(rateLimited!.status).toBe(429)
+      const body = await rateLimited!.json() as { error?: string; code?: string }
+      expect(body.code).toBe('RATE_LIMIT_EXCEEDED')
+    })
   })
 })

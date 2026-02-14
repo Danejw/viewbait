@@ -23,6 +23,7 @@ import { type TierName, type TierConfig } from "@/lib/constants/subscription-tie
 import { useSubscription } from "@/lib/hooks/useSubscription";
 import { useSubscriptionTiers } from "@/lib/hooks/useSubscriptionTiers";
 import { logClientError } from "@/lib/utils/client-logger";
+import { track } from "@/lib/analytics/track";
 
 interface SubscriptionModalProps {
   isOpen: boolean;
@@ -80,6 +81,7 @@ export default function SubscriptionModal({
         return;
       }
 
+      track("checkout_started", { product: tierName });
       // Close modal before redirect
       onClose();
     } catch (error) {

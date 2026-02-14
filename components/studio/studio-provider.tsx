@@ -40,6 +40,7 @@ import {
   type YouTubeVideoAnalytics,
   type ThumbnailConcept,
 } from "@/lib/services/youtube-video-analyze";
+import { track } from "@/lib/analytics/track";
 
 /** Payload for opening the snapshot view modal (full-size image, draggable to Faces/References) */
 export interface SnapshotToView {
@@ -67,7 +68,8 @@ export type StudioView =
   | "assistant"
   | "updates"
   | "admin"
-  | "roadmap";
+  | "roadmap"
+  | "analytics";
 
 /**
  * Studio State Interface
@@ -816,6 +818,7 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
+    track("generate_started", { source: "manual", batch_size: state.variations });
     // Switch to Preview tab on mobile so user sees results feed and loading state
     setState((s) => ({ ...s, mobilePanel: "results" }));
 
@@ -863,6 +866,14 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
     });
 
     // Refresh thumbnails after generation completes
+    const successCount = results.filter((r) => r.success).length;
+    const failCount = results.filter((r) => !r.success).length;
+    if (successCount > 0) {
+      track("generate_completed", { count: successCount, source: "manual" });
+    }
+    if (failCount > 0) {
+      track("generate_failed", { reason: successCount > 0 ? "partial" : "api" });
+    }
     if (results.some((r) => r.success)) {
       const successIds = results
         .filter((r): r is { success: true; thumbnailId?: string } => r.success && !!r.thumbnailId)
@@ -895,6 +906,7 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
 
   // Thumbnail action handlers
   const onFavoriteToggle = useCallback((id: string) => {
+    track("thumbnail_favorited");
     favoriteMutation.mutate(id);
   }, [favoriteMutation]);
 
@@ -969,6 +981,7 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
         link.rel = "noopener noreferrer";
         link.click();
         setTimeout(() => URL.revokeObjectURL(objectUrl), 200);
+        track("thumbnail_download");
       } catch (err) {
         console.error("Download failed:", err);
         const link = document.createElement("a");
@@ -1003,6 +1016,7 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
   );
 
   const onEditThumbnail = useCallback((thumbnail: Thumbnail) => {
+    track("thumbnail_edit_started");
     setState((s) => ({
       ...s,
       editModalOpen: true,
@@ -1131,6 +1145,7 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (result) {
+        track("thumbnail_edit_completed");
         await refreshThumbnails();
       }
 
@@ -1143,6 +1158,7 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
       }));
     } catch (error) {
       console.error("Error regenerating thumbnail:", error);
+      track("error", { context: "generation", message: "edit_failed" });
       setState((s) => ({
         ...s,
         isRegenerating: false,
@@ -1509,6 +1525,7 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
         }
 
         const data = await response.json();
+        track("assistant_response_received");
 
         // Apply form state updates if provided
         if (data.form_state_updates) {
@@ -1534,6 +1551,7 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
         }));
       } catch (error) {
         console.error("Error sending chat message:", error);
+        track("error", { context: "assistant", message: "send_failed" });
         setState((s) => ({
           ...s,
           chatAssistant: {

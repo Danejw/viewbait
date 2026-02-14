@@ -19,6 +19,7 @@ import { DROP_ZONE_IDS } from "./studio-dnd-context";
 import { useChatDropHandler, type ChatDropPayload } from "./chat-drop-handler-context";
 import { cn } from "@/lib/utils";
 import { getItemSafe, setItemWithCap } from "@/lib/utils/safe-storage";
+import { track } from "@/lib/analytics/track";
 
 const CHAT_HISTORY_KEY = "thumbnail-assistant-chat-history";
 const MAX_CHAT_MESSAGES = 50;
@@ -416,6 +417,7 @@ export function StudioChatPanel() {
                   streamedText: (prev?.streamedText ?? "") + (data.chunk ?? ""),
                 }));
               } else if (event === "complete") {
+                track("assistant_response_received");
                 if (data.form_state_updates) {
                   const updates = { ...data.form_state_updates };
                   const uuidLike = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -454,6 +456,7 @@ export function StudioChatPanel() {
                 setMessages((prev) => [...prev, assistantMessage]);
                 setThinkingState(null);
               } else if (event === "error") {
+                track("error", { context: "assistant", message: (data.error ?? "stream_error").slice(0, 200) });
                 setError(data.error ?? "Something went wrong");
                 setMessages((prev) => [
                   ...prev,

@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
+import { track } from "@/lib/analytics/track";
 import {
   StudioProvider,
   StudioFrame,
@@ -22,7 +23,7 @@ import { useStudio } from "@/components/studio/studio-provider";
 import { useUserRole } from "@/lib/hooks/useUserRole";
 
 /**
- * Syncs ?view=admin and ?view=roadmap from URL to studio view when user is admin (for /admin redirect and bookmarks).
+ * Syncs ?view=admin, ?view=roadmap, and ?view=analytics from URL to studio view when user is admin (for /admin redirect and bookmarks).
  * Role is fetched from the roles table via useUserRole.
  */
 function StudioViewFromQuery() {
@@ -41,6 +42,9 @@ function StudioViewFromQuery() {
       } else if (view === "roadmap") {
         applied.current = true;
         setView("roadmap");
+      } else if (view === "analytics") {
+        applied.current = true;
+        setView("analytics");
       }
     }
   }, [searchParams, isAdmin, setView]);
@@ -63,9 +67,36 @@ function StudioYouTubeOAuthErrorFromQuery() {
     handled.current = error;
     const decoded = error.replace(/\+/g, " ");
     toast.error(`YouTube reconnect failed: ${decoded}`);
+    track("youtube_connect_failed", { error: decoded.slice(0, 100) });
     const next = new URLSearchParams(searchParams.toString());
     next.delete("error");
     next.delete("redirect_uri_hint");
+    const qs = next.toString();
+    const url = window.location.pathname + (qs ? `?${qs}` : "");
+    window.history.replaceState(null, "", url);
+  }, [searchParams]);
+
+  return null;
+}
+
+/**
+ * Tracks youtube_connect=success or youtube_connect=error from OAuth callback and clears the param.
+ */
+function StudioYouTubeConnectResultFromQuery() {
+  const searchParams = useSearchParams();
+  const handled = useRef<string | null>(null);
+
+  useEffect(() => {
+    const result = searchParams.get("youtube_connect");
+    if (!result || handled.current === result) return;
+    handled.current = result;
+    if (result === "success") {
+      track("youtube_connect_completed");
+    } else if (result === "error") {
+      track("youtube_connect_failed", { error: "callback" });
+    }
+    const next = new URLSearchParams(searchParams.toString());
+    next.delete("youtube_connect");
     const qs = next.toString();
     const url = window.location.pathname + (qs ? `?${qs}` : "");
     window.history.replaceState(null, "", url);
@@ -150,6 +181,7 @@ export default function StudioPage() {
           <Suspense fallback={null}>
             <ProcessCheckoutOnReturn />
             <StudioYouTubeOAuthErrorFromQuery />
+            <StudioYouTubeConnectResultFromQuery />
             <StudioViewFromQuery />
             <StudioProjectFromQuery />
           </Suspense>

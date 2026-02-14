@@ -45,7 +45,7 @@ export interface AdminAnalyticsResponse {
     total: number;
     byStatus: Record<string, number>;
     byCategory: Record<string, number>;
-    recent: Array<{ id: string; status: string; category: string; created_at: string; message: string }>;
+    recent: Array<{ id: string; status: string; category: string; created_at: string; message: string; email?: string | null }>;
   };
   experiments: {
     byStatus: Record<string, number>;
@@ -188,7 +188,7 @@ export async function GET(request: Request) {
 
     const { data: recentFeedbackRows } = await service
       .from("feedback")
-      .select("id, status, category, created_at, message")
+      .select("id, status, category, created_at, message, email")
       .order("created_at", { ascending: false })
       .limit(10);
     const recentFeedback = (recentFeedbackRows ?? []).map((r) => ({
@@ -196,7 +196,8 @@ export async function GET(request: Request) {
       status: r.status ?? "Unknown",
       category: r.category ?? "other",
       created_at: r.created_at,
-      message: typeof r.message === "string" ? r.message.slice(0, 100) : "",
+      message: typeof r.message === "string" ? r.message : "",
+      email: r.email ?? null,
     }));
 
     // Experiments: by status
