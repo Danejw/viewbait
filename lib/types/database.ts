@@ -91,6 +91,13 @@ export interface CreditTransaction {
   created_at: string
 }
 
+/** Single comment on a thumbnail (stored in thumbnails.comments JSONB array). */
+export interface ThumbnailComment {
+  user_id: string
+  comment: string
+  created_at: string
+}
+
 export interface DbThumbnail {
   id: string
   user_id: string
@@ -110,6 +117,10 @@ export interface DbThumbnail {
   created_at: string
   like_count?: number // Favorite count (added by API)
   share_click_count?: number // Clicks when viewed via shared project gallery link
+  /** JSONB array of ThumbnailComment; only exposed when user has access. */
+  comments?: ThumbnailComment[]
+  /** Set on update; used for optimistic CAS when appending comments. */
+  updated_at?: string
 }
 
 /**

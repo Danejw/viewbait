@@ -1,5 +1,5 @@
 /**
- * Next.js Middleware
+ * Next.js Proxy
  *
  * Handles authentication checks and route protection.
  * Runs on every request matching the configured routes.
@@ -60,7 +60,7 @@ function isPublicRoute(pathname: string): boolean {
   return pathname === "/" || pathname.startsWith("/p/") || pathname.startsWith("/legal/");
 }
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
 
   // Redirect /admin to studio admin view without loading the page component
@@ -110,7 +110,7 @@ export async function middleware(request: NextRequest) {
   } catch (err) {
     const authErr = err as { status?: number; code?: string };
     if (process.env.NODE_ENV === "development" && authErr?.status === 429) {
-      console.warn("[middleware] Supabase Auth rate limit (429), treating as unauthenticated");
+      console.warn("[proxy] Supabase Auth rate limit (429), treating as unauthenticated");
     }
   }
 
@@ -191,7 +191,7 @@ export async function middleware(request: NextRequest) {
 
 /**
  * Matcher configuration
- * Runs middleware on all routes except static files and API routes
+ * Runs proxy on all routes except static files and API routes
  */
 export const config = {
   matcher: [

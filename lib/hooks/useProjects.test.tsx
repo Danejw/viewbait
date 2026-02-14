@@ -74,7 +74,7 @@ describe("useSharedProjectGallery", () => {
     });
   });
 
-  it("polls every 60s when tab is visible", { timeout: 10000 }, async () => {
+  it("polls every 2 minutes when tab is visible", { timeout: 10000 }, async () => {
       vi.useFakeTimers();
       const wrapper = createWrapper();
       renderHook(() => useSharedProjectGallery("some-slug"), { wrapper });
@@ -86,7 +86,7 @@ describe("useSharedProjectGallery", () => {
       expect(getSharedProjectGallerySpy).toHaveBeenCalledTimes(1);
 
       await act(async () => {
-        await vi.advanceTimersByTimeAsync(60 * 1000);
+        await vi.advanceTimersByTimeAsync(2 * 60 * 1000);
       });
       await act(async () => {
         await vi.advanceTimersByTimeAsync(0);
@@ -94,7 +94,7 @@ describe("useSharedProjectGallery", () => {
       expect(getSharedProjectGallerySpy).toHaveBeenCalledTimes(2);
 
       await act(async () => {
-        await vi.advanceTimersByTimeAsync(60 * 1000);
+        await vi.advanceTimersByTimeAsync(2 * 60 * 1000);
       });
       await act(async () => {
         await vi.advanceTimersByTimeAsync(0);
@@ -149,7 +149,7 @@ describe("useSharedProjectGallery", () => {
         setDocumentVisibility("visible");
       });
       await act(async () => {
-        await vi.advanceTimersByTimeAsync(60 * 1000);
+        await vi.advanceTimersByTimeAsync(2 * 60 * 1000);
         await Promise.resolve();
       });
       expect(getSharedProjectGallerySpy.mock.calls.length).toBeGreaterThanOrEqual(1);

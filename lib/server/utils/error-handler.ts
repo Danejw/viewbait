@@ -46,6 +46,16 @@ export function validationErrorResponse(message: string): NextResponse {
 }
 
 /**
+ * Conflict response (409) – e.g. CAS retry exhausted
+ */
+export function conflictResponse(message: string = 'Please retry'): NextResponse {
+  return NextResponse.json(
+    { error: message, code: 'CONFLICT' },
+    { status: 409 }
+  )
+}
+
+/**
  * Forbidden response (403)
  */
 export function forbiddenResponse(message: string, details?: Record<string, unknown>): NextResponse {

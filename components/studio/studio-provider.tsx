@@ -34,6 +34,7 @@ import { ImageModal, PaletteViewModal } from "@/components/ui/modal";
 import { SnapshotViewModal } from "@/components/studio/snapshot-view-modal";
 import { SetOnYouTubeModal } from "@/components/studio/set-on-youtube-modal";
 import { ThumbnailLivePerformanceBlock } from "@/components/studio/thumbnail-live-performance-block";
+import { ThumbnailCommentsBlock } from "@/components/studio/thumbnail-comments-block";
 import {
   analyzeYouTubeVideo,
   type YouTubeVideoAnalytics,
@@ -1878,7 +1879,14 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
           alt={state.thumbnailToView.name}
           title={state.thumbnailToView.name}
           footer={
-            <ThumbnailLivePerformanceBlock thumbnailId={state.thumbnailToView.id} />
+            <>
+              <ThumbnailLivePerformanceBlock thumbnailId={state.thumbnailToView.id} />
+              <ThumbnailCommentsBlock
+                thumbnailId={state.thumbnailToView.id}
+                projectId={state.thumbnailToView.projectId ?? undefined}
+                isOwner={state.thumbnailToView.authorId === data.currentUserId}
+              />
+            </>
           }
         />
       )}

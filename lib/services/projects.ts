@@ -181,24 +181,70 @@ export async function deleteProject(id: string): Promise<{
 }
 
 /**
- * Response shape for shared project gallery (public, no auth)
+ * Response shape for shared project gallery (public, no auth required).
+ * When the client sends credentials and the user is owner/editor, canComment and projectId are set.
  */
 export interface SharedProjectGalleryResponse {
   projectName: string
   shareMode: 'all' | 'favorites'
   thumbnails: PublicThumbnailData[]
   count: number
+  canComment?: boolean
+  projectId?: string | null
 }
 
 /**
- * Get shared project gallery by share slug (public endpoint, no auth)
+ * Check if the current user can comment on a shared project (owner or editor).
+ * Requires auth; use when user is logged in on the shared gallery page.
+ */
+export async function getSharedProjectGalleryAccess(slug: string): Promise<{
+  canComment: boolean
+  projectId: string | null
+  error: Error | null
+}> {
+  try {
+    const response = await fetch(
+      `/api/projects/share/${encodeURIComponent(slug)}/me`,
+      { credentials: 'include' }
+    )
+    if (!response.ok) {
+      if (response.status === 401) {
+        return { canComment: false, projectId: null, error: null }
+      }
+      const errorData = await response.json().catch(() => ({}))
+      return {
+        canComment: false,
+        projectId: null,
+        error: new Error(errorData.error || 'Failed to check access'),
+      }
+    }
+    const data = await response.json()
+    return {
+      canComment: data.canComment === true,
+      projectId: data.projectId ?? null,
+      error: null,
+    }
+  } catch (error) {
+    return {
+      canComment: false,
+      projectId: null,
+      error: error instanceof Error ? error : new Error('Network error'),
+    }
+  }
+}
+
+/**
+ * Get shared project gallery by share slug. Send credentials so the server
+ * can include canComment and projectId when the user is authenticated.
  */
 export async function getSharedProjectGallery(slug: string): Promise<{
   data: SharedProjectGalleryResponse | null
   error: Error | null
 }> {
   try {
-    const response = await fetch(`/api/projects/share/${encodeURIComponent(slug)}`)
+    const response = await fetch(`/api/projects/share/${encodeURIComponent(slug)}`, {
+      credentials: 'include',
+    })
     if (!response.ok) {
       if (response.status === 404) {
         return { data: null, error: new Error('Share link not found or no longer available') }
@@ -210,15 +256,15 @@ export async function getSharedProjectGallery(slug: string): Promise<{
       }
     }
     const data = await response.json()
-    return {
-      data: {
-        projectName: data.projectName ?? '',
-        shareMode: data.shareMode === 'favorites' ? 'favorites' : 'all',
-        thumbnails: data.thumbnails ?? [],
-        count: data.count ?? 0,
-      },
-      error: null,
+    const result: SharedProjectGalleryResponse = {
+      projectName: data.projectName ?? '',
+      shareMode: data.shareMode === 'favorites' ? 'favorites' : 'all',
+      thumbnails: data.thumbnails ?? [],
+      count: data.count ?? 0,
     }
+    if (typeof data.canComment === 'boolean') result.canComment = data.canComment
+    if (data.projectId !== undefined) result.projectId = data.projectId ?? null
+    return { data: result, error: null }
   } catch (error) {
     return {
       data: null,

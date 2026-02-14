@@ -22,6 +22,7 @@ import { useSharedProjectGallery } from "@/lib/hooks/useProjects";
 import { MasonryGrid, type MasonryGridBreakpoints } from "@/components/studio/masonry-grid";
 import { GridZoomSlider } from "@/components/studio/grid-zoom-slider";
 import { SharedGalleryCard, SharedGalleryCardSkeleton } from "@/components/studio/shared-gallery-card";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { recordSharedProjectClick } from "@/lib/services/projects";
 import { getMasonryBreakpointCols, DEFAULT_ZOOM_LEVEL } from "@/lib/utils/grid-zoom";
 import { useGridZoom } from "@/lib/hooks/useGridZoom";
@@ -95,7 +96,7 @@ function SharedGalleryHeader({
 export default function SharedProjectGalleryPage() {
   const params = useParams();
   const slug = typeof params?.slug === "string" ? params.slug : null;
-  const { data, isLoading, error, refetch } = useSharedProjectGallery(slug);
+  const { data, canComment, projectId, isLoading, error, refetch } = useSharedProjectGallery(slug);
   const [selectedThumbnail, setSelectedThumbnail] = useState<PublicThumbnailData | null>(null);
   const [zoomLevel, , handleZoomChange] = useGridZoom("shared-gallery-zoom");
   /** One click per 1 second per thumbnail (different thumbnails can be recorded without waiting). */
@@ -202,54 +203,60 @@ export default function SharedProjectGalleryPage() {
   const subtitle = shareMode === "favorites" ? "Favorites" : "All thumbnails";
 
   return (
-    <div className="flex min-h-screen flex-col bg-background">
-      <SharedGalleryHeader
-        projectName={projectName}
-        subtitle={subtitle}
-        thumbnailsLength={thumbnails.length}
-        zoomLevel={zoomLevel}
-        onZoomChange={handleZoomChange}
-        showZoom={thumbnails.length > 0}
-      />
-      <main className="flex-1 overflow-y-auto bg-muted/30 p-6 hide-scrollbar">
-        <div className="mx-auto max-w-6xl">
-          {thumbnails.length === 0 ? (
-            <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-card py-16 text-center">
-              <ImageIcon className="h-12 w-12 text-muted-foreground" />
-              <p className="mt-2 text-muted-foreground">
-                {shareMode === "favorites"
-                  ? "No favorite thumbnails in this project yet."
-                  : "No thumbnails in this project yet."}
-              </p>
-            </div>
-          ) : (
-            <>
-              <MasonryGrid
-                breakpointCols={getMasonryBreakpointCols(zoomLevel) as MasonryGridBreakpoints}
-                gap={12}
-                className="w-full"
-              >
-                {thumbnails.map((thumb) => (
-                  <SharedGalleryCard
-                    key={thumb.id}
-                    thumbnail={thumb}
-                    onClick={handleThumbnailClick}
+    <TooltipProvider delayDuration={0}>
+      <div className="flex min-h-screen flex-col bg-background">
+        <SharedGalleryHeader
+          projectName={projectName}
+          subtitle={subtitle}
+          thumbnailsLength={thumbnails.length}
+          zoomLevel={zoomLevel}
+          onZoomChange={handleZoomChange}
+          showZoom={thumbnails.length > 0}
+        />
+        <main className="flex-1 overflow-y-auto bg-muted/30 p-6 hide-scrollbar">
+          <div className="mx-auto max-w-6xl">
+            {thumbnails.length === 0 ? (
+              <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-card py-16 text-center">
+                <ImageIcon className="h-12 w-12 text-muted-foreground" />
+                <p className="mt-2 text-muted-foreground">
+                  {shareMode === "favorites"
+                    ? "No favorite thumbnails in this project yet."
+                    : "No thumbnails in this project yet."}
+                </p>
+              </div>
+            ) : (
+              <>
+                <MasonryGrid
+                  breakpointCols={getMasonryBreakpointCols(zoomLevel) as MasonryGridBreakpoints}
+                  gap={12}
+                  className="w-full"
+                >
+                  {thumbnails.map((thumb) => (
+                    <SharedGalleryCard
+                      key={thumb.id}
+                      thumbnail={thumb}
+                      onClick={handleThumbnailClick}
+                      canComment={canComment}
+                      projectId={projectId}
+                      slug={slug}
+                      onCommentSuccess={() => void refetch()}
+                    />
+                  ))}
+                </MasonryGrid>
+                {selectedThumbnail && (
+                  <ImageModal
+                    open={selectedThumbnail !== null}
+                    onOpenChange={(open) => !open && setSelectedThumbnail(null)}
+                    src={selectedThumbnail.image_url}
+                    alt={selectedThumbnail.title}
+                    title={selectedThumbnail.title}
                   />
-                ))}
-              </MasonryGrid>
-              {selectedThumbnail && (
-                <ImageModal
-                  open={selectedThumbnail !== null}
-                  onOpenChange={(open) => !open && setSelectedThumbnail(null)}
-                  src={selectedThumbnail.image_url}
-                  alt={selectedThumbnail.title}
-                  title={selectedThumbnail.title}
-                />
-              )}
-            </>
-          )}
-        </div>
-      </main>
-    </div>
+                )}
+              </>
+            )}
+          </div>
+        </main>
+      </div>
+    </TooltipProvider>
   );
 }

@@ -51,3 +51,10 @@ export {
   useThumbnailLivePeriodsBatch,
   type UseThumbnailLivePeriodsBatchOptions,
 } from './useThumbnailLivePeriodsBatch'
+export {
+  useThumbnailComments,
+  usePostThumbnailComment,
+  thumbnailCommentsQueryKeys,
+  type UseThumbnailCommentsOptions,
+  type UsePostThumbnailCommentOptions,
+} from './useThumbnailComments'

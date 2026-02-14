@@ -6,9 +6,10 @@
  */
 
 import { fetchWithTimeout, DEFAULT_LIST_DETAIL_TIMEOUT_MS } from '@/lib/utils/fetch-with-timeout'
-import type { 
-  DbThumbnail, 
-  ThumbnailInsert, 
+import type {
+  DbThumbnail,
+  ThumbnailComment,
+  ThumbnailInsert,
   ThumbnailUpdate,
   ThumbnailLivePeriod,
 } from '@/lib/types/database'
@@ -188,6 +189,77 @@ export async function getThumbnailLivePeriodsBatch(thumbnailIds: string[]): Prom
   } catch (error) {
     return {
       periodsByThumbnailId: {},
+      error: error instanceof Error ? error : new Error('Network error'),
+    }
+  }
+}
+
+/**
+ * Get comments for a thumbnail (auth required).
+ * When projectId is provided: user must have project access (owner or editor).
+ * When projectId is omitted: only the thumbnail owner can read (owner-only path).
+ */
+export async function getThumbnailComments(
+  thumbnailId: string,
+  projectId?: string | null
+): Promise<{ comments: ThumbnailComment[]; error: Error | null }> {
+  try {
+    const url =
+      projectId != null && projectId !== ''
+        ? `/api/thumbnails/${thumbnailId}/comments?${new URLSearchParams({ projectId }).toString()}`
+        : `/api/thumbnails/${thumbnailId}/comments`
+    const response = await fetchWithTimeout(url, {
+      credentials: 'include',
+      timeoutMs: DEFAULT_LIST_DETAIL_TIMEOUT_MS,
+    })
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      return {
+        comments: [],
+        error: new Error(errorData.error || 'Failed to fetch comments'),
+      }
+    }
+    const data = await response.json()
+    return { comments: data.comments ?? [], error: null }
+  } catch (error) {
+    return {
+      comments: [],
+      error: error instanceof Error ? error : new Error('Network error'),
+    }
+  }
+}
+
+/**
+ * Post a comment on a thumbnail (auth required; project access + rate limit).
+ */
+export async function postThumbnailComment(
+  thumbnailId: string,
+  projectId: string,
+  comment: string
+): Promise<{ comments: ThumbnailComment[]; error: Error | null }> {
+  try {
+    const response = await fetchWithTimeout(
+      `/api/thumbnails/${thumbnailId}/comments`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId, comment }),
+        credentials: 'include',
+        timeoutMs: DEFAULT_LIST_DETAIL_TIMEOUT_MS,
+      }
+    )
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      return {
+        comments: [],
+        error: new Error(errorData.error || 'Failed to post comment'),
+      }
+    }
+    const data = await response.json()
+    return { comments: data.comments ?? [], error: null }
+  } catch (error) {
+    return {
+      comments: [],
       error: error instanceof Error ? error : new Error('Network error'),
     }
   }
