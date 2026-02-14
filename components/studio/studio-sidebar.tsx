@@ -14,7 +14,6 @@ import {
   Lock,
   Gift,
   LogOut,
-  Download,
   PanelLeftClose,
   PanelLeftOpen,
   Settings,
@@ -291,14 +290,14 @@ export const StudioSidebarCredits = React.memo(function StudioSidebarCredits() {
   return (
     <>
       <TooltipProvider delayDuration={0}>
-        <div className="border-t border-sidebar-border p-4">
+        <div className="border-t border-sidebar-border p-2">
           <div className="flex items-start justify-between gap-2">
             <Button
               type="button"
               variant="ghost"
               size="sm"
               onClick={() => setIsModalOpen(true)}
-              className="text-left cursor-pointer hover:opacity-80 flex-1 min-w-0 p-0 h-auto"
+              className="text-left cursor-pointer hover:opacity-80 flex-1 min-w-0 p-2 h-auto"
             >
               {isLoading ? (
                 <div className="flex flex-col gap-1">
@@ -320,18 +319,6 @@ export const StudioSidebarCredits = React.memo(function StudioSidebarCredits() {
                 </div>
               )}
             </Button>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  onClick={() => setIsModalOpen(true)}
-                >
-                  <Settings className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="right">Manage Subscription</TooltipContent>
-            </Tooltip>
           </div>
         </div>
       </TooltipProvider>
