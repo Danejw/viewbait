@@ -90,7 +90,7 @@ export async function PATCH(
     let result
 
     if (action === 'read') {
-      const { data, error } = await markNotificationRead(supabase, id)
+      const { data, error } = await markNotificationRead(supabase, user.id, id)
 
       if (error) {
         logError(error, {
@@ -104,7 +104,7 @@ export async function PATCH(
 
       result = data
     } else if (action === 'archive') {
-      const { data, error } = await archiveNotification(supabase, id)
+      const { data, error } = await archiveNotification(supabase, user.id, id)
 
       if (error) {
         logError(error, {

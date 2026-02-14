@@ -43,8 +43,7 @@ function validationError(message: string): CreateNotificationResult {
 
 /**
  * Core notifications query used by API routes and server wrappers.
- * Uses a single RPC to return list, count, and unread count in one round-trip.
- * Requires an authenticated Supabase client (auth.uid() used in RPC).
+ * Uses RLS-safe table queries (no RPC). Requires an authenticated Supabase client.
  */
 export async function listNotifications(
   supabase: SupabaseClient,
@@ -58,35 +57,48 @@ export async function listNotifications(
     archivedOnly = false,
   } = options
 
-  const { data: rpcData, error } = await supabase.rpc('get_notifications_with_counts', {
-    p_limit: limit,
-    p_offset: offset,
-    p_unread_only: unreadOnly,
-    p_archived_only: archivedOnly,
-  })
+  // 1. Unread count: non-archived, unread for current user
+  const unreadRes = await supabase
+    .from('notifications')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .eq('is_read', false)
+    .eq('is_archived', false)
 
-  if (error) {
+  if (unreadRes.error) {
     return {
       notifications: [],
       count: 0,
       unreadCount: 0,
-      error: error as Error,
+      error: unreadRes.error as Error,
     }
   }
 
-  const row = Array.isArray(rpcData) ? rpcData[0] : rpcData
-  if (!row || typeof row !== 'object') {
+  const unreadCount = unreadRes.count ?? 0
+
+  // 2. Filtered count and 3. Filtered list use same filters
+  const filtered = supabase
+    .from('notifications')
+    .select('*', { count: 'exact' })
+    .eq('user_id', userId)
+    .eq('is_archived', archivedOnly)
+    .order('created_at', { ascending: false })
+
+  const filteredWithUnread = unreadOnly ? filtered.eq('is_read', false) : filtered
+
+  const countRes = await filteredWithUnread.range(offset, offset + limit - 1)
+
+  if (countRes.error) {
     return {
       notifications: [],
       count: 0,
-      unreadCount: 0,
-      error: null,
+      unreadCount,
+      error: countRes.error as Error,
     }
   }
 
-  const notifications = (row.notifications as Notification[]) ?? []
-  const count = typeof row.count === 'number' ? row.count : Number(row.count) || 0
-  const unreadCount = typeof row.unread_count === 'number' ? row.unread_count : Number(row.unread_count) || 0
+  const count = countRes.count ?? 0
+  const notifications = (countRes.data as Notification[]) ?? []
 
   return {
     notifications: Array.isArray(notifications) ? notifications : [],
@@ -137,53 +149,83 @@ export async function getNotificationById(
 
 /**
  * Mark all notifications as read for authenticated user context.
- * Requires session client with authenticated user.
+ * Uses direct UPDATE; requires session client and userId for RLS-safe scope.
  */
 export async function markAllNotificationsRead(
-  supabase: SupabaseClient
+  supabase: SupabaseClient,
+  userId: string
 ): Promise<{ count: number; error: Error | null }> {
-  const { data: count, error } = await supabase.rpc('rpc_mark_all_notifications_read')
+  const now = new Date().toISOString()
+  const { data, error } = await supabase
+    .from('notifications')
+    .update({
+      is_read: true,
+      read_at: now,
+      updated_at: now,
+    })
+    .eq('user_id', userId)
+    .eq('is_read', false)
+    .select('id')
+
   if (error) {
     return { count: 0, error: error as Error }
   }
-  return { count: (count as number | null) || 0, error: null }
+  return { count: Array.isArray(data) ? data.length : 0, error: null }
 }
 
 /**
- * Mark one notification as read using RPC.
- * Requires session client with authenticated user.
+ * Mark one notification as read. Uses direct UPDATE; requires session client and userId.
  */
 export async function markNotificationRead(
   supabase: SupabaseClient,
+  userId: string,
   notificationId: string
 ): Promise<{ data: Notification | null; error: Error | null }> {
-  const { data, error } = await supabase.rpc('rpc_mark_notification_read', {
-    notification_id: notificationId,
-  })
+  const now = new Date().toISOString()
+  const { data, error } = await supabase
+    .from('notifications')
+    .update({
+      is_read: true,
+      read_at: now,
+      updated_at: now,
+    })
+    .eq('id', notificationId)
+    .eq('user_id', userId)
+    .eq('is_read', false)
+    .select()
+    .single()
 
   if (error) {
     return { data: null, error: error as Error }
   }
-
   return { data: (data as Notification | null) ?? null, error: null }
 }
 
 /**
- * Archive one notification using RPC.
- * Requires session client with authenticated user.
+ * Archive one notification. Uses direct UPDATE; requires session client and userId.
  */
 export async function archiveNotification(
   supabase: SupabaseClient,
+  userId: string,
   notificationId: string
 ): Promise<{ data: Notification | null; error: Error | null }> {
-  const { data, error } = await supabase.rpc('rpc_archive_notification', {
-    notification_id: notificationId,
-  })
+  const now = new Date().toISOString()
+  const { data, error } = await supabase
+    .from('notifications')
+    .update({
+      is_archived: true,
+      archived_at: now,
+      updated_at: now,
+    })
+    .eq('id', notificationId)
+    .eq('user_id', userId)
+    .eq('is_archived', false)
+    .select()
+    .single()
 
   if (error) {
     return { data: null, error: error as Error }
   }
-
   return { data: (data as Notification | null) ?? null, error: null }
 }
 

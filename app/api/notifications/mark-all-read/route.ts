@@ -21,7 +21,7 @@ export async function POST() {
     const supabase = await createClient()
     const user = await requireAuth(supabase)
 
-    const { count, error } = await markAllNotificationsRead(supabase)
+    const { count, error } = await markAllNotificationsRead(supabase, user.id)
 
     if (error) {
       logError(error, {

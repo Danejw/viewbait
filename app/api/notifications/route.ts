@@ -8,7 +8,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { requireAuth } from '@/lib/server/utils/auth'
-import { parseQueryParams, handleApiError } from '@/lib/server/utils/api-helpers'
+import { handleApiError } from '@/lib/server/utils/api-helpers'
 import {
   validationErrorResponse,
   databaseErrorResponse,
@@ -22,6 +22,53 @@ import { listNotifications, createNotification } from '@/lib/server/data/notific
 // Cache GET responses for 30 seconds (ISR)
 export const revalidate = 30
 
+const NOTIFICATIONS_MAX_LIMIT = 100
+
+/**
+ * Parse and validate notifications list query params. Returns null and sets response if invalid.
+ */
+function parseNotificationsQuery(
+  request: Request
+): { limit: number; offset: number; unreadOnly: boolean; archivedOnly: boolean } | { error: NextResponse } {
+  const { searchParams } = new URL(request.url)
+
+  const limitParam = searchParams.get('limit')
+  const defaultLimit = 10
+  let limit = defaultLimit
+  if (limitParam !== null && limitParam !== '') {
+    const parsed = parseInt(limitParam, 10)
+    if (Number.isNaN(parsed) || parsed < 1 || parsed > NOTIFICATIONS_MAX_LIMIT) {
+      return {
+        error: NextResponse.json(
+          { error: `limit must be an integer between 1 and ${NOTIFICATIONS_MAX_LIMIT}` },
+          { status: 400 }
+        ),
+      }
+    }
+    limit = Math.min(parsed, NOTIFICATIONS_MAX_LIMIT)
+  }
+
+  const offsetParam = searchParams.get('offset')
+  let offset = 0
+  if (offsetParam !== null && offsetParam !== '') {
+    const parsed = parseInt(offsetParam, 10)
+    if (Number.isNaN(parsed) || parsed < 0) {
+      return {
+        error: NextResponse.json(
+          { error: 'offset must be a non-negative integer' },
+          { status: 400 }
+        ),
+      }
+    }
+    offset = Math.max(0, parsed)
+  }
+
+  const unreadOnly = searchParams.get('unreadOnly') === 'true'
+  const archivedOnly = searchParams.get('archivedOnly') === 'true'
+
+  return { limit, offset, unreadOnly, archivedOnly }
+}
+
 /**
  * GET /api/notifications
  * List notifications for the authenticated user
@@ -31,15 +78,11 @@ export async function GET(request: Request) {
     const supabase = await createClient()
     const user = await requireAuth(supabase)
 
-    // Parse query parameters
-    const { searchParams } = new URL(request.url)
-    const { limit, offset } = parseQueryParams(request, {
-      defaultLimit: 10,
-      maxLimit: 100,
-      defaultOffset: 0,
-    })
-    const unreadOnly = searchParams.get('unreadOnly') === 'true'
-    const archivedOnly = searchParams.get('archivedOnly') === 'true'
+    const parsed = parseNotificationsQuery(request)
+    if ('error' in parsed) {
+      return parsed.error
+    }
+    const { limit, offset, unreadOnly, archivedOnly } = parsed
 
     const { notifications, count, unreadCount, error } = await listNotifications(supabase, user.id, {
       limit,
