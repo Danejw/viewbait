@@ -16,6 +16,8 @@ import {
 } from '@/lib/constants/subscription-tiers'
 import { getTierByProductId as getTierByProductIdServer, getTierNameByProductId as getTierNameByProductIdServer } from '@/lib/server/data/subscription-tiers'
 
+export type CustomerPortalFlowType = 'manage' | 'subscription_cancel' | 'subscription_update'
+
 export interface SubscriptionStatus {
   subscribed: boolean
   status: string
@@ -123,7 +125,7 @@ export async function createCheckout(priceId: string): Promise<{
 /**
  * Get Stripe customer portal URL for subscription management
  */
-export async function getCustomerPortal(): Promise<{
+export async function getCustomerPortal(flowType: CustomerPortalFlowType = 'manage'): Promise<{
   url: string | null
   error: Error | null
 }> {
@@ -133,6 +135,7 @@ export async function getCustomerPortal(): Promise<{
       headers: {
         'Content-Type': 'application/json',
       },
+      body: JSON.stringify({ flowType }),
     })
 
     if (!response.ok) {
@@ -147,6 +150,39 @@ export async function getCustomerPortal(): Promise<{
       url: null,
       error: error instanceof Error ? error : new Error('Network error'),
     }
+  }
+}
+
+export async function pauseSubscription(): Promise<{
+  success: boolean
+  error: Error | null
+}> {
+  const { data, error } = await apiPost<{ success: boolean }>('/api/subscriptions', {
+    action: 'pause',
+  })
+
+  return {
+    success: data?.success ?? false,
+    error: error ? new Error(error.message) : null,
+  }
+}
+
+export async function resumeSubscription(): Promise<{
+  success: boolean
+  status: string | null
+  error: Error | null
+}> {
+  const { data, error } = await apiPost<{ success: boolean; status: string | null }>(
+    '/api/subscriptions',
+    {
+      action: 'resume',
+    }
+  )
+
+  return {
+    success: data?.success ?? false,
+    status: data?.status ?? null,
+    error: error ? new Error(error.message) : null,
   }
 }
 

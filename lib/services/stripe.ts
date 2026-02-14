@@ -6,11 +6,20 @@
  */
 
 import Stripe from 'stripe'
+import { randomUUID } from 'node:crypto'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
-import { getTierByProductId as getTierByProductIdServer } from '@/lib/server/data/subscription-tiers'
+import {
+  getTierByName,
+  getTierByProductId as getTierByProductIdServer,
+} from '@/lib/server/data/subscription-tiers'
 import { logError } from '@/lib/server/utils/logger'
 import { createNotification } from '@/lib/server/notifications/create'
+import {
+  deriveAccessTierFromStatus,
+  deriveAppStatusFromStripe,
+  type AppSubscriptionStatus,
+} from '@/lib/services/subscription-lifecycle'
 
 // Initialize Stripe client
 let stripeInstance: Stripe | null = null
@@ -31,6 +40,20 @@ function getStripe(): Stripe {
   })
 
   return stripeInstance
+}
+
+const ACTIVE_SUBSCRIPTION_STATUSES: Stripe.Subscription.Status[] = [
+  'trialing',
+  'active',
+  'past_due',
+  'unpaid',
+  'paused',
+]
+
+export type CustomerPortalFlowType = 'manage' | 'subscription_cancel' | 'subscription_update'
+
+function buildStripeIdempotencyKey(prefix: string, userId: string, subject: string): string {
+  return `${prefix}:${userId}:${subject}:${randomUUID()}`
 }
 
 /**
@@ -86,6 +109,9 @@ export async function checkSubscription(
     }
 
     // Return subscription data
+    const rawStatus = subscription.status || 'free'
+    const normalizedStatus: AppSubscriptionStatus =
+      rawStatus === 'canceled' ? 'cancelled' : (rawStatus as AppSubscriptionStatus)
     // Get tier name from tier config
     const tierConfig = await getTierByProductIdServer(subscription.product_id)
     // Map tier config name to tier name string
@@ -95,10 +121,14 @@ export async function checkSubscription(
       'Advanced': 'advanced',
       'Pro': 'pro',
     }
-    const tierName = nameToTier[tierConfig.name] || 'free'
+    const resolvedTier = nameToTier[tierConfig.name] || 'free'
+    const tierName = deriveAccessTierFromStatus(resolvedTier, normalizedStatus)
+    const subscribed = !['free', 'cancelled', 'paused_free', 'past_due_locked'].includes(
+      normalizedStatus
+    )
     return {
-      subscribed: subscription.status !== 'free' && subscription.status !== 'cancelled',
-      status: subscription.status,
+      subscribed,
+      status: normalizedStatus,
       tier: tierName,
       product_id: subscription.product_id,
       subscription_end: subscription.current_period_end,
@@ -193,6 +223,23 @@ async function getOrCreateStripeCustomer(
   return customer.id
 }
 
+async function getManagedSubscriptionForCustomer(
+  customerId: string
+): Promise<Stripe.Subscription | null> {
+  const stripe = getStripe()
+  const subscriptions = await stripe.subscriptions.list({
+    customer: customerId,
+    status: 'all',
+    limit: 20,
+  })
+
+  const eligible = subscriptions.data
+    .filter((subscription) => ACTIVE_SUBSCRIPTION_STATUSES.includes(subscription.status))
+    .sort((a, b) => b.created - a.created)
+
+  return eligible[0] ?? null
+}
+
 /**
  * Detect Stripe mode (test vs live) from secret key
  */
@@ -218,6 +265,13 @@ export async function createCheckoutSession(
 
     // Get or create Stripe customer
     const customerId = await getOrCreateStripeCustomer(userId, userEmail)
+    const existingSubscription = await getManagedSubscriptionForCustomer(customerId)
+
+    // Strict one-subscription invariant: route users to manage/update existing subscription.
+    if (existingSubscription) {
+      const { url, error } = await createCustomerPortalSession(userId, 'subscription_update')
+      return { url, error }
+    }
 
     // Determine success and cancel URLs
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL
@@ -225,22 +279,27 @@ export async function createCheckoutSession(
     const cancelUrl = `${baseUrl}/studio`
 
     // Create checkout session
-    const session = await stripe.checkout.sessions.create({
-      customer: customerId,
-      mode: 'subscription',
-      payment_method_types: ['card'],
-      line_items: [
-        {
-          price: priceId,
-          quantity: 1,
+    const session = await stripe.checkout.sessions.create(
+      {
+        customer: customerId,
+        mode: 'subscription',
+        payment_method_types: ['card'],
+        line_items: [
+          {
+            price: priceId,
+            quantity: 1,
+          },
+        ],
+        success_url: successUrl,
+        cancel_url: cancelUrl,
+        metadata: {
+          user_id: userId,
         },
-      ],
-      success_url: successUrl,
-      cancel_url: cancelUrl,
-      metadata: {
-        user_id: userId,
       },
-    })
+      {
+        idempotencyKey: buildStripeIdempotencyKey('checkout', userId, priceId),
+      }
+    )
 
     return {
       url: session.url,
@@ -388,11 +447,17 @@ export async function processCheckoutSession(
       ? tierConfig.credits_per_month 
       : existingSub.credits_remaining
 
+    const appStatus = deriveAppStatusFromStripe({
+      stripeStatus: subscription.status,
+      hasPauseCollection: subscription.pause_collection != null,
+      isNewBillingPeriod: false,
+    })
+
     const subscriptionData = {
       stripe_customer_id: customerId,
       subscription_id: subscription.id,
       product_id: productId,
-      status: subscription.status === 'active' ? 'active' : subscription.status,
+      status: appStatus,
       credits_total: tierConfig.credits_per_month,
       credits_remaining: creditsToSet,
       current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
@@ -551,10 +616,156 @@ export async function recordPurchaseAndProcessReferrals(
 }
 
 /**
+ * Pause payment collection for the active subscription.
+ * App semantics: keep current-period credits, then fall back to free credits on next period rollover.
+ */
+export async function pauseSubscription(userId: string): Promise<{
+  success: boolean
+  error: Error | null
+}> {
+  try {
+    const supabaseService = createServiceClient()
+    const stripe = getStripe()
+
+    const { data: subscriptionRow } = await supabaseService
+      .from('user_subscriptions')
+      .select('subscription_id, status')
+      .eq('user_id', userId)
+      .single()
+
+    if (!subscriptionRow?.subscription_id) {
+      return { success: false, error: new Error('No active subscription found to pause.') }
+    }
+
+    const updatedSubscription = await stripe.subscriptions.update(
+      subscriptionRow.subscription_id,
+      {
+        pause_collection: {
+          behavior: 'void',
+        },
+      },
+      {
+        idempotencyKey: buildStripeIdempotencyKey('pause', userId, subscriptionRow.subscription_id),
+      }
+    )
+
+    await supabaseService
+      .from('user_subscriptions')
+      .update({
+        status: 'paused_until_period_end',
+        paused_at: new Date().toISOString(),
+        pause_collection_behavior: 'void',
+        current_period_start: new Date(updatedSubscription.current_period_start * 1000).toISOString(),
+        current_period_end: new Date(updatedSubscription.current_period_end * 1000).toISOString(),
+      })
+      .eq('user_id', userId)
+
+    return { success: true, error: null }
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error : new Error('Unknown error'),
+    }
+  }
+}
+
+/**
+ * Resume payment collection for the paused subscription and restart cycle from now.
+ * If payment cannot be collected, account remains locked behind past_due status.
+ */
+export async function resumeSubscription(userId: string): Promise<{
+  success: boolean
+  status: AppSubscriptionStatus | null
+  error: Error | null
+}> {
+  try {
+    const supabaseService = createServiceClient()
+    const stripe = getStripe()
+
+    const { data: row } = await supabaseService
+      .from('user_subscriptions')
+      .select('subscription_id, product_id')
+      .eq('user_id', userId)
+      .single()
+
+    if (!row?.subscription_id) {
+      return {
+        success: false,
+        status: null,
+        error: new Error('No paused subscription found to resume.'),
+      }
+    }
+
+    const updatedSubscription = await stripe.subscriptions.update(
+      row.subscription_id,
+      {
+        pause_collection: '',
+        billing_cycle_anchor: 'now',
+        proration_behavior: 'none',
+      },
+      {
+        idempotencyKey: buildStripeIdempotencyKey('resume', userId, row.subscription_id),
+      }
+    )
+
+    const hasPauseCollection = updatedSubscription.pause_collection != null
+    const appStatus = deriveAppStatusFromStripe({
+      stripeStatus: updatedSubscription.status,
+      hasPauseCollection,
+      isNewBillingPeriod: true,
+    })
+
+    let nextProductId = row.product_id
+    let nextCreditsTotal = 10
+    let nextCreditsRemaining = 10
+
+    const priceId = updatedSubscription.items.data[0]?.price.id
+    if (priceId) {
+      const price = await stripe.prices.retrieve(priceId)
+      const productId = price.product as string
+      nextProductId = productId
+
+      if (appStatus === 'active') {
+        const paidTier = await getTierByProductIdServer(productId)
+        nextCreditsTotal = paidTier.credits_per_month
+        nextCreditsRemaining = paidTier.credits_per_month
+      } else {
+        const freeTier = await getTierByName('free')
+        nextCreditsTotal = freeTier.credits_per_month
+        nextCreditsRemaining = freeTier.credits_per_month
+      }
+    }
+
+    await supabaseService
+      .from('user_subscriptions')
+      .update({
+        status: appStatus,
+        resumed_at: new Date().toISOString(),
+        pause_collection_behavior: null,
+        product_id: nextProductId,
+        credits_total: nextCreditsTotal,
+        credits_remaining: nextCreditsRemaining,
+        current_period_start: new Date(updatedSubscription.current_period_start * 1000).toISOString(),
+        current_period_end: new Date(updatedSubscription.current_period_end * 1000).toISOString(),
+      })
+      .eq('user_id', userId)
+
+    return { success: true, status: appStatus, error: null }
+  } catch (error) {
+    return {
+      success: false,
+      status: null,
+      error: error instanceof Error ? error : new Error('Unknown error'),
+    }
+  }
+}
+
+/**
  * Create Stripe customer portal session
  */
 export async function createCustomerPortalSession(
-  userId: string
+  userId: string,
+  flowType: CustomerPortalFlowType = 'manage'
 ): Promise<{
   url: string | null
   error: Error | null
@@ -582,10 +793,57 @@ export async function createCustomerPortalSession(
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL
     const returnUrl = `${baseUrl}/studio`
 
+    let flowData: Stripe.BillingPortal.SessionCreateParams.FlowData | undefined
+    if (flowType !== 'manage') {
+      const { data: fullSubscription } = await supabase
+        .from('user_subscriptions')
+        .select('subscription_id')
+        .eq('user_id', userId)
+        .single()
+
+      if (!fullSubscription?.subscription_id) {
+        return {
+          url: null,
+          error: new Error('No Stripe subscription found for this account.'),
+        }
+      }
+
+      const stripeSubscription = await stripe.subscriptions.retrieve(
+        fullSubscription.subscription_id
+      )
+
+      const useManageInstead =
+        (flowType === 'subscription_cancel' && stripeSubscription.cancel_at_period_end) ||
+        (flowType === 'subscription_update' && stripeSubscription.status === 'paused')
+
+      if (!useManageInstead) {
+        if (flowType === 'subscription_cancel') {
+          flowData = {
+            type: 'subscription_cancel',
+            subscription_cancel: { subscription: fullSubscription.subscription_id },
+            after_completion: {
+              type: 'redirect',
+              redirect: { return_url: returnUrl },
+            },
+          }
+        } else if (flowType === 'subscription_update') {
+          flowData = {
+            type: 'subscription_update',
+            subscription_update: { subscription: fullSubscription.subscription_id },
+            after_completion: {
+              type: 'redirect',
+              redirect: { return_url: returnUrl },
+            },
+          }
+        }
+      }
+    }
+
     // Create portal session
     const session = await stripe.billingPortal.sessions.create({
       customer: subscription.stripe_customer_id,
       return_url: returnUrl,
+      flow_data: flowData,
     })
 
     return {

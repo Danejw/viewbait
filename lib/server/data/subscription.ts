@@ -11,6 +11,10 @@ import { getTierNameByProductId } from '@/lib/server/data/subscription-tiers'
 import type { TierName } from '@/lib/constants/subscription-tiers'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { UserSubscription } from '@/lib/types/database'
+import {
+  deriveAccessTierFromStatus,
+  type AppSubscriptionStatus,
+} from '@/lib/services/subscription-lifecycle'
 
 export interface FetchSubscriptionResult {
   subscribed: boolean
@@ -78,10 +82,17 @@ export async function fetchSubscription(): Promise<FetchSubscriptionResult> {
     }
 
     // Return subscription data
-    const tierName = await getTierNameByProductId(subscription.product_id)
+    const normalizedStatus = (
+      subscription.status === 'canceled' ? 'cancelled' : subscription.status
+    ) as AppSubscriptionStatus
+    const resolvedTier = await getTierNameByProductId(subscription.product_id)
+    const tierName = deriveAccessTierFromStatus(resolvedTier, normalizedStatus)
+    const subscribed = !['free', 'cancelled', 'paused_free', 'past_due_locked'].includes(
+      normalizedStatus
+    )
     return {
-      subscribed: subscription.status !== 'free' && subscription.status !== 'cancelled',
-      status: subscription.status,
+      subscribed,
+      status: normalizedStatus,
       tier: tierName,
       product_id: subscription.product_id,
       subscription_end: subscription.current_period_end,

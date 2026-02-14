@@ -10,7 +10,8 @@ import Stripe from 'stripe'
 import { processCheckoutSession } from '@/lib/services/stripe'
 import { logError } from '@/lib/server/utils/logger'
 import { createServiceClient } from '@/lib/supabase/service'
-import { getTierByProductId } from '@/lib/server/data/subscription-tiers'
+import { getTierByName, getTierByProductId } from '@/lib/server/data/subscription-tiers'
+import { deriveAppStatusFromStripe } from '@/lib/services/subscription-lifecycle'
 
 // Create Stripe instance for webhook verification
 function getStripeInstance(): Stripe {
@@ -178,6 +179,20 @@ export async function POST(request: Request) {
         break
       }
 
+      case 'customer.subscription.paused': {
+        const subscription = event.data.object as Stripe.Subscription
+        const result = await handleSubscriptionUpdate(subscription)
+        processingSuccess = result.success
+        break
+      }
+
+      case 'customer.subscription.resumed': {
+        const subscription = event.data.object as Stripe.Subscription
+        const result = await handleSubscriptionUpdate(subscription)
+        processingSuccess = result.success
+        break
+      }
+
       case 'customer.subscription.deleted': {
         const subscription = event.data.object as Stripe.Subscription
 
@@ -242,9 +257,10 @@ async function handleSubscriptionUpdate(subscription: Stripe.Subscription): Prom
 }> {
   try {
     const supabaseService = createServiceClient()
+    const latestSubscription = await stripe.subscriptions.retrieve(subscription.id)
 
     // Get product ID from subscription
-    const priceId = subscription.items.data[0]?.price.id
+    const priceId = latestSubscription.items.data[0]?.price.id
     if (!priceId) {
       return { success: false, error: new Error('Price ID not found') }
     }
@@ -252,17 +268,18 @@ async function handleSubscriptionUpdate(subscription: Stripe.Subscription): Prom
     const price = await stripe.prices.retrieve(priceId)
     const productId = price.product as string
 
-    // Find tier configuration
-    const tierConfig = await getTierByProductId(productId)
+    // Find tier configurations
+    const paidTierConfig = await getTierByProductId(productId)
+    const freeTierConfig = await getTierByName('free')
 
-    if (!tierConfig || !tierConfig.product_id) {
+    if (!paidTierConfig || !paidTierConfig.product_id) {
       return { success: false, error: new Error(`Tier not found for product ID: ${productId}`) }
     }
 
     // Get customer ID
-    const customerId = typeof subscription.customer === 'string'
-      ? subscription.customer
-      : subscription.customer.id
+    const customerId = typeof latestSubscription.customer === 'string'
+      ? latestSubscription.customer
+      : latestSubscription.customer.id
 
     // Find user by customer ID
     const { data: existingSub } = await supabaseService
@@ -278,24 +295,47 @@ async function handleSubscriptionUpdate(subscription: Stripe.Subscription): Prom
     // Check if this is a tier change or new billing period
     const isTierChange = existingSub.product_id !== productId
     const isNewPeriod = !existingSub.current_period_start || 
-      new Date(existingSub.current_period_start) < new Date(subscription.current_period_start * 1000)
+      new Date(existingSub.current_period_start) < new Date(latestSubscription.current_period_start * 1000)
 
-    // Reset credits on tier change or new billing period
-    const creditsToSet = (isTierChange || isNewPeriod) && subscription.status === 'active'
-      ? tierConfig.credits_per_month
-      : existingSub.credits_remaining
+    const hasPauseCollection = latestSubscription.pause_collection != null
+    const appStatus = deriveAppStatusFromStripe({
+      stripeStatus: latestSubscription.status,
+      hasPauseCollection,
+      isNewBillingPeriod: isNewPeriod,
+    })
+
+    // Reset credits based on app status transitions.
+    let creditsToSet = existingSub.credits_remaining
+    let creditsTotal = paidTierConfig.credits_per_month
+    let nextProductId = productId
+
+    if (appStatus === 'paused_free') {
+      creditsTotal = freeTierConfig.credits_per_month
+      creditsToSet = freeTierConfig.credits_per_month
+    } else if (appStatus === 'past_due_locked') {
+      creditsTotal = freeTierConfig.credits_per_month
+      creditsToSet = Math.min(existingSub.credits_remaining, freeTierConfig.credits_per_month)
+    } else if (appStatus === 'cancelled') {
+      creditsTotal = freeTierConfig.credits_per_month
+      creditsToSet = Math.min(existingSub.credits_remaining, freeTierConfig.credits_per_month)
+      nextProductId = null
+    } else if ((isTierChange || isNewPeriod) && latestSubscription.status === 'active') {
+      creditsTotal = paidTierConfig.credits_per_month
+      creditsToSet = paidTierConfig.credits_per_month
+    }
 
     // Update subscription
     const { error: updateError } = await supabaseService
       .from('user_subscriptions')
       .update({
-        subscription_id: subscription.id,
-        product_id: productId,
-        status: subscription.status === 'active' ? 'active' : subscription.status,
-        credits_total: tierConfig.credits_per_month,
+        subscription_id: latestSubscription.id,
+        product_id: nextProductId,
+        status: appStatus,
+        pause_collection_behavior: latestSubscription.pause_collection?.behavior ?? null,
+        credits_total: creditsTotal,
         credits_remaining: creditsToSet,
-        current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
-        current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+        current_period_start: new Date(latestSubscription.current_period_start * 1000).toISOString(),
+        current_period_end: new Date(latestSubscription.current_period_end * 1000).toISOString(),
       })
       .eq('user_id', existingSub.user_id)
 
@@ -321,6 +361,7 @@ async function handleSubscriptionCancellation(subscription: Stripe.Subscription)
 }> {
   try {
     const supabaseService = createServiceClient()
+    const freeTierConfig = await getTierByName('free')
 
     // Get customer ID
     const customerId = typeof subscription.customer === 'string'
@@ -332,7 +373,10 @@ async function handleSubscriptionCancellation(subscription: Stripe.Subscription)
       .from('user_subscriptions')
       .update({
         status: 'cancelled',
-        // Keep existing credits but don't allow new ones
+        product_id: null,
+        pause_collection_behavior: null,
+        credits_total: freeTierConfig.credits_per_month,
+        credits_remaining: freeTierConfig.credits_per_month,
       })
       .eq('stripe_customer_id', customerId)
 

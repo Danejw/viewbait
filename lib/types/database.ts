@@ -77,6 +77,9 @@ export interface UserSubscription {
   credits_remaining: number
   current_period_start: string | null
   current_period_end: string | null
+  paused_at: string | null
+  resumed_at: string | null
+  pause_collection_behavior: string | null
   created_at: string
   updated_at: string
 }
@@ -351,6 +354,9 @@ export interface UserSubscriptionInsert {
   credits_remaining?: number
   current_period_start?: string | null
   current_period_end?: string | null
+  paused_at?: string | null
+  resumed_at?: string | null
+  pause_collection_behavior?: string | null
   created_at?: string
   updated_at?: string
 }
@@ -542,6 +548,9 @@ export interface UserSubscriptionUpdate {
   credits_remaining?: number
   current_period_start?: string | null
   current_period_end?: string | null
+  paused_at?: string | null
+  resumed_at?: string | null
+  pause_collection_behavior?: string | null
   updated_at?: string
 }
 

@@ -244,7 +244,7 @@ export function StudioSidebarNav() {
  */
 export const StudioSidebarCredits = React.memo(function StudioSidebarCredits() {
   const { leftSidebarCollapsed } = useStudioState();
-  const { tier, tierConfig, creditsRemaining, creditsTotal, isLoading, productId } = useSubscription();
+  const { tier, tierConfig, creditsRemaining, creditsTotal, isLoading, productId, status } = useSubscription();
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   if (leftSidebarCollapsed) {
@@ -309,6 +309,9 @@ export const StudioSidebarCredits = React.memo(function StudioSidebarCredits() {
                 <div className="flex flex-col gap-0.5">
                   <span className="text-sm font-medium text-sidebar-foreground block">
                     {tierConfig.name}
+                  </span>
+                  <span className="text-[10px] uppercase tracking-wide text-sidebar-foreground/60 block">
+                    {status.replaceAll("_", " ")}
                   </span>
                   <span className="text-xs text-sidebar-foreground/70 block">
                     <span className="text-primary font-medium">{creditsRemaining}</span>

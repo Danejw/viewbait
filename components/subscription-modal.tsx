@@ -38,7 +38,7 @@ export default function SubscriptionModal({
   currentTier,
   currentProductId,
 }: SubscriptionModalProps) {
-  const { openCheckout } = useSubscription();
+  const { status, openCheckout, openCustomerPortal, pausePlan, resumePlan } = useSubscription();
   const { tiers: tiersData, isLoading: tiersLoading } = useSubscriptionTiers();
   const [loadingPriceId, setLoadingPriceId] = useState<string | null>(null);
 
@@ -91,6 +91,47 @@ export default function SubscriptionModal({
         tier: tierName,
       });
       setLoadingPriceId(null);
+    }
+  };
+
+  const handlePause = async () => {
+    const { error } = await pausePlan();
+    if (error) {
+      logClientError(error, {
+        operation: "pause-plan",
+        component: "SubscriptionModal",
+      });
+    }
+  };
+
+  const handleResume = async () => {
+    const { error } = await resumePlan();
+    if (error) {
+      logClientError(error, {
+        operation: "resume-plan",
+        component: "SubscriptionModal",
+      });
+    }
+  };
+
+  const handleManageCancel = async () => {
+    const { error } = await openCustomerPortal("subscription_cancel");
+    if (error) {
+      logClientError(error, {
+        operation: "open-cancel-portal-flow",
+        component: "SubscriptionModal",
+      });
+    }
+  };
+
+  /** Opens generic portal so user can view subscription, uncancel, resume, update payment in any state. */
+  const handleManageBilling = async () => {
+    const { error } = await openCustomerPortal("manage");
+    if (error) {
+      logClientError(error, {
+        operation: "open-manage-portal",
+        component: "SubscriptionModal",
+      });
     }
   };
 
@@ -170,6 +211,11 @@ export default function SubscriptionModal({
           <DialogDescription className="text-base">
             Select a subscription tier that fits your needs
           </DialogDescription>
+          <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
+            <Button size="sm" variant="outline" onClick={handleManageBilling}>
+              Manage billing
+            </Button>
+          </div>
         </DialogHeader>
 
         <div className="hide-scrollbar min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-6">

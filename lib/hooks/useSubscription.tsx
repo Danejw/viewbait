@@ -34,6 +34,7 @@ import { logClientError } from "@/lib/utils/client-logger";
 
 export interface SubscriptionContextType {
   // State
+  status: string;
   tier: TierName;
   tierConfig: TierConfig;
   creditsRemaining: number;
@@ -62,7 +63,11 @@ export interface SubscriptionContextType {
     thumbnailId?: string
   ) => Promise<{ error: Error | null }>;
   openCheckout: (priceId: string) => Promise<{ error: Error | null }>;
-  openCustomerPortal: () => Promise<{ error: Error | null }>;
+  openCustomerPortal: (
+    flowType?: "manage" | "subscription_cancel" | "subscription_update"
+  ) => Promise<{ error: Error | null }>;
+  pausePlan: () => Promise<{ error: Error | null }>;
+  resumePlan: () => Promise<{ error: Error | null }>;
 }
 
 // ============================================================================
@@ -103,6 +108,7 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
     enabled: !authLoading && isAuthenticated,
   });
 
+  const [status, setStatus] = useState<string>("free");
   const [tier, setTier] = useState<TierName>("free");
   const [creditsRemaining, setCreditsRemaining] = useState(10);
   const [creditsTotal, setCreditsTotal] = useState(10);
@@ -165,7 +171,14 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
               tierName = nameToTier[tierConfig.name] || "free";
             }
             return {
-              tier: subscription.status === "free" ? "free" : tierName,
+              status: subscription.status ?? "free",
+              tier:
+                subscription.status === "free" ||
+                subscription.status === "cancelled" ||
+                subscription.status === "paused_free" ||
+                subscription.status === "past_due_locked"
+                  ? "free"
+                  : tierName,
               creditsRemaining: subscription.credits_remaining,
               creditsTotal: subscription.credits_total,
               subscriptionEnd: subscription.current_period_end,
@@ -177,6 +190,7 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
 
         if (status) {
           return {
+            status: status.status,
             tier: status.tier,
             creditsRemaining: status.credits_remaining,
             creditsTotal: status.credits_total,
@@ -214,6 +228,7 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
         lastTierChangeUntilRef.current = Date.now() + POST_CHANGE_WINDOW_MS;
         previousProductIdRef.current = newProductId;
       }
+      setStatus(subscriptionData.status ?? "free");
       setTier(subscriptionData.tier);
       setCreditsRemaining(subscriptionData.creditsRemaining);
       setCreditsTotal(subscriptionData.creditsTotal);
@@ -224,6 +239,7 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
       // Only reset if we're truly not authenticated (no user) AND we don't have existing subscription state
       // This prevents resetting during temporary auth state changes
       setTier("free");
+      setStatus("free");
       setCreditsRemaining(10);
       setCreditsTotal(10);
       setSubscriptionEnd(null);
@@ -372,7 +388,9 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
   /**
    * Open Stripe customer portal for subscription management
    */
-  const openCustomerPortal = useCallback(async (): Promise<{
+  const openCustomerPortal = useCallback(async (
+    flowType: "manage" | "subscription_cancel" | "subscription_update" = "manage"
+  ): Promise<{
     error: Error | null;
   }> => {
     if (!isConfigured) {
@@ -381,7 +399,7 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
 
     try {
       const subscriptionsService = await import("@/lib/services/subscriptions");
-      const { url, error } = await subscriptionsService.getCustomerPortal();
+      const { url, error } = await subscriptionsService.getCustomerPortal(flowType);
 
       if (error) {
         return { error };
@@ -397,11 +415,48 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
     }
   }, [isConfigured]);
 
+  const pausePlan = useCallback(async (): Promise<{ error: Error | null }> => {
+    if (!isConfigured) {
+      return { error: new Error("Supabase not configured") };
+    }
+
+    try {
+      const subscriptionsService = await import("@/lib/services/subscriptions");
+      const { success, error } = await subscriptionsService.pauseSubscription();
+      if (error || !success) {
+        return { error: error || new Error("Failed to pause subscription") };
+      }
+      await refetchSubscription();
+      return { error: null };
+    } catch (error) {
+      return { error: error as Error };
+    }
+  }, [isConfigured, refetchSubscription]);
+
+  const resumePlan = useCallback(async (): Promise<{ error: Error | null }> => {
+    if (!isConfigured) {
+      return { error: new Error("Supabase not configured") };
+    }
+
+    try {
+      const subscriptionsService = await import("@/lib/services/subscriptions");
+      const { success, error } = await subscriptionsService.resumeSubscription();
+      if (error || !success) {
+        return { error: error || new Error("Failed to resume subscription") };
+      }
+      await refetchSubscription();
+      return { error: null };
+    } catch (error) {
+      return { error: error as Error };
+    }
+  }, [isConfigured, refetchSubscription]);
+
   // ============================================================================
   // Context Value
   // ============================================================================
 
   const value: SubscriptionContextType = useMemo(() => ({
+    status,
     tier,
     tierConfig,
     creditsRemaining,
@@ -422,7 +477,10 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
     deductCredits,
     openCheckout,
     openCustomerPortal,
+    pausePlan,
+    resumePlan,
   }), [
+    status,
     tier,
     tierConfig,
     creditsRemaining,
@@ -443,6 +501,8 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
     deductCredits,
     openCheckout,
     openCustomerPortal,
+    pausePlan,
+    resumePlan,
   ]);
 
   return (

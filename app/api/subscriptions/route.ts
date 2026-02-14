@@ -9,6 +9,12 @@ import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { requireAuth } from '@/lib/server/utils/auth'
 import {
+  createCustomerPortalSession,
+  pauseSubscription,
+  resumeSubscription,
+  type CustomerPortalFlowType,
+} from '@/lib/services/stripe'
+import {
   validationErrorResponse,
   databaseErrorResponse,
 } from '@/lib/server/utils/error-handler'
@@ -16,6 +22,10 @@ import { handleApiError } from '@/lib/server/utils/api-helpers'
 import { logError } from '@/lib/server/utils/logger'
 import { NextResponse } from 'next/server'
 import type { UserSubscription, UserSubscriptionInsert } from '@/lib/types/database'
+
+interface SubscriptionActionRequest {
+  action?: 'pause' | 'resume' | 'manage_cancel' | 'manage_update'
+}
 
 // Cache GET responses for 30 seconds
 export const revalidate = 30
@@ -65,7 +75,36 @@ export async function POST(request: Request) {
     const user = await requireAuth(supabase)
 
     // Parse request body
-    const body: Partial<UserSubscriptionInsert> = await request.json()
+    const body = (await request.json()) as Partial<UserSubscriptionInsert> & SubscriptionActionRequest
+
+    if (body.action === 'pause') {
+      const result = await pauseSubscription(user.id)
+      if (!result.success || result.error) {
+        return databaseErrorResponse(result.error?.message || 'Failed to pause subscription')
+      }
+
+      return NextResponse.json({ success: true })
+    }
+
+    if (body.action === 'resume') {
+      const result = await resumeSubscription(user.id)
+      if (!result.success || result.error) {
+        return databaseErrorResponse(result.error?.message || 'Failed to resume subscription')
+      }
+
+      return NextResponse.json({ success: true, status: result.status ?? 'active' })
+    }
+
+    if (body.action === 'manage_cancel' || body.action === 'manage_update') {
+      const flowType: CustomerPortalFlowType =
+        body.action === 'manage_cancel' ? 'subscription_cancel' : 'subscription_update'
+      const { url, error } = await createCustomerPortalSession(user.id, flowType)
+      if (error || !url) {
+        return databaseErrorResponse(error?.message || 'Failed to create customer portal link')
+      }
+
+      return NextResponse.json({ url })
+    }
 
     // Use service role client for subscription creation/updates
     const supabaseService = createServiceClient()

@@ -6,7 +6,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
-import { createCustomerPortalSession } from '@/lib/services/stripe'
+import { createCustomerPortalSession, type CustomerPortalFlowType } from '@/lib/services/stripe'
 import { logError } from '@/lib/server/utils/logger'
 import { requireAuth } from '@/lib/server/utils/auth'
 import {
@@ -15,10 +15,28 @@ import {
 } from '@/lib/server/utils/error-handler'
 import { handleApiError } from '@/lib/server/utils/api-helpers'
 
+interface CustomerPortalRequest {
+  flowType?: CustomerPortalFlowType
+}
+
 export async function POST(request: Request) {
   try {
     const supabase = await createClient()
     const user = await requireAuth(supabase)
+    let flowType: CustomerPortalFlowType = 'manage'
+
+    try {
+      const body = (await request.json()) as CustomerPortalRequest
+      if (
+        body.flowType === 'subscription_cancel' ||
+        body.flowType === 'subscription_update' ||
+        body.flowType === 'manage'
+      ) {
+        flowType = body.flowType
+      }
+    } catch {
+      // Empty body is valid; defaults to generic manage flow.
+    }
 
     // Check if Stripe is configured
     if (!process.env.STRIPE_SECRET_KEY) {
@@ -26,7 +44,7 @@ export async function POST(request: Request) {
     }
 
     // Call Stripe service
-    const { url, error: stripeError } = await createCustomerPortalSession(user.id)
+    const { url, error: stripeError } = await createCustomerPortalSession(user.id, flowType)
 
     if (stripeError || !url) {
       return stripeErrorResponse(
