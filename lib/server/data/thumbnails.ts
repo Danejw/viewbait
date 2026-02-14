@@ -371,7 +371,7 @@ export async function fetchThumbnailsForSharedProject(
 
     let query = supabase
       .from('thumbnails')
-      .select('id,title,image_url,style,palette,liked,created_at,resolution,user_id,share_click_count,aspect_ratio', { count: 'exact' })
+      .select('id,title,image_url,style,palette,liked,created_at,resolution,user_id,share_click_count,aspect_ratio,comments', { count: 'exact' })
       .eq('project_id', projectId)
       .not('image_url', 'is', null)
       .order('created_at', { ascending: false })
@@ -444,6 +444,7 @@ export async function fetchThumbnailsForSharedProject(
       resolution: thumb.resolution,
       share_click_count: (thumb as { share_click_count?: number }).share_click_count ?? 0,
       aspect_ratio: (thumb as { aspect_ratio?: string | null }).aspect_ratio ?? null,
+      comments: (thumb as { comments?: Array<{ user_id: string | null; comment: string; created_at: string }> }).comments ?? undefined,
     }))
 
     return { thumbnails: publicThumbnails, count: count ?? 0, error: null }

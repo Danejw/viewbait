@@ -91,6 +91,15 @@ export interface CreditTransaction {
   created_at: string
 }
 
+/**
+ * Comment object stored in thumbnails.comments JSONB array
+ */
+export interface ThumbnailComment {
+  user_id: string
+  comment: string
+  created_at: string
+}
+
 export interface DbThumbnail {
   id: string
   user_id: string
@@ -110,6 +119,7 @@ export interface DbThumbnail {
   created_at: string
   like_count?: number // Favorite count (added by API)
   share_click_count?: number // Clicks when viewed via shared project gallery link
+  comments?: ThumbnailComment[] // JSONB array of comments from shared gallery viewers
 }
 
 /**
@@ -169,6 +179,7 @@ export interface PublicThumbnailData {
   resolution: string | null
   share_click_count?: number
   aspect_ratio: string | null
+  comments?: ThumbnailComment[] // Comments from shared gallery viewers
 }
 
 export interface DbStyle {

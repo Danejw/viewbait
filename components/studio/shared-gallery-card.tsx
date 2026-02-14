@@ -4,14 +4,20 @@
  * SharedGalleryCard – read-only thumbnail card for shared project gallery.
  * Matches ThumbnailCard hover animations (scale, ring, shadow, title/resolution overlay).
  * Optional onClick opens full-size view in parent (e.g. ImageModal).
+ * Includes comment button for adding feedback on thumbnails.
  */
 
 import React, { memo, useCallback, useState } from "react";
+import { MessageSquare } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { normalizeAspectRatio } from "@/lib/utils/aspect-ratio";
 import { useIntersectionObserver } from "@/lib/hooks/useIntersectionObserver";
+import { ActionBarIcon } from "@/components/studio/action-bar-icon";
+import { ThumbnailCommentDialog } from "@/components/studio/thumbnail-comment-dialog";
+import { addThumbnailComment } from "@/lib/services/projects";
 import type { PublicThumbnailData } from "@/lib/types/database";
 
 function ResolutionBadge({ resolution }: { resolution?: string | null }) {
@@ -37,15 +43,24 @@ export interface SharedGalleryCardProps {
   thumbnail: PublicThumbnailData;
   /** When set, card is clickable and opens full-size view in parent (e.g. ImageModal). */
   onClick?: (thumbnail: PublicThumbnailData) => void;
+  /** Share slug for the project (required for comment functionality) */
+  shareSlug?: string;
+  /** Callback when comment is added (for refreshing data) */
+  onCommentAdded?: () => void;
 }
 
 export const SharedGalleryCard = memo(function SharedGalleryCard({
   thumbnail,
   onClick,
+  shareSlug,
+  onCommentAdded,
 }: SharedGalleryCardProps) {
   const [ref, isIntersecting] = useIntersectionObserver({ rootMargin: "200px" });
   const [loaded, setLoaded] = useState(false);
+  const [commentDialogOpen, setCommentDialogOpen] = useState(false);
   const src = thumbnail.thumbnail_400w_url || thumbnail.thumbnail_800w_url || thumbnail.image_url;
+
+  const commentCount = thumbnail.comments?.length ?? 0;
 
   const handleClick = useCallback(() => {
     onClick?.(thumbnail);
@@ -61,6 +76,30 @@ export const SharedGalleryCard = memo(function SharedGalleryCard({
     },
     [onClick, thumbnail]
   );
+
+  const handleCommentClick = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (shareSlug) {
+        setCommentDialogOpen(true);
+      }
+    },
+    [shareSlug]
+  );
+
+  const handleCommentSubmit = useCallback(
+    async (comment: string) => {
+      if (!shareSlug) {
+        return { comments: null, error: new Error("Share slug is required") };
+      }
+      return await addThumbnailComment(shareSlug, thumbnail.id, comment);
+    },
+    [shareSlug, thumbnail.id]
+  );
+
+  const handleCommentAdded = useCallback(() => {
+    onCommentAdded?.();
+  }, [onCommentAdded]);
 
   const isClickable = Boolean(onClick);
 
@@ -110,7 +149,46 @@ export const SharedGalleryCard = memo(function SharedGalleryCard({
           </p>
           <ResolutionBadge resolution={thumbnail.resolution} />
         </div>
+
+        {/* Comment button - bottom right, visible on hover */}
+        {shareSlug && (
+          <div
+            className={cn(
+              "absolute bottom-2 right-2",
+              "opacity-0 transition-opacity duration-200 ease-out",
+              "group-hover:opacity-100"
+            )}
+            onClick={handleCommentClick}
+          >
+            <ActionBarIcon>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                className="h-7 w-7 bg-muted/80 hover:bg-muted relative"
+                aria-label="Add comment"
+              >
+                <MessageSquare className="h-4 w-4" />
+                {commentCount > 0 && (
+                  <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-medium text-primary-foreground">
+                    {commentCount > 99 ? "99+" : commentCount}
+                  </span>
+                )}
+              </Button>
+            </ActionBarIcon>
+          </div>
+        )}
       </div>
+
+      {/* Comment dialog */}
+      {shareSlug && (
+        <ThumbnailCommentDialog
+          open={commentDialogOpen}
+          onOpenChange={setCommentDialogOpen}
+          thumbnailTitle={thumbnail.title}
+          onSubmit={handleCommentSubmit}
+          onCommentAdded={handleCommentAdded}
+        />
+      )}
     </Card>
   );
 });
