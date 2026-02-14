@@ -20,6 +20,7 @@ export function ProcessCheckoutOnReturn() {
   const router = useRouter();
   const { refreshSubscription } = useSubscription();
   const processedSessionIdRef = useRef<string | null>(null);
+  const replaceDoneRef = useRef(false);
 
   useEffect(() => {
     const sessionId = searchParams.get("session_id");
@@ -47,7 +48,10 @@ export function ProcessCheckoutOnReturn() {
           return;
         }
 
-        router.replace("/studio", { scroll: false });
+        if (!replaceDoneRef.current) {
+          replaceDoneRef.current = true;
+          router.replace("/studio", { scroll: false });
+        }
         await refreshSubscription();
       } catch (error) {
         logClientError(error as Error, {

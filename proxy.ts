@@ -9,6 +9,78 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { isAllowedRedirect } from "@/lib/utils/redirect-allowlist";
 
+/** Cookie name for caching "onboarding completed" to avoid getUser + profile fetch on every /studio request. Optional: set STUDIO_ONBOARDING_COOKIE_SECRET to enable. */
+const STUDIO_ONBOARDING_COOKIE_NAME = "studio_onboarding_ok";
+/** TTL in seconds (5 min). */
+const STUDIO_ONBOARDING_COOKIE_MAX_AGE = 300;
+
+/**
+ * Web Crypto HMAC-SHA256 sign (Edge-compatible).
+ * Returns base64url-encoded signature.
+ */
+async function hmacSign(secret: string, payload: string): Promise<string> {
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+  const sig = await crypto.subtle.sign(
+    "HMAC",
+    key,
+    new TextEncoder().encode(payload)
+  );
+  return btoa(String.fromCharCode(...new Uint8Array(sig)))
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+}
+
+/**
+ * Create a signed cookie value for "onboarding ok": payload.signature.
+ * Payload is expiryUnix.userId (base64url).
+ */
+async function createStudioOnboardingCookie(
+  userId: string,
+  secret: string
+): Promise<string> {
+  const expiry = Math.floor(Date.now() / 1000) + STUDIO_ONBOARDING_COOKIE_MAX_AGE;
+  const payload = btoa(`${expiry}.${userId}`)
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+  const signature = await hmacSign(secret, payload);
+  return `${payload}.${signature}`;
+}
+
+/**
+ * Verify signed studio onboarding cookie and return true if valid for this session user.
+ */
+async function verifyStudioOnboardingCookie(
+  cookieValue: string,
+  expectedUserId: string,
+  secret: string
+): Promise<boolean> {
+  const dot = cookieValue.lastIndexOf(".");
+  if (dot === -1) return false;
+  const payload = cookieValue.slice(0, dot);
+  const signature = cookieValue.slice(dot + 1);
+  const expectedSig = await hmacSign(secret, payload);
+  if (signature !== expectedSig) return false;
+  try {
+    let b64 = payload.replace(/-/g, "+").replace(/_/g, "/");
+    while (b64.length % 4) b64 += "=";
+    const decoded = atob(b64);
+    const [expiryStr, userId] = decoded.split(".");
+    const expiry = parseInt(expiryStr ?? "0", 10);
+    if (userId !== expectedUserId || expiry <= Math.floor(Date.now() / 1000)) return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Routes that require authentication
  */
@@ -135,8 +207,8 @@ export async function proxy(request: NextRequest) {
   }
 
   // Studio route: redirect to onboarding if user has not completed onboarding.
-  // Use getUser() here so we use a server-verified user for the profile lookup
-  // (avoids Supabase warning about getSession() user not being authentic).
+  // Always use getUser() for the allow-through decision (Supabase: getSession() user may not be authentic).
+  // When a valid signed "onboarding ok" cookie exists, skip only the profile fetch to reduce DB load.
   if (hasSession && isStudioRoute(pathname) && !isOnboardingRoute(pathname)) {
     let userId: string | null = null;
     try {
@@ -150,26 +222,47 @@ export async function proxy(request: NextRequest) {
       redirectUrl.searchParams.set("redirect", pathname + (request.nextUrl.search || ""));
       return NextResponse.redirect(redirectUrl);
     }
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("onboarding_completed")
-      .eq("id", userId)
-      .single();
 
-    const needsOnboarding =
-      !profile || profile.onboarding_completed === false;
+    const onboardingSecret = process.env.STUDIO_ONBOARDING_COOKIE_SECRET;
+    const cookieValue = request.cookies.get(STUDIO_ONBOARDING_COOKIE_NAME)?.value;
+    const cookieValid =
+      !!onboardingSecret &&
+      !!cookieValue &&
+      (await verifyStudioOnboardingCookie(cookieValue, userId, onboardingSecret));
 
-    if (needsOnboarding) {
-      const redirectUrl = new URL("/onboarding", request.url);
-      const destination = pathname + (request.nextUrl.search || "");
-      if (isAllowedRedirect(destination)) {
-        redirectUrl.searchParams.set("redirect", destination);
+    if (!cookieValid) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("onboarding_completed")
+        .eq("id", userId)
+        .single();
+
+      const needsOnboarding =
+        !profile || profile.onboarding_completed === false;
+
+      if (needsOnboarding) {
+        const redirectUrl = new URL("/onboarding", request.url);
+        const destination = pathname + (request.nextUrl.search || "");
+        if (isAllowedRedirect(destination)) {
+          redirectUrl.searchParams.set("redirect", destination);
+        }
+        const redirectResponse = NextResponse.redirect(redirectUrl);
+        supabaseResponse.cookies.getAll().forEach((cookie) => {
+          redirectResponse.cookies.set(cookie.name, cookie.value);
+        });
+        return redirectResponse;
       }
-      const redirectResponse = NextResponse.redirect(redirectUrl);
-      supabaseResponse.cookies.getAll().forEach((cookie) => {
-        redirectResponse.cookies.set(cookie.name, cookie.value);
+    }
+
+    if (onboardingSecret && userId) {
+      const value = await createStudioOnboardingCookie(userId, onboardingSecret);
+      supabaseResponse.cookies.set(STUDIO_ONBOARDING_COOKIE_NAME, value, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        maxAge: STUDIO_ONBOARDING_COOKIE_MAX_AGE,
+        path: "/",
       });
-      return redirectResponse;
     }
   }
 

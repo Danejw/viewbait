@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useRef } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import {
   StudioProvider,
@@ -51,10 +51,10 @@ function StudioViewFromQuery() {
 /**
  * Surfaces YouTube OAuth callback errors from ?error= and optional ?redirect_uri_hint=.
  * Shows a toast and clears the params from the URL so the user sees what went wrong.
+ * Uses history.replaceState to avoid triggering a full GET /studio request.
  */
 function StudioYouTubeOAuthErrorFromQuery() {
   const searchParams = useSearchParams();
-  const router = useRouter();
   const handled = useRef<string | null>(null);
 
   useEffect(() => {
@@ -67,8 +67,9 @@ function StudioYouTubeOAuthErrorFromQuery() {
     next.delete("error");
     next.delete("redirect_uri_hint");
     const qs = next.toString();
-    router.replace(qs ? `?${qs}` : window.location.pathname, { scroll: false });
-  }, [searchParams, router]);
+    const url = window.location.pathname + (qs ? `?${qs}` : "");
+    window.history.replaceState(null, "", url);
+  }, [searchParams]);
 
   return null;
 }
@@ -76,10 +77,10 @@ function StudioYouTubeOAuthErrorFromQuery() {
 /**
  * Syncs ?project=<id> from URL to active project when that project is in the user's list (IDOR-safe).
  * After applying, clears the query param so refresh doesn't re-apply.
+ * Uses history.replaceState to avoid triggering a full GET /studio request.
  */
 function StudioProjectFromQuery() {
   const searchParams = useSearchParams();
-  const router = useRouter();
   const { data: { projects, projectsLoading }, actions: { setActiveProjectId } } = useStudio();
   const applied = useRef(false);
 
@@ -94,9 +95,10 @@ function StudioProjectFromQuery() {
       const next = new URLSearchParams(searchParams.toString());
       next.delete("project");
       const qs = next.toString();
-      router.replace(qs ? `?${qs}` : window.location.pathname, { scroll: false });
+      const url = window.location.pathname + (qs ? `?${qs}` : "");
+      window.history.replaceState(null, "", url);
     }
-  }, [searchParams, projects, projectsLoading, setActiveProjectId, router]);
+  }, [searchParams, projects, projectsLoading, setActiveProjectId]);
 
   return null;
 }
