@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, memo, useMemo } from "react";
+import React, { useCallback, memo, useMemo, useEffect } from "react";
 import { useStudio } from "./studio-provider";
 import { ThumbnailGrid } from "./thumbnail-grid";
 import { GridZoomSlider } from "@/components/studio/grid-zoom-slider";
@@ -16,6 +16,7 @@ import { AlertCircle, RefreshCw } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ViewBaitLogo } from "@/components/ui/viewbait-logo";
 import { LoadMoreButton } from "@/components/studio/load-more-button";
+import { emitTourEvent } from "@/tourkit/app/tourEvents.browser";
 import {
   Select,
   SelectContent,
@@ -222,10 +223,6 @@ export const StudioResultsGrid = memo(function StudioResultsGrid({
     !thumbnailsLoading &&
     !isGenerating;
 
-  if (projectSelectedAndEmpty) {
-    return <StudioResultsEmptyProject />;
-  }
-
   const effectiveGeneratingItems =
     isGenerating && generatingItems.size === 0
       ? FALLBACK_GENERATING_ITEMS
@@ -242,8 +239,27 @@ export const StudioResultsGrid = memo(function StudioResultsGrid({
     [combinedList]
   );
 
+  useEffect(() => {
+    const hasGrid = document.querySelector('[data-tour="tour.results.main.grid.thumbnails"]');
+    if (!hasGrid) return;
+
+    emitTourEvent("tour.event.route.ready", {
+      routeKey: "results",
+      anchorsPresent: ["tour.results.main.grid.thumbnails"],
+    });
+    emitTourEvent("tour.event.results.ready", {
+      routeKey: "results",
+      totalVisible: combinedList.length,
+    });
+  }, [combinedList.length]);
+
+
+  if (projectSelectedAndEmpty) {
+    return <StudioResultsEmptyProject />;
+  }
   return (
-    <ThumbnailGrid
+    <div data-tour="tour.results.main.grid.thumbnails">
+      <ThumbnailGrid
       thumbnails={thumbnails}
       generatingItems={effectiveGeneratingItems}
       isLoading={thumbnailsLoading}
@@ -252,6 +268,7 @@ export const StudioResultsGrid = memo(function StudioResultsGrid({
       clickRankBorderById={clickRankBorderById}
       breakpointCols={breakpointCols}
     />
+    </div>
   );
 });
 

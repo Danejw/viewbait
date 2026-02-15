@@ -23,6 +23,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getAllowedRedirect } from "@/lib/utils/redirect-allowlist";
 import { track } from "@/lib/analytics/track";
+import { emitTourEvent } from "@/tourkit/app/tourEvents.browser";
 
 /** Lazy-load FeedbackModal (Dialog/sonner) so auth first paint and LCP are not delayed. */
 const FeedbackModalLazy = dynamic(
@@ -86,6 +87,27 @@ function AuthForm() {
     }
   }, [isAuthenticated, authLoading, router, redirectTo]);
 
+  useEffect(() => {
+    if (authLoading || isAuthenticated) return;
+
+    const requiredAnchors = [
+      "tour.auth.form.input.email",
+      "tour.auth.form.input.password",
+      "tour.auth.form.btn.submit",
+    ];
+
+    const anchorsPresent = requiredAnchors.filter((anchor) =>
+      document.querySelector(`[data-tour="${anchor}"]`)
+    );
+
+    if (anchorsPresent.length > 0) {
+      emitTourEvent("tour.event.route.ready", {
+        routeKey: "auth",
+        anchorsPresent,
+      });
+    }
+  }, [authLoading, isAuthenticated]);
+
   // Show loading state while checking auth
   if (authLoading) {
     return (
@@ -119,6 +141,10 @@ function AuthForm() {
         setError(error.message || "Failed to sign in");
       } else {
         track("sign_in");
+        emitTourEvent("tour.event.auth.success", {
+          userId: "current-user",
+          redirectTo,
+        });
         // Redirect will happen automatically via useEffect
         router.push(redirectTo);
       }
@@ -463,7 +489,7 @@ function AuthForm() {
               className="w-full"
             >
               <TabsList className="mb-6 w-full">
-                <TabsTrigger value="signin" className="flex-1">
+                <TabsTrigger value="signin" className="flex-1" data-tour="tour.auth.form.tab.signin">
                   Sign In
                 </TabsTrigger>
                 <TabsTrigger value="signup" className="flex-1">
@@ -497,6 +523,7 @@ function AuthForm() {
                       required
                       disabled={loading}
                       autoComplete="email"
+                      data-tour="tour.auth.form.input.email"
                     />
                   </div>
                   <div className="space-y-2">
@@ -521,9 +548,10 @@ function AuthForm() {
                       required
                       disabled={loading}
                       autoComplete="current-password"
+                      data-tour="tour.auth.form.input.password"
                     />
                   </div>
-                  <Button type="submit" className="w-full" size="lg" disabled={loading}>
+                  <Button type="submit" className="w-full" size="lg" disabled={loading} data-tour="tour.auth.form.btn.submit">
                     {loading ? (
                       <>
                         <ViewBaitLogo className="mr-2 h-4 w-4 animate-spin" />

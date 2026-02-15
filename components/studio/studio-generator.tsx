@@ -45,6 +45,7 @@ import { ASPECT_RATIO_DISPLAY_ORDER } from "@/lib/constants/subscription-tiers";
 import { enhanceTitle } from "@/lib/services/thumbnails";
 import { useOnboarding } from "@/lib/contexts/onboarding-context";
 import { toast } from "sonner";
+import { emitTourEvent } from "@/tourkit/app/tourEvents.browser";
 
 const MAX_STYLE_REFERENCES = 10;
 const RESOLUTION_OPTIONS = ["1K", "2K", "4K"] as const;
@@ -67,6 +68,7 @@ export function StudioGeneratorTabs() {
         variant="ghost"
         size="sm"
         onClick={() => setMode("manual")}
+        data-tour="tour.studio.create.tab.manual"
         className={cn(
           "rounded-none border-b-2 -mb-px",
           mode === "manual"
@@ -154,6 +156,7 @@ export function StudioGeneratorThumbnailText() {
           onChange={(e) => setThumbnailText(e.target.value)}
           placeholder="Enter a title for your thumbnail..."
           className="pr-10"
+          data-tour="tour.studio.create.input.title"
         />
         <Button
           type="button"
@@ -230,6 +233,7 @@ export function StudioGeneratorCustomInstructions() {
         onChange={(e) => setCustomInstructions(e.target.value)}
         placeholder="Describe your thumbnail in detail..."
         className="min-h-32"
+        data-tour="tour.studio.create.input.customInstructions"
       />
     </div>
   );
@@ -927,6 +931,7 @@ export function StudioGeneratorAspectRatio() {
               disabled={!allowed}
               onClick={() => allowed && setSelectedAspectRatio(ratio)}
               className="gap-1"
+              data-tour={ratio === "16:9" ? "tour.studio.create.btn.aspectRatio.16_9" : undefined}
             >
               {!allowed && <Lock className="h-3 w-3 shrink-0" />}
               {ratio}
@@ -976,6 +981,7 @@ export function StudioGeneratorResolution() {
               disabled={!allowed}
               onClick={() => allowed && setSelectedResolution(res)}
               className="gap-1"
+              data-tour={res === "1K" ? "tour.studio.create.btn.resolution.1k" : undefined}
             >
               {!allowed && <Lock className="h-3 w-3 shrink-0" />}
               {res}
@@ -1426,6 +1432,7 @@ export function StudioGeneratorSubmit({
         onClick={generateThumbnails}
         disabled={isDisabled}
         size="lg"
+        data-tour="tour.studio.create.btn.generate"
         className={cn(
           "w-full",
           className,
@@ -1507,6 +1514,31 @@ export function StudioGenerator() {
   const { canCreateCustomAssets, tier, productId } = useSubscription();
   const [subscriptionModalOpen, setSubscriptionModalOpen] = useState(false);
   const locked = !canCreateCustomAssets();
+
+  useEffect(() => {
+    if (mode !== "manual") return;
+
+    const requiredAnchors = [
+      "tour.studio.create.input.title",
+      "tour.studio.create.input.customInstructions",
+      "tour.studio.create.btn.generate",
+    ];
+
+    const anchorsPresent = requiredAnchors.filter((anchor) =>
+      document.querySelector(`[data-tour="${anchor}"]`)
+    );
+
+    if (anchorsPresent.length > 0) {
+      emitTourEvent("tour.event.route.ready", {
+        routeKey: "studio.create",
+        anchorsPresent,
+      });
+      emitTourEvent("tour.event.studio.manual.ready", {
+        mode,
+        anchorsPresent,
+      });
+    }
+  }, [mode]);
 
   if (mode === "chat") {
     return (

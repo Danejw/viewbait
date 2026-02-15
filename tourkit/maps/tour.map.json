@@ -1,0 +1,47 @@
+{
+  "generatedAt": "2026-02-15T22:50:30.761Z",
+  "routes": {
+    "home": {
+      "path": "/",
+      "anchors": [
+        "tour.home.hero.cta.openStudio",
+        "tour.home.nav.cta.openStudio"
+      ]
+    },
+    "auth": {
+      "path": "/auth",
+      "anchors": [
+        "tour.auth.form.btn.submit",
+        "tour.auth.form.input.email",
+        "tour.auth.form.input.password",
+        "tour.auth.form.tab.signin"
+      ]
+    },
+    "studio.create": {
+      "path": "/studio",
+      "anchors": [
+        "tour.studio.create.btn.aspectRatio.16_9",
+        "tour.studio.create.btn.generate",
+        "tour.studio.create.btn.resolution.1k",
+        "tour.studio.create.input.customInstructions",
+        "tour.studio.create.input.title",
+        "tour.studio.create.tab.manual"
+      ]
+    },
+    "results": {
+      "path": "/studio",
+      "anchors": [
+        "tour.results.main.card.thumbnail.first",
+        "tour.results.main.grid.thumbnails"
+      ]
+    }
+  },
+  "events": [
+    "tour.event.route.ready",
+    "tour.event.auth.success",
+    "tour.event.studio.manual.ready",
+    "tour.event.thumbnail.generation.started",
+    "tour.event.thumbnail.generation.complete",
+    "tour.event.results.ready"
+  ]
+}
