@@ -1,0 +1,9 @@
+{
+  "routes": [
+    { "routeKey": "home", "path": "/" },
+    { "routeKey": "auth", "path": "/auth" },
+    { "routeKey": "studio.create", "path": "/studio" },
+    { "routeKey": "results", "path": "/studio" }
+  ],
+  "primaryFlow": "first-thumbnail"
+}

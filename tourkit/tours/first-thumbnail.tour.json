@@ -1,0 +1,124 @@
+{
+  "id": "first-thumbnail",
+  "title": "first-thumbnail",
+  "steps": [
+    {
+      "type": "say",
+      "text": "Start first-thumbnail onboarding tour."
+    },
+    {
+      "type": "goto",
+      "routeKey": "home"
+    },
+    {
+      "type": "expectVisible",
+      "anchor": "tour.home.hero.cta.openStudio"
+    },
+    {
+      "type": "click",
+      "anchor": "tour.home.hero.cta.openStudio"
+    },
+    {
+      "type": "waitForEvent",
+      "name": "tour.event.route.ready",
+      "timeoutMs": 30000
+    },
+    {
+      "type": "goto",
+      "routeKey": "auth"
+    },
+    {
+      "type": "waitForEvent",
+      "name": "tour.event.route.ready",
+      "timeoutMs": 30000
+    },
+    {
+      "type": "click",
+      "anchor": "tour.auth.form.tab.signin"
+    },
+    {
+      "type": "fill",
+      "anchor": "tour.auth.form.input.email",
+      "valueEnv": "E2E_EMAIL"
+    },
+    {
+      "type": "fill",
+      "anchor": "tour.auth.form.input.password",
+      "valueEnv": "E2E_PASSWORD"
+    },
+    {
+      "type": "click",
+      "anchor": "tour.auth.form.btn.submit"
+    },
+    {
+      "type": "waitForEvent",
+      "name": "tour.event.auth.success",
+      "timeoutMs": 30000
+    },
+    {
+      "type": "goto",
+      "routeKey": "studio.create"
+    },
+    {
+      "type": "waitForEvent",
+      "name": "tour.event.studio.manual.ready",
+      "timeoutMs": 60000
+    },
+    {
+      "type": "click",
+      "anchor": "tour.studio.create.tab.manual"
+    },
+    {
+      "type": "fill",
+      "anchor": "tour.studio.create.input.title",
+      "value": "My First Thumbnail"
+    },
+    {
+      "type": "fill",
+      "anchor": "tour.studio.create.input.customInstructions",
+      "value": "Cinematic YouTube thumbnail with dramatic lighting and high contrast."
+    },
+    {
+      "type": "click",
+      "anchor": "tour.studio.create.btn.aspectRatio.16_9"
+    },
+    {
+      "type": "click",
+      "anchor": "tour.studio.create.btn.resolution.1k"
+    },
+    {
+      "type": "click",
+      "anchor": "tour.studio.create.btn.variations.1"
+    },
+    {
+      "type": "snapshot",
+      "name": "settings-ready"
+    },
+    {
+      "type": "click",
+      "anchor": "tour.studio.create.btn.generate"
+    },
+    {
+      "type": "waitForEvent",
+      "name": "tour.event.thumbnail.generation.started",
+      "timeoutMs": 30000
+    },
+    {
+      "type": "waitForEvent",
+      "name": "tour.event.thumbnail.generation.complete",
+      "timeoutMs": 120000
+    },
+    {
+      "type": "expectVisible",
+      "anchor": "tour.results.main.grid.thumbnails"
+    },
+    {
+      "type": "click",
+      "anchor": "tour.results.main.card.thumbnail.first"
+    },
+    {
+      "type": "snapshot",
+      "name": "thumbnail-opened"
+    }
+  ]
+}

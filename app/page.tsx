@@ -8,6 +8,7 @@ import { Crown } from "lucide-react";
 import { PublicBetaBanner } from "@/components/landing/public-beta-banner";
 import { ScrollReveal } from "@/components/landing/scroll-reveal";
 import { useAuth } from "@/lib/hooks/useAuth";
+import { emitTourEvent } from "@/tourkit/app/tourEvents.browser";
 
 /** Lazy-load Lenis after FCP to avoid initial TBT from rAF loop; smooth scroll loads later. */
 const LenisRootLazy = dynamic(
@@ -104,6 +105,25 @@ export default function ViewBaitLanding() {
         : window.setTimeout(() => setLenisReady(true), timeout);
     return () =>
       typeof cancelIdleCallback !== "undefined" ? cancelIdleCallback(id as number) : window.clearTimeout(id as number);
+  }, []);
+
+
+  useEffect(() => {
+    const requiredAnchors = [
+      "tour.home.nav.cta.openStudio",
+      "tour.home.hero.cta.openStudio",
+    ];
+
+    const anchorsPresent = requiredAnchors.filter((anchor) =>
+      document.querySelector(`[data-tour="${anchor}"]`)
+    );
+
+    if (anchorsPresent.length > 0) {
+      emitTourEvent("tour.event.route.ready", {
+        routeKey: "home",
+        anchorsPresent,
+      });
+    }
   }, []);
 
   useEffect(() => {
@@ -359,6 +379,7 @@ export default function ViewBaitLanding() {
 
           <Link
             href={studioOrAuthHref}
+            data-tour="tour.home.nav.cta.openStudio"
             className="btn-crt"
             style={{
               padding: "12px 24px",
@@ -1810,6 +1831,7 @@ export default function ViewBaitLanding() {
 
           <Link
             href={studioOrAuthHref}
+            data-tour="tour.home.hero.cta.openStudio"
             className="hot-zone btn-crt btn-crt-primary"
             style={{
               padding: "20px 44px",

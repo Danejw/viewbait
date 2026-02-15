@@ -130,11 +130,13 @@ export const ThumbnailGrid = memo(function ThumbnailGrid({
     >
       {combinedItems.map((thumbnail, index) => (
         <GridItem key={thumbnail.id} index={index}>
-          <ThumbnailCard
-            thumbnail={thumbnail}
-            priority={index < 6}
-            clickRankBorder={clickRankBorderById?.get(thumbnail.id)}
-          />
+          <div data-tour={index === 0 ? "tour.results.main.card.thumbnail.first" : undefined}>
+            <ThumbnailCard
+              thumbnail={thumbnail}
+              priority={index < 6}
+              clickRankBorder={clickRankBorderById?.get(thumbnail.id)}
+            />
+          </div>
         </GridItem>
       ))}
       {Array.from({ length: emptySlotCount }).map((_, index) => (

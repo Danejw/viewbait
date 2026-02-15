@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://viewbait.app/tourkit/schema/tour.schema.json",
+  "title": "TourKit Tour",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "steps"],
+  "properties": {
+    "id": { "type": "string", "minLength": 1 },
+    "title": { "type": "string" },
+    "steps": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["type", "text"],
+            "properties": {
+              "type": { "const": "say" },
+              "text": { "type": "string", "minLength": 1 }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["type", "routeKey"],
+            "properties": {
+              "type": { "const": "goto" },
+              "routeKey": { "type": "string", "minLength": 1 }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["type", "anchor"],
+            "properties": {
+              "type": { "const": "click" },
+              "anchor": { "type": "string", "pattern": "^tour\\." }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["type", "anchor"],
+            "anyOf": [
+              { "required": ["value"] },
+              { "required": ["valueEnv"] }
+            ],
+            "properties": {
+              "type": { "const": "fill" },
+              "anchor": { "type": "string", "pattern": "^tour\\." },
+              "value": { "type": "string" },
+              "valueEnv": { "type": "string" }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["type", "anchor"],
+            "properties": {
+              "type": { "const": "expectVisible" },
+              "anchor": { "type": "string", "pattern": "^tour\\." }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["type", "name"],
+            "properties": {
+              "type": { "const": "waitForEvent" },
+              "name": { "type": "string", "pattern": "^tour\\.event\\." },
+              "timeoutMs": { "type": "integer", "minimum": 1 }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["type", "durationMs"],
+            "properties": {
+              "type": { "const": "waitMs" },
+              "durationMs": { "type": "integer", "minimum": 1 }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["type", "name"],
+            "properties": {
+              "type": { "const": "snapshot" },
+              "name": { "type": "string", "minLength": 1 }
+            }
+          }
+        ]
+      }
+    }
+  }
+}

@@ -41,6 +41,7 @@ import {
   type ThumbnailConcept,
 } from "@/lib/services/youtube-video-analyze";
 import { track } from "@/lib/analytics/track";
+import { emitTourEvent } from "@/tourkit/app/tourEvents.browser";
 
 /** Payload for opening the snapshot view modal (full-size image, draggable to Faces/References) */
 export interface SnapshotToView {
@@ -847,6 +848,12 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
     }
 
     const allowCustom = canCreateCustomAssets();
+    const requestId = crypto.randomUUID();
+    emitTourEvent("tour.event.thumbnail.generation.started", {
+      requestId,
+      variations: state.variations,
+    });
+
     const results = await generate({
       thumbnailText: state.thumbnailText,
       customInstructions: state.customInstructions,
@@ -901,6 +908,14 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
         }));
       }
       await refreshThumbnails();
+      const successfulResults = results.filter((r) => r.success && r.imageUrl);
+      emitTourEvent("tour.event.thumbnail.generation.complete", {
+        count: successfulResults.length,
+        firstSrc: successfulResults[0]?.imageUrl ?? null,
+        thumbnailIds: results
+          .filter((r): r is { success: true; thumbnailId?: string } => r.success && !!r.thumbnailId)
+          .map((r) => r.thumbnailId),
+      });
     }
   }, [state, generate, refreshThumbnails, faces, canCreateCustomAssets, removeGeneratingItemsByIds]);
 
