@@ -48,3 +48,13 @@ next-env.d.ts
 /docs/critiques/
 /docs/guides/
 /docs/plans/
+
+# playwright artifacts
+/playwright-report/
+/test-results/
+
+# onboarding generated media (keep screenshots and scripts by default)
+/onboarding/artifacts/**/*.mp4
+/onboarding/artifacts/**/*.webm
+/onboarding/artifacts/**/*.zip
+/onboarding/artifacts/**/tour.concat.txt
