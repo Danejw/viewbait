@@ -34,7 +34,11 @@ export function StudioMainContent() {
   const [retryKey, setRetryKey] = useState(0);
 
   if (currentView === "generator") {
-    return <StudioResults />;
+    return (
+      <div data-testid="results-grid">
+        <StudioResults />
+      </div>
+    );
   }
 
   return (

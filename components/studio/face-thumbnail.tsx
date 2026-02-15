@@ -132,6 +132,7 @@ export const FaceThumbnail = memo(function FaceThumbnail({
     return (
       <div
         role="button"
+        data-testid={`face-option-${face.id}`}
         tabIndex={0}
         onClick={handleThumbnailClick}
         onKeyDown={(e) => {

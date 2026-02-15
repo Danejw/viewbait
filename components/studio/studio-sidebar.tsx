@@ -49,6 +49,7 @@ import AccountSettingsModal from "@/components/account-settings-modal";
 import { NotificationBell } from "@/components/notifications";
 
 export interface NavItem {
+  testId?: string;
   label: string;
   view: StudioView;
   icon: React.ComponentType<{ className?: string }>;
@@ -64,7 +65,7 @@ export interface NavItem {
 }
 
 export const navItems: NavItem[] = [
-  { label: "Create", view: "generator", icon: Zap },
+  { label: "Create", view: "generator", icon: Zap, testId: "new-thumbnail" },
   { label: "Browse", view: "browse", icon: FolderOpen },
   { label: "Gallery", view: "gallery", icon: Grid3x3 },
   { label: "Projects", view: "projects", icon: FolderKanban },
@@ -137,6 +138,7 @@ export function StudioSidebarNav() {
     ) : (
       <Button
         type="button"
+        data-testid={item.testId}
         variant={isActive ? "ghost" : "side"}
         size={leftSidebarCollapsed ? "icon-sm" : "sm"}
         onClick={() => {

@@ -490,6 +490,7 @@ function AuthForm() {
                     <Label htmlFor="signin-email">Email</Label>
                     <Input
                       id="signin-email"
+                      data-testid="login-email"
                       type="email"
                       placeholder="you@example.com"
                       value={email}
@@ -514,6 +515,7 @@ function AuthForm() {
                     </div>
                     <Input
                       id="signin-password"
+                      data-testid="login-password"
                       type="password"
                       placeholder="••••••••"
                       value={password}
@@ -523,7 +525,7 @@ function AuthForm() {
                       autoComplete="current-password"
                     />
                   </div>
-                  <Button type="submit" className="w-full" size="lg" disabled={loading}>
+                  <Button type="submit" className="w-full" size="lg" disabled={loading} data-testid="login-submit">
                     {loading ? (
                       <>
                         <ViewBaitLogo className="mr-2 h-4 w-4 animate-spin" />
