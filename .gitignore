@@ -48,3 +48,8 @@ next-env.d.ts
 /docs/critiques/
 /docs/guides/
 /docs/plans/
+
+# playwright + onboarding tour artifacts
+/onboarding/artifacts/
+/playwright-report/
+/test-results/
