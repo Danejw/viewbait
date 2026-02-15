@@ -1,0 +1,58 @@
+{
+  "events": [
+    {
+      "name": "tour.event.route.ready",
+      "payloadExample": {
+        "routeKey": "auth",
+        "anchorsPresent": [
+          "tour.auth.form.input.email",
+          "tour.auth.form.input.password",
+          "tour.auth.form.btn.submit"
+        ]
+      }
+    },
+    {
+      "name": "tour.event.auth.success",
+      "payloadExample": {
+        "userId": "user_123",
+        "redirectTo": "/studio"
+      }
+    },
+    {
+      "name": "tour.event.studio.manual.ready",
+      "payloadExample": {
+        "mode": "manual",
+        "anchorsPresent": [
+          "tour.studio.create.input.title",
+          "tour.studio.create.input.customInstructions",
+          "tour.studio.create.btn.generate"
+        ]
+      }
+    },
+    {
+      "name": "tour.event.thumbnail.generation.started",
+      "payloadExample": {
+        "requestId": "req_123",
+        "variations": 4
+      }
+    },
+    {
+      "name": "tour.event.thumbnail.generation.complete",
+      "payloadExample": {
+        "count": 4,
+        "firstSrc": "https://...",
+        "thumbnailIds": [
+          "thumb_1",
+          "thumb_2"
+        ]
+      }
+    },
+    {
+      "name": "tour.event.results.ready",
+      "payloadExample": {
+        "routeKey": "results",
+        "totalVisible": 4
+      }
+    }
+  ]
+}
