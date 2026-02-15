@@ -37,6 +37,7 @@ const FALLBACK_ANCHORS: Record<string, string[]> = {
     "tour.studio.create.btn.aspectRatio.16_9",
     "tour.studio.create.btn.resolution.1k",
     "tour.studio.create.btn.generate",
+    "tour.studio.create.btn.variations.1",
   ],
   results: [
     "tour.results.main.grid.thumbnails",

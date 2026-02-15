@@ -1040,6 +1040,7 @@ export function StudioGeneratorVariations() {
               disabled={!allowed}
               onClick={() => allowed && setVariations(n)}
               className="gap-1"
+              data-tour={n === 1 ? "tour.studio.create.btn.variations.1" : undefined}
             >
               {!allowed && <Lock className="h-3 w-3 shrink-0" />}
               {n}

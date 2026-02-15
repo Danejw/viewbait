@@ -1,6 +1,6 @@
 # Tour Map
 
-Generated: 2026-02-15T22:50:30.761Z
+Generated: 2026-02-15T23:04:05.305Z
 
 ## home (/)
 - **hero**
@@ -26,6 +26,7 @@ Generated: 2026-02-15T22:50:30.761Z
     - `tour.studio.create.btn.aspectRatio.16_9`
     - `tour.studio.create.btn.generate`
     - `tour.studio.create.btn.resolution.1k`
+    - `tour.studio.create.btn.variations.1`
   - *input*
     - `tour.studio.create.input.customInstructions`
     - `tour.studio.create.input.title`
