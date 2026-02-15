@@ -233,6 +233,7 @@ export const StyleThumbnailCard = memo(function StyleThumbnailCard({
 
   return (
     <Card
+      data-testid={`style-option-${id}`}
       ref={setNodeRef}
       className={cn(
         "group relative aspect-video w-full cursor-pointer overflow-hidden p-0 transition-all",

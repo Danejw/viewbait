@@ -226,6 +226,7 @@ export default function ViewBaitLanding() {
           <Link
             href={studioOrAuthHref}
             onClick={handleNavClick}
+            data-testid="nav-login"
             className="btn-crt btn-crt-primary"
             style={{
               marginTop: "16px",
@@ -359,6 +360,7 @@ export default function ViewBaitLanding() {
 
           <Link
             href={studioOrAuthHref}
+            data-testid="nav-login"
             className="btn-crt"
             style={{
               padding: "12px 24px",

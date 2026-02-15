@@ -1,0 +1,22 @@
+{
+  "tourName": "first-thumbnail",
+  "startPath": "/",
+  "steps": [
+    { "say": "Welcome to ViewBait. Let’s make your first thumbnail." },
+    { "click": { "testId": "nav-login" } },
+    { "fill": { "testId": "login-email", "valueEnv": "E2E_EMAIL" } },
+    { "fill": { "testId": "login-password", "valueEnv": "E2E_PASSWORD" } },
+    { "click": { "testId": "login-submit" } },
+    { "expect": { "testId": "dashboard-root" } },
+    { "click": { "testId": "new-thumbnail" } },
+    { "fill": { "testId": "thumbnail-title", "value": "How to pick the perfect haircut" } },
+    { "select": { "testId": "face-select", "option": "friendly-studio" } },
+    { "select": { "testId": "style-select", "option": "mrbeast-pop" } },
+    { "fill": { "testId": "custom-instructions", "value": "Bold, high contrast, clean background, big text, excited expression." } },
+    { "select": { "testId": "aspect-ratio", "option": "16:9" } },
+    { "select": { "testId": "resolution", "option": "1K" } },
+    { "select": { "testId": "variations", "option": "1" } },
+    { "click": { "testId": "generate" } },
+    { "expect": { "testId": "results-grid" } }
+  ]
+}

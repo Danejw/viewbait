@@ -150,6 +150,7 @@ export function StudioGeneratorThumbnailText() {
       <div className="relative">
         <Input
           ref={thumbnailTextRef}
+          data-testid="thumbnail-title"
           value={thumbnailText}
           onChange={(e) => setThumbnailText(e.target.value)}
           placeholder="Enter a title for your thumbnail..."
@@ -226,6 +227,7 @@ export function StudioGeneratorCustomInstructions() {
       <label className="mb-2 block text-sm font-medium">Custom Instructions</label>
       <Textarea
         ref={customInstructionsRef}
+        data-testid="custom-instructions"
         value={customInstructions}
         onChange={(e) => setCustomInstructions(e.target.value)}
         placeholder="Describe your thumbnail in detail..."
@@ -637,6 +639,7 @@ export function StudioGeneratorStyleSelection() {
 
   return (
     <div
+      data-testid="style-select"
       ref={setNodeRef}
       className={cn(
         "rounded-lg px-1 transition-all duration-200",
@@ -913,7 +916,7 @@ export function StudioGeneratorAspectRatio() {
   }, [allowedRatios, firstAllowed, selectedAspectRatio, setSelectedAspectRatio]);
 
   return (
-    <div className="mt-4 ml-1">
+    <div className="mt-4 ml-1" data-testid="aspect-ratio">
       <label className="mb-2 block text-sm font-medium">Aspect Ratio</label>
       <div className="flex flex-wrap gap-2">
         {ASPECT_RATIO_DISPLAY_ORDER.map((ratio) => {
@@ -962,7 +965,7 @@ export function StudioGeneratorResolution() {
   }, [allowedResolutions, firstAllowed, selectedResolution, setSelectedResolution]);
 
   return (
-    <div className="mt-4">
+    <div className="mt-4" data-testid="resolution">
       <label className="mb-2 block text-sm font-medium">Resolution</label>
       <div className="flex flex-wrap gap-2">
         {RESOLUTION_OPTIONS.map((res) => {
@@ -1020,7 +1023,7 @@ export function StudioGeneratorVariations() {
   }, [maxVariations, variations, setVariations]);
 
   return (
-    <div className="mb-6 ml-1">
+    <div className="mb-6 ml-1" data-testid="variations">
       <label className="mb-2 block text-sm font-medium">Variations</label>
       <div className="flex flex-wrap gap-2">
         {VARIATIONS_OPTIONS.map((n) => {
@@ -1168,6 +1171,7 @@ export function StudioGeneratorFaces() {
 
   return (
     <div
+      data-testid="face-select"
       ref={setNodeRef}
       className={cn(
         "rounded-lg px-1 transition-all duration-200",
@@ -1424,6 +1428,7 @@ export function StudioGeneratorSubmit({
     <div className="space-y-2">
       <Button
         onClick={generateThumbnails}
+        data-testid="generate"
         disabled={isDisabled}
         size="lg"
         className={cn(

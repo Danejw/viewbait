@@ -18,7 +18,7 @@ export function StudioFrame({
   className?: string;
 }) {
   return (
-    <div className={cn("flex h-screen flex-col bg-background", className)}>
+    <div data-testid="dashboard-root" className={cn("flex h-screen flex-col bg-background", className)}>
       {children}
     </div>
   );
