@@ -1,0 +1,63 @@
+{
+  "routes": [
+    { "routeKey": "home", "path": "/" },
+    { "routeKey": "auth", "path": "/auth" },
+    { "routeKey": "auth.forgot", "path": "/auth/forgot-password" },
+    { "routeKey": "auth.reset", "path": "/auth/reset-password" },
+    { "routeKey": "onboarding", "path": "/onboarding" },
+    { "routeKey": "studio.create", "path": "/studio" },
+    { "routeKey": "share.project", "path": "/p/[slug]" },
+    { "routeKey": "share.editor", "path": "/e/[slug]" }
+  ],
+  "primaryFlow": "first-thumbnail",
+  "plannedTours": [
+    {
+      "tourId": "first-thumbnail",
+      "description": "Create your first thumbnail from home through auth into studio generation",
+      "routes": ["home", "auth", "studio.create"],
+      "fragments": ["login"]
+    },
+    {
+      "tourId": "onboarding-first-thumbnail",
+      "description": "Run onboarding wizard steps and generate a thumbnail",
+      "routes": ["onboarding", "studio.create"],
+      "fragments": []
+    },
+    {
+      "tourId": "custom-instructions",
+      "description": "Use custom instructions and generation settings to produce thumbnails",
+      "routes": ["auth", "studio.create"],
+      "fragments": ["login"]
+    },
+    {
+      "tourId": "youtube-assisted-generation",
+      "description": "Open YouTube tools in studio and generate using video context",
+      "routes": ["auth", "studio.create"],
+      "fragments": ["login"]
+    },
+    {
+      "tourId": "style-and-face-workflow",
+      "description": "Select style and face assets before generation",
+      "routes": ["auth", "studio.create"],
+      "fragments": ["login"]
+    },
+    {
+      "tourId": "password-recovery",
+      "description": "Request reset email and update account password",
+      "routes": ["auth.forgot", "auth.reset"],
+      "fragments": []
+    },
+    {
+      "tourId": "shared-gallery-view",
+      "description": "Open public/shared gallery and verify browseable thumbnail results",
+      "routes": ["share.project"],
+      "fragments": []
+    },
+    {
+      "tourId": "editor-link-entry",
+      "description": "Open editor invite slug and transition into studio context",
+      "routes": ["share.editor", "studio.create"],
+      "fragments": []
+    }
+  ]
+}

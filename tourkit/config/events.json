@@ -1,0 +1,95 @@
+{
+  "events": [
+    {
+      "name": "tour.event.route.ready",
+      "description": "Fired when a route's key anchors are present and the page is interactive",
+      "payloadExample": {
+        "routeKey": "auth",
+        "anchorsPresent": ["tour.auth.form.input.email", "tour.auth.form.btn.submit"]
+      }
+    },
+    {
+      "name": "tour.event.auth.started",
+      "description": "Fired when an auth attempt begins",
+      "payloadExample": {
+        "method": "password"
+      }
+    },
+    {
+      "name": "tour.event.auth.success",
+      "description": "Fired after successful authentication and before redirect",
+      "payloadExample": {
+        "method": "password",
+        "redirectTo": "/studio"
+      }
+    },
+    {
+      "name": "tour.event.auth.failed",
+      "description": "Fired when auth fails and an error message is shown",
+      "payloadExample": {
+        "method": "password",
+        "message": "Invalid login credentials"
+      }
+    },
+    {
+      "name": "tour.event.modal.opened",
+      "description": "Fired when a tour-relevant modal is opened",
+      "payloadExample": {
+        "modal": "youtubeAnalytics"
+      }
+    },
+    {
+      "name": "tour.event.modal.closed",
+      "description": "Fired when a tour-relevant modal is closed",
+      "payloadExample": {
+        "modal": "youtubeAnalytics"
+      }
+    },
+    {
+      "name": "tour.event.studio.generate.started",
+      "description": "Fired when thumbnail generation request starts",
+      "payloadExample": {
+        "mode": "manual",
+        "projectId": "project_123",
+        "variations": 4
+      }
+    },
+    {
+      "name": "tour.event.studio.generate.complete",
+      "description": "Fired when thumbnail generation completes and results are available",
+      "payloadExample": {
+        "count": 4,
+        "projectId": "project_123"
+      }
+    },
+    {
+      "name": "tour.event.studio.generate.failed",
+      "description": "Fired when thumbnail generation fails",
+      "payloadExample": {
+        "message": "Generation request failed"
+      }
+    },
+    {
+      "name": "tour.event.results.updated",
+      "description": "Fired when results grid data updates",
+      "payloadExample": {
+        "total": 27
+      }
+    },
+    {
+      "name": "tour.event.onboarding.step.changed",
+      "description": "Fired when onboarding moves between steps",
+      "payloadExample": {
+        "step": 3,
+        "stepName": "Pick a style"
+      }
+    },
+    {
+      "name": "tour.event.onboarding.complete",
+      "description": "Fired when onboarding reaches completion",
+      "payloadExample": {
+        "redirectedTo": "/studio"
+      }
+    }
+  ]
+}
