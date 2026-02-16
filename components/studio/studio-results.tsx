@@ -23,6 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { emitTourEvent } from "@/tourkit/app/tourEvents.browser";
 
 const RESULTS_SORT_OPTIONS = [
   { value: "newest", label: "Newest First", orderBy: "created_at" as const, orderDirection: "desc" as const },
@@ -84,6 +85,7 @@ export const StudioResultsHeader = memo(function StudioResultsHeader({
           <Button
             variant="ghost"
             size="sm"
+            data-tour="tour.studio.results.btn.refresh"
             onClick={handleRefresh}
             disabled={thumbnailsLoading}
             title="Refresh"
@@ -101,7 +103,7 @@ export const StudioResultsHeader = memo(function StudioResultsHeader({
             <GridZoomSlider value={gridZoomLevel} onValueChange={onGridZoomChange} />
           )}
           <Select value={sortValue} onValueChange={handleSortChange}>
-            <SelectTrigger className="w-[180px]" aria-label="Sort results">
+            <SelectTrigger className="w-[180px]" aria-label="Sort results" data-tour="tour.studio.results.select.sort">
               <SelectValue placeholder="Sort" />
             </SelectTrigger>
             <SelectContent>
@@ -222,10 +224,6 @@ export const StudioResultsGrid = memo(function StudioResultsGrid({
     !thumbnailsLoading &&
     !isGenerating;
 
-  if (projectSelectedAndEmpty) {
-    return <StudioResultsEmptyProject />;
-  }
-
   const effectiveGeneratingItems =
     isGenerating && generatingItems.size === 0
       ? FALLBACK_GENERATING_ITEMS
@@ -237,21 +235,31 @@ export const StudioResultsGrid = memo(function StudioResultsGrid({
     () => getCombinedThumbnailsList(thumbnails, effectiveGeneratingItems),
     [thumbnails, effectiveGeneratingItems]
   );
+
+  React.useEffect(() => {
+    emitTourEvent("tour.event.results.updated", { total: combinedList.length });
+  }, [combinedList.length]);
   const clickRankBorderById = useMemo(
     () => getClickRankBorderMap(combinedList),
     [combinedList]
   );
 
+  if (projectSelectedAndEmpty) {
+    return <StudioResultsEmptyProject />;
+  }
+
   return (
-    <ThumbnailGrid
-      thumbnails={thumbnails}
-      generatingItems={effectiveGeneratingItems}
-      isLoading={thumbnailsLoading}
-      minSlots={12}
-      showEmptySlots={showEmptySlots}
-      clickRankBorderById={clickRankBorderById}
-      breakpointCols={breakpointCols}
-    />
+    <div data-tour="tour.studio.results.container.main">
+      <ThumbnailGrid
+        thumbnails={thumbnails}
+        generatingItems={effectiveGeneratingItems}
+        isLoading={thumbnailsLoading}
+        minSlots={12}
+        showEmptySlots={showEmptySlots}
+        clickRankBorderById={clickRankBorderById}
+        breakpointCols={breakpointCols}
+      />
+    </div>
   );
 });
 

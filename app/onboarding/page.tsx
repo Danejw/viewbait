@@ -44,8 +44,9 @@
   import { ViewBaitLogo } from "@/components/ui/viewbait-logo";
   import { CRTLoadingEffect } from "@/components/ui/crt-loading-effect";
   import { TooltipProvider } from "@/components/ui/tooltip";
-  import { isAllowedRedirect } from "@/lib/utils/redirect-allowlist";
-  import type { Thumbnail } from "@/lib/types/database";
+import { isAllowedRedirect } from "@/lib/utils/redirect-allowlist";
+import type { Thumbnail } from "@/lib/types/database";
+import { emitTourEvent } from "@/tourkit/app/tourEvents.browser";
 
   const ONBOARDING_REDIRECT_KEY = "onboarding_redirect";
 
@@ -77,6 +78,13 @@
       }
       router.push("/studio");
     }
+
+    useEffect(() => {
+      emitTourEvent("tour.event.route.ready", {
+        routeKey: "onboarding",
+        anchorsPresent: ["tour.onboarding.welcome.cta.getStarted", "tour.onboarding.welcome.btn.skipToStudio"],
+      });
+    }, []);
 
     return (
       <div
@@ -175,6 +183,7 @@
           <button
             type="button"
             onClick={handleSkipToStudio}
+            data-tour="tour.onboarding.welcome.btn.skipToStudio"
             disabled={isSkippingToStudio}
             className="btn-crt"
             style={{
@@ -204,7 +213,7 @@
             zIndex: 1,
           }}
         >
-          <div className="progress-container w-full">
+          <div className="progress-container w-full" data-tour="tour.onboarding.flow.progress.step">
             {[0, 1, 2, 3, 4, 5].map((i) => (
               <div key={i} className="progress-step">
                 <div className="progress-step-fill" style={{ width: i === 0 ? "100%" : "0%" }} />
@@ -252,6 +261,7 @@
               <button
                 type="button"
                 className="btn-primary w-full"
+                data-tour="tour.onboarding.welcome.cta.getStarted"
                 onClick={onGetStarted}
               >
                 Get started
@@ -386,6 +396,26 @@
           toast.error("Could not save completion. You may see onboarding again next time.");
         }
       });
+    }, [step, generatedThumbnail?.imageUrl]);
+
+    useEffect(() => {
+      emitTourEvent("tour.event.onboarding.step.changed", {
+        step,
+        stepName: STEP_NAMES[step] ?? "unknown",
+      });
+    }, [step]);
+
+    useEffect(() => {
+      emitTourEvent("tour.event.route.ready", {
+        routeKey: "onboarding",
+        anchorsPresent: ["tour.onboarding.flow.progress.step", "tour.onboarding.flow.btn.next"],
+      });
+    }, []);
+
+    useEffect(() => {
+      if (step === 5 && generatedThumbnail?.imageUrl) {
+        emitTourEvent("tour.event.onboarding.complete", { redirectedTo: "/studio" });
+      }
     }, [step, generatedThumbnail?.imageUrl]);
 
     const canProceedFromName = thumbnailText.trim().length > 0;
@@ -633,6 +663,7 @@
                 <button
                   type="button"
                   className="btn-primary w-full"
+                  data-tour="tour.onboarding.flow.btn.next"
                   onClick={() => setStep(1)}
                 >
                   Get started
@@ -655,6 +686,7 @@
                   <button
                     type="button"
                     className="btn-primary flex-1"
+                    data-tour="tour.onboarding.flow.btn.next"
                     disabled={!canProceedFromName}
                     onClick={() => handleNext(1)}
                   >
@@ -696,6 +728,7 @@
                   <button
                     type="button"
                     className="btn-primary flex-1"
+                    data-tour="tour.onboarding.flow.btn.next"
                     onClick={() => handleNext(2)}
                   >
                     Continue
@@ -726,6 +759,7 @@
                   <button
                     type="button"
                     className="btn-primary"
+                    data-tour="tour.onboarding.flow.btn.next"
                     disabled={!canProceedFromStyle}
                     onClick={() => handleNext(3)}
                   >
@@ -793,6 +827,7 @@
                 <StudioGeneratorSubmit
                   className="btn-primary pulse-glow"
                   buttonLabel="Generate Thumbnail"
+                  dataTour="tour.onboarding.flow.btn.generate"
                   icon={<Zap className="size-5 mr-2 shrink-0" />}
                   hideCredits
                   hideSaveToProject
@@ -864,6 +899,7 @@
                 <div className="flex flex-col gap-3">
                   <Link
                     href={postCompletionRedirect}
+                    data-tour="tour.onboarding.success.btn.openStudio"
                     className="btn-primary w-full inline-flex items-center justify-center gap-2 no-underline"
                   >
                     <ExternalLink className="size-4 shrink-0" strokeWidth={2} />

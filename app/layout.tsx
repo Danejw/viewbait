@@ -3,6 +3,7 @@ import { Geist, Geist_Mono, Inter, Space_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 import { getInitialAuthState } from "@/lib/server/data/auth";
+import { TourOverlay } from "@/tourkit/app/TourOverlay";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
@@ -43,7 +44,10 @@ export default async function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} ${spaceMono.variable} antialiased`}
         suppressHydrationWarning
       >
-        <Providers initialAuthState={initialAuthState}>{children}</Providers>
+        <Providers initialAuthState={initialAuthState}>
+          {children}
+          <TourOverlay />
+        </Providers>
       </body>
     </html>
   );

@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { emitTourEvent } from "@/tourkit/app/tourEvents.browser";
 
 function ForgotPasswordForm() {
   const router = useRouter();
@@ -41,6 +42,14 @@ function ForgotPasswordForm() {
       router.push("/studio");
     }
   }, [isAuthenticated, authLoading, router]);
+
+  useEffect(() => {
+    if (authLoading) return;
+    emitTourEvent("tour.event.route.ready", {
+      routeKey: "auth.forgot",
+      anchorsPresent: ["tour.auth.forgot.form.input.email", "tour.auth.forgot.form.btn.submit"],
+    });
+  }, [authLoading]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -92,7 +101,7 @@ function ForgotPasswordForm() {
             <CardDescription>
               {success
                 ? "Check your email for a reset link"
-                : "Enter your email address and we'll send you a link to reset your password"}
+                : "Enter your email address and we’ll send you a link to reset your password"}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -104,24 +113,25 @@ function ForgotPasswordForm() {
                   </div>
                   <div className="text-center">
                     <p className="text-sm text-muted-foreground">
-                      We've sent a password reset link to
+                      We&apos;ve sent a password reset link to
                     </p>
                     <p className="mt-1 font-medium">{email}</p>
                   </div>
                 </div>
                 <div className="space-y-3">
                   <p className="text-center text-xs text-muted-foreground">
-                    Didn't receive the email? Check your spam folder or try again.
+                    Didn’t receive the email? Check your spam folder or try again.
                   </p>
                   <Button
                     variant="outline"
                     className="w-full"
+                    data-tour="tour.auth.forgot.state.btn.tryAgain"
                     onClick={() => setSuccess(false)}
                   >
                     Try again
                   </Button>
                   <Button asChild variant="ghost" className="w-full">
-                    <Link href="/auth">
+                    <Link href="/auth" data-tour="tour.auth.forgot.state.link.backToSignin">
                       <ArrowLeft className="mr-2 h-4 w-4" />
                       Back to sign in
                     </Link>
@@ -140,6 +150,7 @@ function ForgotPasswordForm() {
                   <Label htmlFor="email">Email</Label>
                   <Input
                     id="email"
+                    data-tour="tour.auth.forgot.form.input.email"
                     type="email"
                     placeholder="you@example.com"
                     value={email}
@@ -151,7 +162,7 @@ function ForgotPasswordForm() {
                   />
                 </div>
 
-                <Button type="submit" className="w-full" size="lg" disabled={loading}>
+                <Button type="submit" className="w-full" size="lg" disabled={loading} data-tour="tour.auth.forgot.form.btn.submit">
                   {loading ? (
                     <>
                       <ViewBaitLogo className="mr-2 h-4 w-4 animate-spin" />
@@ -166,7 +177,7 @@ function ForgotPasswordForm() {
                 </Button>
 
                 <Button asChild variant="ghost" className="w-full">
-                  <Link href="/auth">
+                  <Link href="/auth" data-tour="tour.auth.forgot.state.link.backToSignin">
                     <ArrowLeft className="mr-2 h-4 w-4" />
                     Back to sign in
                   </Link>

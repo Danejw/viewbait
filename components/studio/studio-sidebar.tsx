@@ -137,6 +137,7 @@ export function StudioSidebarNav() {
     ) : (
       <Button
         type="button"
+        data-tour={item.label === "Create" ? "tour.studio.sidebar.btn.create" : item.label === "YouTube" ? "tour.studio.sidebar.btn.youtube" : undefined}
         variant={isActive ? "ghost" : "side"}
         size={leftSidebarCollapsed ? "icon-sm" : "sm"}
         onClick={() => {

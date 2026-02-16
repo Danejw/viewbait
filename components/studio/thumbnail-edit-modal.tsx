@@ -28,6 +28,7 @@ import { cn } from "@/lib/utils";
 import { useSubscription } from "@/lib/hooks/useSubscription";
 import { useWatermarkedImage } from "@/lib/hooks/useWatermarkedImage";
 import type { Thumbnail } from "@/lib/types/database";
+import { emitTourEvent } from "@/tourkit/app/tourEvents.browser";
 
 export interface ThumbnailEditData {
   title: string;
@@ -66,6 +67,10 @@ export function ThumbnailEditModal({
     }
   }, [thumbnail, open]);
 
+  useEffect(() => {
+    emitTourEvent(open ? "tour.event.modal.opened" : "tour.event.modal.closed", { modal: "thumbnailEdit" });
+  }, [open]);
+
   if (!thumbnail) return null;
 
   const handleRegenerate = () => {
@@ -86,6 +91,7 @@ export function ThumbnailEditModal({
   return (
     <Modal open={open} onOpenChange={isRegenerating ? undefined : onOpenChange}>
       <ModalContent size="lg" showCloseButton={!isRegenerating}>
+        <div data-tour="tour.studio.modal.thumbnailEdit" />
         <ModalHeader>
           <ModalTitle>Edit Thumbnail</ModalTitle>
           <ModalDescription>

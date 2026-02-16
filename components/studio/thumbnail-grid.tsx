@@ -124,6 +124,7 @@ export const ThumbnailGrid = memo(function ThumbnailGrid({
 
   return (
     <MasonryGrid
+      data-tour="tour.studio.results.grid.thumbnails"
       breakpointCols={cols}
       gap={12}
       className={cn("w-full p-1", gridClassName)}

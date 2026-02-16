@@ -21,6 +21,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useStudio } from "@/components/studio/studio-provider";
 import { useUserRole } from "@/lib/hooks/useUserRole";
+import { emitTourEvent } from "@/tourkit/app/tourEvents.browser";
 
 /**
  * Syncs ?view=admin, ?view=roadmap, and ?view=analytics from URL to studio view when user is admin (for /admin redirect and bookmarks).
@@ -142,6 +143,17 @@ function StudioProjectFromQuery() {
  */
 function StudioPageContent() {
   const isMobile = useIsMobile();
+
+  useEffect(() => {
+    emitTourEvent("tour.event.route.ready", {
+      routeKey: "studio.create",
+      anchorsPresent: [
+        "tour.studio.sidebar.btn.create",
+        "tour.studio.form.input.thumbnailTitle",
+        "tour.studio.form.btn.generate",
+      ],
+    });
+  }, []);
 
   return (
     <TooltipProvider delayDuration={0}>

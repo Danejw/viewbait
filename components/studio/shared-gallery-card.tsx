@@ -132,6 +132,7 @@ export const SharedGalleryCard = memo(function SharedGalleryCard({
   return (
     <>
       <Card
+        data-tour="tour.share.project.card.item.thumbnail"
         style={{ aspectRatio: normalizeAspectRatio(thumbnail.aspect_ratio) }}
         className={cn(
           "group relative w-full overflow-hidden p-0 transition-all",

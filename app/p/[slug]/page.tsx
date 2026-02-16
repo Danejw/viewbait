@@ -10,7 +10,7 @@
  * Grid zoom slider: zoom in = fewer columns (larger thumbnails), zoom out = more columns (more thumbnails). Preference persisted in localStorage.
  */
 
-import React, { useState, useCallback, useRef } from "react";
+import React, { useState, useCallback, useRef, useEffect } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { ArrowLeft, ImageIcon } from "lucide-react";
@@ -27,6 +27,7 @@ import { recordSharedProjectClick } from "@/lib/services/projects";
 import { getMasonryBreakpointCols, DEFAULT_ZOOM_LEVEL } from "@/lib/utils/grid-zoom";
 import { useGridZoom } from "@/lib/hooks/useGridZoom";
 import type { PublicThumbnailData } from "@/lib/types/database";
+import { emitTourEvent } from "@/tourkit/app/tourEvents.browser";
 
 /** Shared gallery header bar: ViewBait brand + back + optional title/zoom. Responsive: on small screens only icons (logo + back), no title text. */
 function SharedGalleryHeader({
@@ -103,6 +104,13 @@ export default function SharedProjectGalleryPage() {
   const lastRecordedByThumbIdRef = useRef<Record<string, number>>({});
   const CLICK_COOLDOWN_MS = 1000;
 
+  useEffect(() => {
+    emitTourEvent("tour.event.route.ready", {
+      routeKey: "share.project",
+      anchorsPresent: ["tour.share.project.header.container.main", "tour.share.project.grid.thumbnails"],
+    });
+  }, []);
+
   /** Open full-size modal and record click (approval score) at most once per 1s per thumbnail. */
   const handleThumbnailClick = useCallback(
     (thumbnail: PublicThumbnailData) => {
@@ -120,7 +128,7 @@ export default function SharedProjectGalleryPage() {
 
   if (!slug) {
     return (
-      <div className="flex min-h-screen flex-col bg-background">
+      <div className="flex min-h-screen flex-col bg-background" data-tour="tour.share.project.header.container.main">
         <SharedGalleryHeader
           projectName={undefined}
           subtitle={undefined}
@@ -143,7 +151,7 @@ export default function SharedProjectGalleryPage() {
 
   if (error) {
     return (
-      <div className="flex min-h-screen flex-col bg-background">
+      <div className="flex min-h-screen flex-col bg-background" data-tour="tour.share.project.header.container.main">
         <SharedGalleryHeader
           projectName={undefined}
           subtitle={undefined}
@@ -169,7 +177,7 @@ export default function SharedProjectGalleryPage() {
 
   if (isLoading || !data) {
     return (
-      <div className="flex min-h-screen flex-col bg-background">
+      <div className="flex min-h-screen flex-col bg-background" data-tour="tour.share.project.header.container.main">
         <SharedGalleryHeader
           projectName={undefined}
           subtitle={undefined}
@@ -204,7 +212,7 @@ export default function SharedProjectGalleryPage() {
 
   return (
     <TooltipProvider delayDuration={0}>
-      <div className="flex min-h-screen flex-col bg-background">
+      <div className="flex min-h-screen flex-col bg-background" data-tour="tour.share.project.header.container.main">
         <SharedGalleryHeader
           projectName={projectName}
           subtitle={subtitle}
@@ -227,6 +235,7 @@ export default function SharedProjectGalleryPage() {
             ) : (
               <>
                 <MasonryGrid
+                  data-tour="tour.share.project.grid.thumbnails"
                   breakpointCols={getMasonryBreakpointCols(zoomLevel) as MasonryGridBreakpoints}
                   gap={12}
                   className="w-full"
