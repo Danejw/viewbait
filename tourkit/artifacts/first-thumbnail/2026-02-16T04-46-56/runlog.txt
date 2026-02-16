@@ -1,0 +1,15 @@
+2026-02-16T04:46:57.058Z [tour:start] first-thumbnail
+2026-02-16T04:46:57.058Z [step:1] type=say url=about:blank
+2026-02-16T04:46:57.059Z [say] Welcome! Let's create your first thumbnail.
+2026-02-16T04:46:57.059Z [step:2] type=goto routeKey=home url=about:blank
+2026-02-16T04:46:58.130Z [step:3] type=expectVisible anchor=tour.home.nav.link.signIn url=http://localhost:3000/
+2026-02-16T04:47:00.522Z [step:4] type=click anchor=tour.home.nav.link.signIn url=http://localhost:3000/
+2026-02-16T04:47:08.180Z [step:5] type=fill anchor=tour.auth.form.input.email url=http://localhost:3000/
+2026-02-16T04:47:09.516Z [step:6] type=fill anchor=tour.auth.form.input.password url=http://localhost:3000/auth
+2026-02-16T04:47:10.147Z [step:7] type=click anchor=tour.auth.form.btn.submit url=http://localhost:3000/auth
+2026-02-16T04:47:10.747Z [step:8] type=waitForEvent name=tour.event.auth.success url=http://localhost:3000/auth
+2026-02-16T04:47:26.839Z [step:8:error] page.waitForFunction: Test timeout of 30000ms exceeded.
+page.waitForFunction: Test timeout of 30000ms exceeded.
+    at waitForEvent (/workspace/viewbait/tourkit/runner/runTour.ts:134:14)
+    at runTour (/workspace/viewbait/tourkit/runner/runTour.ts:213:9)
+    at /workspace/viewbait/tests/e2e/tourkit.spec.ts:24:5

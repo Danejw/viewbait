@@ -1,0 +1,131 @@
+{
+  "tourId": "first-thumbnail",
+  "description": "Generated from first-thumbnail.md",
+  "steps": [
+    {
+      "type": "say",
+      "message": "Welcome! Let's create your first thumbnail."
+    },
+    {
+      "type": "goto",
+      "routeKey": "home"
+    },
+    {
+      "type": "expectVisible",
+      "label": "Sign In Nav Link",
+      "anchor": "tour.home.nav.link.signIn",
+      "timeoutMs": 10000
+    },
+    {
+      "type": "click",
+      "label": "Sign In Nav Link",
+      "anchor": "tour.home.nav.link.signIn"
+    },
+    {
+      "type": "fill",
+      "label": "Email",
+      "anchor": "tour.auth.form.input.email",
+      "valueEnv": "E2E_EMAIL"
+    },
+    {
+      "type": "fill",
+      "label": "Password",
+      "anchor": "tour.auth.form.input.password",
+      "valueEnv": "E2E_PASSWORD"
+    },
+    {
+      "type": "click",
+      "label": "Sign In Submit",
+      "anchor": "tour.auth.form.btn.submit"
+    },
+    {
+      "type": "waitForEvent",
+      "label": "Auth Success",
+      "name": "tour.event.auth.success",
+      "timeoutMs": 30000
+    },
+    {
+      "type": "goto",
+      "routeKey": "studio.create"
+    },
+    {
+      "type": "waitForEvent",
+      "label": "Studio Route Ready",
+      "name": "tour.event.route.ready",
+      "timeoutMs": 30000
+    },
+    {
+      "type": "expectVisible",
+      "label": "Manual Tab",
+      "anchor": "tour.studio.settings.tab.manual",
+      "timeoutMs": 10000
+    },
+    {
+      "type": "click",
+      "label": "Manual Tab",
+      "anchor": "tour.studio.settings.tab.manual"
+    },
+    {
+      "type": "fill",
+      "label": "Thumbnail Title",
+      "anchor": "tour.studio.form.input.thumbnailTitle",
+      "value": "My First Thumbnail"
+    },
+    {
+      "type": "expectVisible",
+      "label": "Aspect Ratio Control",
+      "anchor": "tour.studio.form.select.aspectRatio",
+      "timeoutMs": 10000
+    },
+    {
+      "type": "expectVisible",
+      "label": "Resolution Control",
+      "anchor": "tour.studio.form.select.resolution",
+      "timeoutMs": 10000
+    },
+    {
+      "type": "expectVisible",
+      "label": "Variations Control",
+      "anchor": "tour.studio.form.select.variations",
+      "timeoutMs": 10000
+    },
+    {
+      "type": "click",
+      "label": "Create Thumbnail",
+      "anchor": "tour.studio.form.btn.generate"
+    },
+    {
+      "type": "waitForEvent",
+      "label": "Generation Complete",
+      "name": "tour.event.studio.generate.complete",
+      "timeoutMs": 120000
+    },
+    {
+      "type": "expectVisible",
+      "label": "Generated Thumbnail Card",
+      "anchor": "tour.studio.results.card.thumbnail",
+      "timeoutMs": 60000
+    },
+    {
+      "type": "click",
+      "label": "Generated Thumbnail Card",
+      "anchor": "tour.studio.results.card.thumbnail"
+    },
+    {
+      "type": "waitForEvent",
+      "label": "Thumbnail Modal Opened",
+      "name": "tour.event.modal.opened",
+      "timeoutMs": 30000
+    },
+    {
+      "type": "expectVisible",
+      "label": "Thumbnail View Modal",
+      "anchor": "tour.studio.modal.thumbnailView",
+      "timeoutMs": 10000
+    },
+    {
+      "type": "snapshot",
+      "name": "first-thumbnail-open"
+    }
+  ]
+}

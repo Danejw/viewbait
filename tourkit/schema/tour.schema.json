@@ -1,0 +1,95 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["tourId", "steps"],
+  "properties": {
+    "tourId": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+    "description": { "type": "string" },
+    "steps": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "type": { "const": "say" },
+              "message": { "type": "string" }
+            },
+            "required": ["type", "message"],
+            "additionalProperties": true
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": { "const": "goto" },
+              "routeKey": { "type": "string" }
+            },
+            "required": ["type", "routeKey"],
+            "additionalProperties": true
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": { "const": "click" },
+              "anchor": { "type": "string", "pattern": "^tour\\." },
+              "timeoutMs": { "type": "number" }
+            },
+            "required": ["type", "anchor"],
+            "additionalProperties": true
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": { "const": "fill" },
+              "anchor": { "type": "string", "pattern": "^tour\\." },
+              "value": { "type": "string" },
+              "valueEnv": { "type": "string" },
+              "timeoutMs": { "type": "number" }
+            },
+            "required": ["type", "anchor"],
+            "additionalProperties": true
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": { "const": "expectVisible" },
+              "anchor": { "type": "string", "pattern": "^tour\\." },
+              "timeoutMs": { "type": "number" }
+            },
+            "required": ["type", "anchor"],
+            "additionalProperties": true
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": { "const": "waitForEvent" },
+              "name": { "type": "string", "pattern": "^tour\\.event\\." },
+              "timeoutMs": { "type": "number" }
+            },
+            "required": ["type", "name"],
+            "additionalProperties": true
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": { "const": "waitMs" },
+              "ms": { "type": "number" }
+            },
+            "required": ["type", "ms"],
+            "additionalProperties": true
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": { "const": "snapshot" },
+              "name": { "type": "string" }
+            },
+            "required": ["type", "name"],
+            "additionalProperties": true
+          }
+        ]
+      }
+    }
+  },
+  "additionalProperties": false
+}

@@ -25,6 +25,7 @@ import * as thumbnailsService from "@/lib/services/thumbnails";
 import { toast } from "sonner";
 import { copyToClipboardWithToast } from "@/lib/utils/clipboard";
 import { useWatermarkedImage } from "@/lib/hooks/useWatermarkedImage";
+import { emitTourEvent } from "@/tourkit/app/tourEvents.browser";
 import { applyQrWatermark } from "@/lib/utils/watermarkUtils";
 import { DeleteConfirmationModal } from "@/components/studio/delete-confirmation-modal";
 import { ThumbnailEditModal, type ThumbnailEditData } from "@/components/studio/thumbnail-edit-modal";
@@ -819,6 +820,11 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
     }
 
     track("generate_started", { source: "manual", batch_size: state.variations });
+    emitTourEvent("tour.event.studio.generate.started", {
+      mode: state.mode,
+      projectId: state.activeProjectId,
+      variations: state.variations,
+    });
     // Switch to Preview tab on mobile so user sees results feed and loading state
     setState((s) => ({ ...s, mobilePanel: "results" }));
 
@@ -870,9 +876,16 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
     const failCount = results.filter((r) => !r.success).length;
     if (successCount > 0) {
       track("generate_completed", { count: successCount, source: "manual" });
+      emitTourEvent("tour.event.studio.generate.complete", {
+        count: successCount,
+        projectId: state.activeProjectId,
+      });
     }
     if (failCount > 0) {
       track("generate_failed", { reason: successCount > 0 ? "partial" : "api" });
+      emitTourEvent("tour.event.studio.generate.failed", {
+        message: successCount > 0 ? "partial failure" : "generation failed",
+      });
     }
     if (results.some((r) => r.success)) {
       const successIds = results

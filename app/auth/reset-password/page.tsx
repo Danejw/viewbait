@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/lib/hooks/useAuth";
+import { emitTourEvent } from "@/tourkit/app/tourEvents.browser";
 
 function ResetPasswordForm() {
   const router = useRouter();
@@ -31,6 +32,13 @@ function ResetPasswordForm() {
       router.push("/studio");
     }
   }, [isAuthenticated, router, searchParams]);
+
+  useEffect(() => {
+    emitTourEvent("tour.event.route.ready", {
+      routeKey: "auth.reset",
+      anchorsPresent: ["tour.auth.reset.form.input.newPassword", "tour.auth.reset.form.input.confirmPassword"],
+    });
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -78,6 +86,9 @@ function ResetPasswordForm() {
               <p className="text-primary">
                 Password updated successfully! Redirecting...
               </p>
+              <Button variant="outline" className="w-full" asChild>
+                <a href="/auth" data-tour="tour.auth.reset.state.link.backToSignin">Back to Sign In</a>
+              </Button>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -91,6 +102,7 @@ function ResetPasswordForm() {
                 <Label htmlFor="password">New Password</Label>
                 <Input
                   id="password"
+                  data-tour="tour.auth.reset.form.input.newPassword"
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -106,6 +118,7 @@ function ResetPasswordForm() {
                 <Label htmlFor="confirmPassword">Confirm Password</Label>
                 <Input
                   id="confirmPassword"
+                  data-tour="tour.auth.reset.form.input.confirmPassword"
                   type="password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
@@ -119,6 +132,7 @@ function ResetPasswordForm() {
 
               <Button
                 type="submit"
+                data-tour="tour.auth.reset.form.btn.submit"
                 variant="default"
                 size="lg"
                 disabled={loading}

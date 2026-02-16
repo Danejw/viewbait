@@ -64,6 +64,7 @@ export function StudioGeneratorTabs() {
     <div className="flex gap-2 border-b border-border">
       <Button
         type="button"
+        data-tour="tour.studio.settings.tab.manual"
         variant="ghost"
         size="sm"
         onClick={() => setMode("manual")}
@@ -79,6 +80,7 @@ export function StudioGeneratorTabs() {
       </Button>
       <Button
         type="button"
+        data-tour="tour.studio.settings.tab.chat"
         variant="ghost"
         size="sm"
         onClick={() => setMode("chat")}
@@ -150,6 +152,7 @@ export function StudioGeneratorThumbnailText() {
       <div className="relative">
         <Input
           ref={thumbnailTextRef}
+          data-tour="tour.studio.form.input.thumbnailTitle"
           value={thumbnailText}
           onChange={(e) => setThumbnailText(e.target.value)}
           placeholder="Enter a title for your thumbnail..."
@@ -226,6 +229,7 @@ export function StudioGeneratorCustomInstructions() {
       <label className="mb-2 block text-sm font-medium">Custom Instructions</label>
       <Textarea
         ref={customInstructionsRef}
+        data-tour="tour.studio.form.input.customInstructions"
         value={customInstructions}
         onChange={(e) => setCustomInstructions(e.target.value)}
         placeholder="Describe your thumbnail in detail..."
@@ -656,7 +660,7 @@ export function StudioGeneratorStyleSelection() {
             </span>
           )}
         </div>
-        <Switch checked={includeStyles} onCheckedChange={setIncludeStyles} />
+        <Switch checked={includeStyles} onCheckedChange={setIncludeStyles} data-tour="tour.studio.form.toggle.includeStyles" />
       </div>
 
       {includeStyles && (
@@ -826,7 +830,7 @@ export function StudioGeneratorPalette() {
             </span>
           )}
         </div>
-        <Switch checked={includePalettes} onCheckedChange={setIncludePalettes} />
+        <Switch checked={includePalettes} onCheckedChange={setIncludePalettes} data-tour="tour.studio.form.toggle.includePalettes" />
       </div>
 
       {includePalettes && (
@@ -913,7 +917,7 @@ export function StudioGeneratorAspectRatio() {
   }, [allowedRatios, firstAllowed, selectedAspectRatio, setSelectedAspectRatio]);
 
   return (
-    <div className="mt-4 ml-1">
+    <div className="mt-4 ml-1" data-tour="tour.studio.form.select.aspectRatio">
       <label className="mb-2 block text-sm font-medium">Aspect Ratio</label>
       <div className="flex flex-wrap gap-2">
         {ASPECT_RATIO_DISPLAY_ORDER.map((ratio) => {
@@ -926,6 +930,7 @@ export function StudioGeneratorAspectRatio() {
               size="sm"
               disabled={!allowed}
               onClick={() => allowed && setSelectedAspectRatio(ratio)}
+              data-tour={`tour.studio.form.option.aspectRatio.${ratio.replace(":", "x")}`}
               className="gap-1"
             >
               {!allowed && <Lock className="h-3 w-3 shrink-0" />}
@@ -962,7 +967,7 @@ export function StudioGeneratorResolution() {
   }, [allowedResolutions, firstAllowed, selectedResolution, setSelectedResolution]);
 
   return (
-    <div className="mt-4">
+    <div className="mt-4" data-tour="tour.studio.form.select.resolution">
       <label className="mb-2 block text-sm font-medium">Resolution</label>
       <div className="flex flex-wrap gap-2">
         {RESOLUTION_OPTIONS.map((res) => {
@@ -975,6 +980,7 @@ export function StudioGeneratorResolution() {
               size="sm"
               disabled={!allowed}
               onClick={() => allowed && setSelectedResolution(res)}
+              data-tour={`tour.studio.form.option.resolution.${res.toLowerCase()}`}
               className="gap-1"
             >
               {!allowed && <Lock className="h-3 w-3 shrink-0" />}
@@ -1020,7 +1026,7 @@ export function StudioGeneratorVariations() {
   }, [maxVariations, variations, setVariations]);
 
   return (
-    <div className="mb-6 ml-1">
+    <div className="mb-6 ml-1" data-tour="tour.studio.form.select.variations">
       <label className="mb-2 block text-sm font-medium">Variations</label>
       <div className="flex flex-wrap gap-2">
         {VARIATIONS_OPTIONS.map((n) => {
@@ -1033,6 +1039,7 @@ export function StudioGeneratorVariations() {
               size="sm"
               disabled={!allowed}
               onClick={() => allowed && setVariations(n)}
+              data-tour={`tour.studio.form.option.variations.${n}`}
               className="gap-1"
             >
               {!allowed && <Lock className="h-3 w-3 shrink-0" />}
@@ -1187,7 +1194,7 @@ export function StudioGeneratorFaces() {
             </span>
           )}
         </div>
-        <Switch checked={includeFaces} onCheckedChange={handleIncludeFacesChange} />
+        <Switch checked={includeFaces} onCheckedChange={handleIncludeFacesChange} data-tour="tour.studio.form.toggle.includeFaces" />
       </div>
 
       {includeFaces && (
@@ -1376,6 +1383,8 @@ type StudioGeneratorSubmitProps = {
   buttonLabel?: string;
   /** Optional icon element shown before label when not generating */
   icon?: React.ReactNode;
+  /** Optional tour anchor override for submit button. */
+  dataTour?: string;
   /** When true, hide the credits line (e.g. onboarding) */
   hideCredits?: boolean;
   /** When true, hide "Save settings to project" (e.g. onboarding) */
@@ -1392,6 +1401,7 @@ export function StudioGeneratorSubmit({
   className,
   buttonLabel = "CREATE THUMBNAILS",
   icon,
+  dataTour,
   hideCredits = false,
   hideSaveToProject = false,
 }: StudioGeneratorSubmitProps = {}) {
@@ -1424,6 +1434,7 @@ export function StudioGeneratorSubmit({
     <div className="space-y-2">
       <Button
         onClick={generateThumbnails}
+        data-tour={dataTour ?? "tour.studio.form.btn.generate"}
         disabled={isDisabled}
         size="lg"
         className={cn(

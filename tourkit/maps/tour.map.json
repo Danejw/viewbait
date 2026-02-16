@@ -1,0 +1,143 @@
+{
+  "generatedAt": "2026-02-16T04:44:00.473Z",
+  "routes": {
+    "source.scan": {
+      "path": "(source scan)",
+      "anchors": [
+        "tour.auth.forgot.form.btn.submit",
+        "tour.auth.forgot.form.input.email",
+        "tour.auth.forgot.state.btn.tryAgain",
+        "tour.auth.forgot.state.link.backToSignin",
+        "tour.auth.form.btn.google",
+        "tour.auth.form.btn.submit",
+        "tour.auth.form.input.email",
+        "tour.auth.form.input.password",
+        "tour.auth.form.link.forgotPassword",
+        "tour.auth.form.tab.signin",
+        "tour.auth.form.tab.signup",
+        "tour.auth.reset.form.btn.submit",
+        "tour.auth.reset.form.input.confirmPassword",
+        "tour.auth.reset.form.input.newPassword",
+        "tour.auth.reset.state.link.backToSignin",
+        "tour.auth.signup.btn.submit",
+        "tour.auth.signup.input.confirmPassword",
+        "tour.auth.signup.input.email",
+        "tour.auth.signup.input.fullName",
+        "tour.auth.signup.input.password",
+        "tour.auth.signup.input.referralCode",
+        "tour.home.hero.cta.startCreating",
+        "tour.home.mobileMenu.link.getStarted",
+        "tour.home.nav.btn.mobileMenu",
+        "tour.home.nav.link.signIn",
+        "tour.onboarding.flow.btn.generate",
+        "tour.onboarding.flow.btn.next",
+        "tour.onboarding.flow.progress.step",
+        "tour.onboarding.success.btn.openStudio",
+        "tour.onboarding.welcome.btn.skipToStudio",
+        "tour.onboarding.welcome.cta.getStarted",
+        "tour.share.editor.btn.goStudio",
+        "tour.share.editor.state.error",
+        "tour.share.editor.state.progress",
+        "tour.share.project.card.item.thumbnail",
+        "tour.share.project.grid.thumbnails",
+        "tour.share.project.header.container.main",
+        "tour.studio.form.btn.generate",
+        "tour.studio.form.input.customInstructions",
+        "tour.studio.form.input.thumbnailTitle",
+        "tour.studio.form.option.aspectRatio.",
+        "tour.studio.form.option.resolution.",
+        "tour.studio.form.option.variations.",
+        "tour.studio.form.select.aspectRatio",
+        "tour.studio.form.select.resolution",
+        "tour.studio.form.select.variations",
+        "tour.studio.form.toggle.includeFaces",
+        "tour.studio.form.toggle.includePalettes",
+        "tour.studio.form.toggle.includeStyles",
+        "tour.studio.modal.thumbnailEdit",
+        "tour.studio.modal.thumbnailView",
+        "tour.studio.modal.youtubeAnalytics",
+        "tour.studio.results.btn.refresh",
+        "tour.studio.results.card.thumbnail",
+        "tour.studio.results.container.main",
+        "tour.studio.results.grid.thumbnails",
+        "tour.studio.results.select.sort",
+        "tour.studio.settings.tab.chat",
+        "tour.studio.settings.tab.manual",
+        "tour.studio.sidebar.btn.create",
+        "tour.studio.sidebar.btn.youtube"
+      ]
+    },
+    "home": {
+      "path": "/",
+      "anchors": [
+        "tour.home.hero.cta.startCreating",
+        "tour.home.mobileMenu.link.getStarted",
+        "tour.home.nav.btn.mobileMenu",
+        "tour.home.nav.link.signIn"
+      ]
+    },
+    "auth": {
+      "path": "/auth",
+      "anchors": [
+        "tour.auth.form.btn.google",
+        "tour.auth.form.btn.submit",
+        "tour.auth.form.input.email",
+        "tour.auth.form.input.password",
+        "tour.auth.form.link.forgotPassword",
+        "tour.auth.form.tab.signin",
+        "tour.auth.form.tab.signup"
+      ]
+    },
+    "auth.forgot": {
+      "path": "/auth/forgot-password",
+      "anchors": [
+        "tour.auth.forgot.form.btn.submit",
+        "tour.auth.forgot.form.input.email",
+        "tour.auth.forgot.state.link.backToSignin"
+      ]
+    },
+    "auth.reset": {
+      "path": "/auth/reset-password",
+      "anchors": [
+        "tour.auth.reset.form.btn.submit",
+        "tour.auth.reset.form.input.confirmPassword",
+        "tour.auth.reset.form.input.newPassword"
+      ]
+    },
+    "onboarding": {
+      "path": "/onboarding",
+      "anchors": [],
+      "skippedReason": "redirected to auth (/auth)"
+    },
+    "studio.create": {
+      "path": "/studio",
+      "anchors": [],
+      "skippedReason": "redirected to auth (/auth)"
+    },
+    "share.project": {
+      "path": "/p/[slug]",
+      "anchors": [
+        "tour.share.project.header.container.main"
+      ]
+    },
+    "share.editor": {
+      "path": "/e/[slug]",
+      "anchors": [],
+      "skippedReason": "redirected to auth (/auth)"
+    }
+  },
+  "events": [
+    "tour.event.route.ready",
+    "tour.event.auth.started",
+    "tour.event.auth.success",
+    "tour.event.auth.failed",
+    "tour.event.modal.opened",
+    "tour.event.modal.closed",
+    "tour.event.studio.generate.started",
+    "tour.event.studio.generate.complete",
+    "tour.event.studio.generate.failed",
+    "tour.event.results.updated",
+    "tour.event.onboarding.step.changed",
+    "tour.event.onboarding.complete"
+  ]
+}

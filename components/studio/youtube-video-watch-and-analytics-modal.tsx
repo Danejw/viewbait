@@ -24,6 +24,7 @@ import type {
   VideoAnalyticsTimeSeries,
   VideoTrafficSource,
 } from "@/app/api/youtube/videos/analytics/route";
+import { emitTourEvent } from "@/tourkit/app/tourEvents.browser";
 
 const YOUTUBE_WATCH_URL = "https://www.youtube.com/watch?v=";
 const YOUTUBE_EMBED_URL = "https://www.youtube.com/embed/";
@@ -111,6 +112,10 @@ export function YouTubeVideoWatchAndAnalyticsModal({
     }
   }, [open, video?.videoId, fetchAnalytics]);
 
+  useEffect(() => {
+    emitTourEvent(open ? "tour.event.modal.opened" : "tour.event.modal.closed", { modal: "thumbnailView" });
+  }, [open]);
+
   if (!video) return null;
 
   const watchUrl = `${YOUTUBE_WATCH_URL}${video.videoId}`;
@@ -123,6 +128,7 @@ export function YouTubeVideoWatchAndAnalyticsModal({
         showCloseButton
         className="max-w-[calc(100vw-2rem)] overflow-x-hidden"
       >
+        <div data-tour="tour.studio.modal.thumbnailView" />
         <ModalHeader className="gap-2 min-w-0 pr-8">
           <div className="flex min-w-0 items-center gap-2">
             <BarChart3 className="h-5 w-5 shrink-0 text-muted-foreground" />

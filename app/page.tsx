@@ -8,6 +8,7 @@ import { Crown } from "lucide-react";
 import { PublicBetaBanner } from "@/components/landing/public-beta-banner";
 import { ScrollReveal } from "@/components/landing/scroll-reveal";
 import { useAuth } from "@/lib/hooks/useAuth";
+import { emitTourEvent } from "@/tourkit/app/tourEvents.browser";
 
 /** Lazy-load Lenis after FCP to avoid initial TBT from rAF loop; smooth scroll loads later. */
 const LenisRootLazy = dynamic(
@@ -93,6 +94,18 @@ export default function ViewBaitLanding() {
       window.removeEventListener("scroll", handleScroll);
       if (rafId != null) cancelAnimationFrame(rafId);
     };
+  }, []);
+
+  useEffect(() => {
+    emitTourEvent("tour.event.route.ready", {
+      routeKey: "home",
+      anchorsPresent: [
+        "tour.home.nav.link.signIn",
+        "tour.home.hero.cta.startCreating",
+        "tour.home.nav.btn.mobileMenu",
+        "tour.home.mobileMenu.link.getStarted",
+      ],
+    });
   }, []);
 
   /** After FCP, enable Lenis smooth scroll so it loads in the background and takes over without blocking initial paint. */
@@ -226,6 +239,7 @@ export default function ViewBaitLanding() {
           <Link
             href={studioOrAuthHref}
             onClick={handleNavClick}
+            data-tour="tour.home.mobileMenu.link.getStarted"
             className="btn-crt btn-crt-primary"
             style={{
               marginTop: "16px",
@@ -359,6 +373,7 @@ export default function ViewBaitLanding() {
 
           <Link
             href={studioOrAuthHref}
+            data-tour="tour.home.nav.link.signIn"
             className="btn-crt"
             style={{
               padding: "12px 24px",
@@ -384,6 +399,7 @@ export default function ViewBaitLanding() {
         <button
           type="button"
           className="hide-desktop landing-nav-toggle"
+          data-tour="tour.home.nav.btn.mobileMenu"
           onClick={() => setMenuOpen(!menuOpen)}
           aria-expanded={menuOpen}
           aria-label={menuOpen ? "Close menu" : "Open menu"}
@@ -553,6 +569,7 @@ export default function ViewBaitLanding() {
               >
                 <Link
                   href={studioOrAuthHref}
+                  data-tour="tour.home.hero.cta.startCreating"
                   className="hot-zone btn-crt btn-crt-primary"
                   style={{
                     padding: "16px 28px",

@@ -9,7 +9,7 @@
  * When characters exist, offers "Extract character snapshots" from the video URL (streamed via API) or via file upload fallback.
  */
 
-import React, { useRef, useCallback, useState } from "react";
+import React, { useRef, useCallback, useState, useEffect } from "react";
 import { BarChart3, ExternalLink, ChevronDown, Film, Copy, FileText } from "lucide-react";
 import {
   Modal,
@@ -33,6 +33,7 @@ import { copyToClipboardWithToast } from "@/lib/utils/clipboard";
 import { getErrorMessage } from "@/lib/utils/error";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { emitTourEvent } from "@/tourkit/app/tourEvents.browser";
 
 const YOUTUBE_WATCH_URL = "https://www.youtube.com/watch?v=";
 
@@ -144,6 +145,10 @@ export function YouTubeVideoAnalyticsModal({
     characters: { extracting: false, phase: "idle", error: null },
     places: { extracting: false, phase: "idle", error: null },
   });
+
+  useEffect(() => {
+    emitTourEvent(open ? "tour.event.modal.opened" : "tour.event.modal.closed", { modal: "youtubeAnalytics" });
+  }, [open]);
 
   const runExtractionWithFile = useCallback(
     async (type: ExtractType, file: File) => {
@@ -264,6 +269,7 @@ export function YouTubeVideoAnalyticsModal({
   return (
     <Modal open={open} onOpenChange={onOpenChange}>
       <ModalContent size="2xl" showCloseButton={true} className="max-w-[calc(100vw-2rem)] overflow-x-hidden">
+        <div data-tour="tour.studio.modal.youtubeAnalytics" />
         <ModalHeader className="gap-2 min-w-0 pr-8">
           <div className="flex min-w-0 items-center gap-2">
             <BarChart3 className="h-5 w-5 shrink-0 text-muted-foreground" />
