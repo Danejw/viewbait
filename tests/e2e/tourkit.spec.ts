@@ -4,7 +4,7 @@ import { test } from "@playwright/test";
 import { runTour } from "../../tourkit/runner/runTour";
 
 test.describe("TourKit Tours", () => {
-  test("@tourkit dynamic tour from TOUR_FILE", async ({ page }, testInfo) => {
+  test("@tourkit @tour:first-thumbnail dynamic tour from TOUR_FILE", async ({ page }, testInfo) => {
     const tourFile = process.env.TOUR_FILE;
     test.skip(!tourFile, "No TOUR_FILE env var set. Use: cross-env TOUR_FILE=tourkit/tours/<id>.tour.json");
 

@@ -1,7 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
+import { execFileSync } from "node:child_process";
 import dotenv from "dotenv";
-import { chromium } from "@playwright/test";
+import { chromium, type Page } from "@playwright/test";
 import routesConfig from "@/tourkit/config/routes.json";
 import eventsConfig from "@/tourkit/config/events.json";
 
@@ -86,6 +87,56 @@ function buildMapMarkdown(map: TourMap): string {
   return `${lines.join("\n")}\n`;
 }
 
+
+function collectAnchorsFromSource(): string[] {
+  try {
+    const raw = execFileSync(
+      "rg",
+      ["--no-filename", "--only-matching", "tour\.[A-Za-z0-9._-]+", "app", "components"],
+      {
+        cwd: process.cwd(),
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"],
+      }
+    );
+    const anchors = new Set<string>();
+    for (const line of raw.split(/\r?\n/)) {
+      const token = line.trim();
+      if (!token.startsWith("tour.")) continue;
+      if (token.startsWith("tour.event.")) continue;
+      anchors.add(token);
+    }
+    return Array.from(anchors).sort();
+  } catch {
+    return [];
+  }
+}
+
+async function tryAuthenticate(page: Page, baseURL: string): Promise<boolean> {
+  const email = process.env.E2E_EMAIL;
+  const password = process.env.E2E_PASSWORD;
+
+  if (!email || !password) {
+    return false;
+  }
+
+  try {
+    const authUrl = new URL("/auth?tour=1", baseURL).toString();
+    await page.goto(authUrl, { waitUntil: "domcontentloaded", timeout: 30_000 });
+    await page.waitForSelector('[data-tour="tour.auth.form.input.email"]', { timeout: 15_000 });
+    await page.fill('[data-tour="tour.auth.form.input.email"]', email);
+    await page.fill('[data-tour="tour.auth.form.input.password"]', password);
+    await page.click('[data-tour="tour.auth.form.btn.submit"]');
+
+    await page.waitForURL((url) => !url.pathname.startsWith("/auth"), { timeout: 20_000 }).catch(() => undefined);
+
+    const currentPath = new URL(page.url()).pathname;
+    return !currentPath.startsWith("/auth");
+  } catch {
+    return false;
+  }
+}
+
 async function generateMap() {
   dotenv.config({ path: path.resolve(process.cwd(), "tourkit/.env.tourkit") });
 
@@ -103,6 +154,16 @@ async function generateMap() {
     events,
   };
 
+  const sourceAnchors = collectAnchorsFromSource();
+  if (sourceAnchors.length > 0) {
+    output.routes["source.scan"] = {
+      path: "(source scan)",
+      anchors: sourceAnchors,
+    };
+  }
+
+  const isAuthenticated = await tryAuthenticate(page, baseURL);
+
   const skipped: Array<{ routeKey: string; reason: string }> = [];
   let crawledCount = 0;
   let totalAnchors = 0;
@@ -116,10 +177,15 @@ async function generateMap() {
       await page.waitForLoadState("networkidle", { timeout: 5_000 }).catch(() => undefined);
 
       const currentPath = new URL(page.url()).pathname;
-      const redirectedToAuth = route.routeKey !== "auth" && currentPath.startsWith("/auth") && !route.path.startsWith("/auth");
+      const redirectedToAuth =
+        route.routeKey !== "auth" &&
+        currentPath.startsWith("/auth") &&
+        !route.path.startsWith("/auth");
 
       if (redirectedToAuth) {
-        const reason = `redirected to auth (${currentPath})`;
+        const reason = isAuthenticated
+          ? `redirected to auth despite login (${currentPath})`
+          : `redirected to auth (${currentPath})`;
         output.routes[route.routeKey] = {
           path: route.path,
           anchors: [],
@@ -179,6 +245,7 @@ async function generateMap() {
 
   console.log(`Tour map written: ${path.relative(process.cwd(), mapJsonPath)}`);
   console.log(`Tour map doc written: ${path.relative(process.cwd(), mapMdPath)}`);
+  console.log(`Authenticated crawl: ${isAuthenticated ? "yes" : "no"}`);
   console.log(`Routes crawled: ${crawledCount}/${routes.length}`);
   console.log(`Anchors found: ${totalAnchors}`);
   if (skipped.length > 0) {

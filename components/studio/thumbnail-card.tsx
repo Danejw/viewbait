@@ -700,6 +700,7 @@ export const ThumbnailCard = memo(function ThumbnailCard({
   const cardContent = (
     <Card
       ref={setNodeRef}
+      data-tour="tour.studio.results.card.thumbnail"
       style={{ aspectRatio: normalizeAspectRatio(thumbnail?.aspect_ratio ?? null) }}
       className={cn(
             "group relative z-0 w-full cursor-pointer overflow-hidden p-0 transition-all",

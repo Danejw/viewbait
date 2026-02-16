@@ -930,6 +930,7 @@ export function StudioGeneratorAspectRatio() {
               size="sm"
               disabled={!allowed}
               onClick={() => allowed && setSelectedAspectRatio(ratio)}
+              data-tour={`tour.studio.form.option.aspectRatio.${ratio.replace(":", "x")}`}
               className="gap-1"
             >
               {!allowed && <Lock className="h-3 w-3 shrink-0" />}
@@ -979,6 +980,7 @@ export function StudioGeneratorResolution() {
               size="sm"
               disabled={!allowed}
               onClick={() => allowed && setSelectedResolution(res)}
+              data-tour={`tour.studio.form.option.resolution.${res.toLowerCase()}`}
               className="gap-1"
             >
               {!allowed && <Lock className="h-3 w-3 shrink-0" />}
@@ -1037,6 +1039,7 @@ export function StudioGeneratorVariations() {
               size="sm"
               disabled={!allowed}
               onClick={() => allowed && setVariations(n)}
+              data-tour={`tour.studio.form.option.variations.${n}`}
               className="gap-1"
             >
               {!allowed && <Lock className="h-3 w-3 shrink-0" />}

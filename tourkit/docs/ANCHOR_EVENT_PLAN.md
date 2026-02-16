@@ -124,6 +124,10 @@ Implementation locations: `app/onboarding/page.tsx` and reused generator control
 | `tour.studio.form.select.resolution` | Resolution select trigger | Variant control |
 | `tour.studio.form.select.variations` | Variations select trigger | Variant control |
 | `tour.studio.form.btn.generate` | Generate thumbnail button | Core async action |
+| `tour.studio.form.option.aspectRatio.16x9` | Aspect ratio option 16:9 | First-thumbnail happy path |
+| `tour.studio.form.option.resolution.1k` | Resolution option 1K | First-thumbnail happy path |
+| `tour.studio.form.option.variations.1` | Variations option 1 | First-thumbnail happy path |
+| `tour.studio.results.card.thumbnail` | Generated thumbnail card (click to open) | Results interaction |
 | `tour.studio.results.container.main` | Results panel container | Route-ready + existence check |
 | `tour.studio.results.grid.thumbnails` | Thumbnail grid wrapper | Async completion target |
 | `tour.studio.results.btn.refresh` | Results refresh button | Common action |
