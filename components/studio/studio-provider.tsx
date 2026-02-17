@@ -41,6 +41,7 @@ import {
   type ThumbnailConcept,
 } from "@/lib/services/youtube-video-analyze";
 import { track } from "@/lib/analytics/track";
+import { emitTourEvent } from "@/tourkit/app/tourEvents.browser";
 
 /** Payload for opening the snapshot view modal (full-size image, draggable to Faces/References) */
 export interface SnapshotToView {
@@ -819,6 +820,12 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
     }
 
     track("generate_started", { source: "manual", batch_size: state.variations });
+    emitTourEvent("tour.event.studio.generate.started", {
+      projectId: state.activeProjectId ?? null,
+      variations: state.variations,
+      resolution: state.selectedResolution,
+      aspectRatio: state.selectedAspectRatio,
+    });
     // Switch to Preview tab on mobile so user sees results feed and loading state
     setState((s) => ({ ...s, mobilePanel: "results" }));
 
@@ -870,9 +877,11 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
     const failCount = results.filter((r) => !r.success).length;
     if (successCount > 0) {
       track("generate_completed", { count: successCount, source: "manual" });
+      emitTourEvent("tour.event.studio.generate.complete", { successCount });
     }
     if (failCount > 0) {
       track("generate_failed", { reason: successCount > 0 ? "partial" : "api" });
+      emitTourEvent("tour.event.studio.generate.failed", { reason: successCount > 0 ? "partial" : "api" });
     }
     if (results.some((r) => r.success)) {
       const successIds = results
@@ -1443,12 +1452,15 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
   }, [state.activeProjectId, projects, getStatePatchFromDefaultSettings]);
 
   const actions: StudioActions = {
-    setView: (view) =>
+    setView: (view) => {
+      emitTourEvent("tour.event.studio.view.changed", { view });
       setState((s) => ({
         ...s,
         currentView: view,
         ...(view !== "updates" ? { selectedUpdateId: null } : {}),
-      })),
+      }));
+    },
+
     setSelectedUpdateId: (id) => setState((s) => ({ ...s, selectedUpdateId: id })),
     openUpdate: (notificationId) =>
       setState((s) => ({

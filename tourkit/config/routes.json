@@ -1,0 +1,63 @@
+{
+  "routes": [
+    { "routeKey": "home", "path": "/" },
+    { "routeKey": "auth", "path": "/auth" },
+    { "routeKey": "onboarding", "path": "/onboarding" },
+    { "routeKey": "studio.create", "path": "/studio" },
+    { "routeKey": "studio.results", "path": "/studio" },
+    { "routeKey": "studio.browse", "path": "/studio?view=browse" },
+    { "routeKey": "studio.gallery", "path": "/studio?view=gallery" },
+    { "routeKey": "studio.projects", "path": "/studio?view=projects" },
+    { "routeKey": "studio.styles", "path": "/studio?view=styles" },
+    { "routeKey": "studio.palettes", "path": "/studio?view=palettes" },
+    { "routeKey": "studio.faces", "path": "/studio?view=faces" },
+    { "routeKey": "studio.youtube", "path": "/studio?view=youtube" },
+    { "routeKey": "share.project", "path": "/p/[slug]" },
+    { "routeKey": "share.editor", "path": "/e/[slug]" }
+  ],
+  "primaryFlow": "first-thumbnail",
+  "plannedTours": [
+    {
+      "tourId": "first-thumbnail",
+      "description": "Create your first thumbnail from landing through Studio generation",
+      "routes": ["home", "auth", "studio.create", "studio.results"],
+      "fragments": ["login"]
+    },
+    {
+      "tourId": "custom-instructions",
+      "description": "Use custom instructions in Studio and generate with those instructions",
+      "routes": ["auth", "studio.create", "studio.results"],
+      "fragments": ["login"]
+    },
+    {
+      "tourId": "aspect-resolution-variations",
+      "description": "Set aspect ratio, resolution, and variations before generation",
+      "routes": ["auth", "studio.create", "studio.results"],
+      "fragments": ["login"]
+    },
+    {
+      "tourId": "studio-navigation",
+      "description": "Navigate among key Studio views with sidebar controls",
+      "routes": ["auth", "studio.create", "studio.browse", "studio.gallery", "studio.projects", "studio.styles", "studio.palettes", "studio.faces"],
+      "fragments": ["login"]
+    },
+    {
+      "tourId": "onboarding-first-run",
+      "description": "Complete the dedicated onboarding flow and land on generated output",
+      "routes": ["onboarding", "studio.results"],
+      "fragments": []
+    },
+    {
+      "tourId": "shared-project-view",
+      "description": "Open a shared project gallery link and inspect thumbnail results",
+      "routes": ["share.project"],
+      "fragments": []
+    },
+    {
+      "tourId": "editor-link-to-studio",
+      "description": "Join a project by editor link and land in Studio",
+      "routes": ["share.editor", "studio.create"],
+      "fragments": []
+    }
+  ]
+}

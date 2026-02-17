@@ -1,0 +1,202 @@
+{
+  "generatedAt": "2026-02-17T00:00:44.939Z",
+  "routes": {
+    "home": {
+      "path": "/",
+      "anchors": [
+        "tour.home.footer.link.openStudio",
+        "tour.home.hero.cta.startCreating",
+        "tour.home.nav.cta.openStudio"
+      ]
+    },
+    "auth": {
+      "path": "/auth",
+      "anchors": [
+        "tour.auth.form.btn.google",
+        "tour.auth.form.btn.submit",
+        "tour.auth.form.input.email",
+        "tour.auth.form.input.password",
+        "tour.auth.form.link.forgotPassword",
+        "tour.auth.form.tab.signin",
+        "tour.auth.form.tab.signup"
+      ]
+    },
+    "onboarding": {
+      "path": "/onboarding",
+      "anchors": [
+        "tour.onboarding.step.progress.container.main",
+        "tour.onboarding.welcome.btn.getStarted",
+        "tour.onboarding.welcome.btn.skipToStudio"
+      ],
+      "skipped": true,
+      "skipReason": "auth redirect"
+    },
+    "studio.create": {
+      "path": "/studio",
+      "anchors": [
+        "tour.studio.create.form.btn.aspectRatio.16_9",
+        "tour.studio.create.form.btn.generate",
+        "tour.studio.create.form.btn.resolution.1k",
+        "tour.studio.create.form.btn.variations.1",
+        "tour.studio.create.form.input.thumbnailTitle",
+        "tour.studio.create.form.text.customInstructions",
+        "tour.studio.nav.sidebar.btn.browse",
+        "tour.studio.nav.sidebar.btn.create",
+        "tour.studio.nav.sidebar.btn.faces",
+        "tour.studio.nav.sidebar.btn.gallery",
+        "tour.studio.nav.sidebar.btn.palettes",
+        "tour.studio.nav.sidebar.btn.projects",
+        "tour.studio.nav.sidebar.btn.styles"
+      ],
+      "skipped": true,
+      "skipReason": "auth redirect"
+    },
+    "studio.results": {
+      "path": "/studio",
+      "anchors": [
+        "tour.studio.nav.sidebar.btn.browse",
+        "tour.studio.nav.sidebar.btn.create",
+        "tour.studio.nav.sidebar.btn.faces",
+        "tour.studio.nav.sidebar.btn.gallery",
+        "tour.studio.nav.sidebar.btn.palettes",
+        "tour.studio.nav.sidebar.btn.projects",
+        "tour.studio.nav.sidebar.btn.styles",
+        "tour.studio.results.results.btn.loadMore",
+        "tour.studio.results.results.btn.refresh",
+        "tour.studio.results.results.container.main",
+        "tour.studio.results.results.grid.thumbnailGrid",
+        "tour.studio.results.results.item.thumbnail",
+        "tour.studio.results.results.select.sort"
+      ],
+      "skipped": true,
+      "skipReason": "auth redirect"
+    },
+    "studio.browse": {
+      "path": "/studio?view=browse",
+      "anchors": [
+        "tour.studio.browse.grid.container.main",
+        "tour.studio.nav.sidebar.btn.browse",
+        "tour.studio.nav.sidebar.btn.create",
+        "tour.studio.nav.sidebar.btn.faces",
+        "tour.studio.nav.sidebar.btn.gallery",
+        "tour.studio.nav.sidebar.btn.palettes",
+        "tour.studio.nav.sidebar.btn.projects",
+        "tour.studio.nav.sidebar.btn.styles"
+      ],
+      "skipped": true,
+      "skipReason": "auth redirect"
+    },
+    "studio.gallery": {
+      "path": "/studio?view=gallery",
+      "anchors": [
+        "tour.studio.gallery.grid.container.main",
+        "tour.studio.nav.sidebar.btn.browse",
+        "tour.studio.nav.sidebar.btn.create",
+        "tour.studio.nav.sidebar.btn.faces",
+        "tour.studio.nav.sidebar.btn.gallery",
+        "tour.studio.nav.sidebar.btn.palettes",
+        "tour.studio.nav.sidebar.btn.projects",
+        "tour.studio.nav.sidebar.btn.styles"
+      ],
+      "skipped": true,
+      "skipReason": "auth redirect"
+    },
+    "studio.projects": {
+      "path": "/studio?view=projects",
+      "anchors": [
+        "tour.studio.nav.sidebar.btn.browse",
+        "tour.studio.nav.sidebar.btn.create",
+        "tour.studio.nav.sidebar.btn.faces",
+        "tour.studio.nav.sidebar.btn.gallery",
+        "tour.studio.nav.sidebar.btn.palettes",
+        "tour.studio.nav.sidebar.btn.projects",
+        "tour.studio.nav.sidebar.btn.styles",
+        "tour.studio.projects.grid.container.main"
+      ],
+      "skipped": true,
+      "skipReason": "auth redirect"
+    },
+    "studio.styles": {
+      "path": "/studio?view=styles",
+      "anchors": [
+        "tour.studio.nav.sidebar.btn.browse",
+        "tour.studio.nav.sidebar.btn.create",
+        "tour.studio.nav.sidebar.btn.faces",
+        "tour.studio.nav.sidebar.btn.gallery",
+        "tour.studio.nav.sidebar.btn.palettes",
+        "tour.studio.nav.sidebar.btn.projects",
+        "tour.studio.nav.sidebar.btn.styles",
+        "tour.studio.styles.grid.container.main"
+      ],
+      "skipped": true,
+      "skipReason": "auth redirect"
+    },
+    "studio.palettes": {
+      "path": "/studio?view=palettes",
+      "anchors": [
+        "tour.studio.nav.sidebar.btn.browse",
+        "tour.studio.nav.sidebar.btn.create",
+        "tour.studio.nav.sidebar.btn.faces",
+        "tour.studio.nav.sidebar.btn.gallery",
+        "tour.studio.nav.sidebar.btn.palettes",
+        "tour.studio.nav.sidebar.btn.projects",
+        "tour.studio.nav.sidebar.btn.styles",
+        "tour.studio.palettes.grid.container.main"
+      ],
+      "skipped": true,
+      "skipReason": "auth redirect"
+    },
+    "studio.faces": {
+      "path": "/studio?view=faces",
+      "anchors": [
+        "tour.studio.faces.grid.container.main",
+        "tour.studio.nav.sidebar.btn.browse",
+        "tour.studio.nav.sidebar.btn.create",
+        "tour.studio.nav.sidebar.btn.faces",
+        "tour.studio.nav.sidebar.btn.gallery",
+        "tour.studio.nav.sidebar.btn.palettes",
+        "tour.studio.nav.sidebar.btn.projects",
+        "tour.studio.nav.sidebar.btn.styles"
+      ],
+      "skipped": true,
+      "skipReason": "auth redirect"
+    },
+    "studio.youtube": {
+      "path": "/studio?view=youtube",
+      "anchors": [
+        "tour.studio.nav.sidebar.btn.browse",
+        "tour.studio.nav.sidebar.btn.create",
+        "tour.studio.nav.sidebar.btn.faces",
+        "tour.studio.nav.sidebar.btn.gallery",
+        "tour.studio.nav.sidebar.btn.palettes",
+        "tour.studio.nav.sidebar.btn.projects",
+        "tour.studio.nav.sidebar.btn.styles"
+      ],
+      "skipped": true,
+      "skipReason": "auth redirect"
+    },
+    "share.project": {
+      "path": "/p/[slug]",
+      "anchors": [],
+      "skipped": true,
+      "skipReason": "dynamic path"
+    },
+    "share.editor": {
+      "path": "/e/[slug]",
+      "anchors": [],
+      "skipped": true,
+      "skipReason": "dynamic path"
+    }
+  },
+  "events": [
+    "tour.event.route.ready",
+    "tour.event.auth.success",
+    "tour.event.auth.failed",
+    "tour.event.studio.view.changed",
+    "tour.event.studio.generate.started",
+    "tour.event.studio.generate.complete",
+    "tour.event.studio.generate.failed",
+    "tour.event.modal.opened",
+    "tour.event.modal.closed"
+  ]
+}

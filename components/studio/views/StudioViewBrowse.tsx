@@ -5,13 +5,14 @@
  * Browse view - browse public content with tabs for thumbnails, styles, and palettes.
  */
 
-import React, { useState, useCallback, memo } from "react";
+import React, { useState, useCallback, useEffect, memo } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Palette, Droplets, ImageIcon } from "lucide-react";
 import { BrowseThumbnails } from "@/components/studio/browse-thumbnails";
 import { BrowseStyles } from "@/components/studio/browse-styles";
 import { BrowsePalettes } from "@/components/studio/browse-palettes";
 import { usePrefetchPublicContent } from "@/lib/hooks/usePublicContent";
+import { emitTourEvent } from "@/tourkit/app/tourEvents.browser";
 
 type BrowseTab = "thumbnails" | "styles" | "palettes";
 
@@ -21,6 +22,13 @@ function StudioViewBrowse() {
 
   const handleTabChange = useCallback((value: string) => {
     setActiveTab(value as BrowseTab);
+  }, []);
+
+  useEffect(() => {
+    emitTourEvent("tour.event.route.ready", {
+      routeKey: "studio.browse",
+      anchorsPresent: ["tour.studio.browse.grid.container.main"],
+    });
   }, []);
 
   const handleTabHover = useCallback(
@@ -41,7 +49,7 @@ function StudioViewBrowse() {
   );
 
   return (
-    <div>
+    <div data-tour="tour.studio.browse.grid.container.main">
       <div className="mb-6">
         <h1 className="mb-2 text-2xl font-bold">Browse</h1>
         <p className="text-muted-foreground">Discover public content from the community</p>

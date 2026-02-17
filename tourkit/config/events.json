@@ -1,0 +1,77 @@
+{
+  "events": [
+    {
+      "name": "tour.event.route.ready",
+      "description": "Fired when a route's key anchors are present and the page/view is interactive",
+      "payloadExample": {
+        "routeKey": "auth",
+        "anchorsPresent": [
+          "tour.auth.form.input.email",
+          "tour.auth.form.input.password",
+          "tour.auth.form.btn.submit"
+        ]
+      }
+    },
+    {
+      "name": "tour.event.auth.success",
+      "description": "Fired after successful authentication and before redirecting to Studio",
+      "payloadExample": {
+        "method": "password",
+        "userId": "00000000-0000-0000-0000-000000000000"
+      }
+    },
+    {
+      "name": "tour.event.auth.failed",
+      "description": "Fired when an authentication attempt fails and UI error state is set",
+      "payloadExample": {
+        "method": "password",
+        "message": "Invalid login credentials"
+      }
+    },
+    {
+      "name": "tour.event.studio.view.changed",
+      "description": "Fired when the Studio current view changes via sidebar or deep-link handling",
+      "payloadExample": {
+        "view": "browse"
+      }
+    },
+    {
+      "name": "tour.event.studio.generate.started",
+      "description": "Fired when thumbnail generation starts from the Studio submit button",
+      "payloadExample": {
+        "projectId": "project_123",
+        "variations": 1,
+        "resolution": "1K",
+        "aspectRatio": "16:9"
+      }
+    },
+    {
+      "name": "tour.event.studio.generate.complete",
+      "description": "Fired when generation completes with one or more successful outputs",
+      "payloadExample": {
+        "successCount": 2
+      }
+    },
+    {
+      "name": "tour.event.studio.generate.failed",
+      "description": "Fired when generation fails fully or partially",
+      "payloadExample": {
+        "reason": "api"
+      }
+    },
+    {
+      "name": "tour.event.modal.opened",
+      "description": "Fired when a tracked modal/dialog is opened",
+      "payloadExample": {
+        "modalKey": "thumbnailEdit"
+      }
+    },
+    {
+      "name": "tour.event.modal.closed",
+      "description": "Fired when a tracked modal/dialog is closed",
+      "payloadExample": {
+        "modalKey": "thumbnailEdit"
+      }
+    }
+  ]
+}

@@ -228,6 +228,14 @@ export function FaceEditor({
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (open) {
+      emitTourEvent("tour.event.modal.opened", { modalKey: "faceEditor" });
+    } else {
+      emitTourEvent("tour.event.modal.closed", { modalKey: "faceEditor" });
+    }
+  }, [open]);
+
   // Initialize state when face changes or dialog opens
   useEffect(() => {
     if (open) {

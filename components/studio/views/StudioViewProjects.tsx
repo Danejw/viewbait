@@ -5,7 +5,7 @@
  * Projects view - lists all user projects in a card grid.
  */
 
-import React, { useState, useCallback, memo } from "react";
+import React, { useState, useCallback, useEffect, memo } from "react";
 import { useStudio } from "@/components/studio/studio-provider";
 import { ViewControls, ViewHeader } from "@/components/studio/view-controls";
 import { ProjectCard, ProjectCardSkeleton } from "@/components/studio/project-card";
@@ -34,6 +34,7 @@ import { Label } from "@/components/ui/label";
 import { FolderKanban, Plus, RefreshCw } from "lucide-react";
 import { useProjects } from "@/lib/hooks/useProjects";
 import type { DbProject } from "@/lib/types/database";
+import { emitTourEvent } from "@/tourkit/app/tourEvents.browser";
 
 function StudioViewProjects() {
   const {
@@ -85,6 +86,13 @@ function StudioViewProjects() {
     }
   }, [deleteConfirmId, deleteProject, activeProjectId, setActiveProjectId]);
 
+  useEffect(() => {
+    emitTourEvent("tour.event.route.ready", {
+      routeKey: "studio.projects",
+      anchorsPresent: ["tour.studio.projects.grid.container.main"],
+    });
+  }, []);
+
   const handleCreateSubmit = useCallback(async () => {
     const name = createName.trim();
     if (!name || isCreating) return;
@@ -106,7 +114,7 @@ function StudioViewProjects() {
 
   if (error) {
     return (
-      <div>
+      <div data-tour="tour.studio.projects.grid.container.main">
         <ViewHeader
           title="Projects"
           description="Organize thumbnails by project and reuse settings"
@@ -125,7 +133,7 @@ function StudioViewProjects() {
   }
 
   return (
-    <div>
+    <div data-tour="tour.studio.projects.grid.container.main">
       <ViewHeader
         title="Projects"
         description="Organize thumbnails by project and reuse settings"

@@ -21,7 +21,14 @@
     "benchmark": "node scripts/performance-score.js",
     "benchmark:landing": "node scripts/performance-score.js http://localhost:3000",
     "benchmark:studio": "node scripts/performance-score.js http://localhost:3000/studio",
-    "analyze": "ANALYZE=true npm run build"
+    "analyze": "ANALYZE=true npm run build",
+    "tourkit:doctor": "tsx tourkit/scripts/doctor.ts",
+    "tourkit:map": "tsx tourkit/scripts/generate-tour-map.ts",
+    "tourkit:gen": "tsx tourkit/scripts/generate-tour-from-guide.ts",
+    "tour:all": "playwright test tests/e2e/tourkit.spec.ts --grep @tourkit",
+    "pw:ui": "playwright test --ui",
+    "tour:first-thumbnail": "cross-env TOUR_FILE=tourkit/tours/first-thumbnail.tour.json playwright test tests/e2e/tourkit.spec.ts --grep @tour:first-thumbnail --headed",
+    "tour:first-thumbnail:ci": "cross-env TOUR_FILE=tourkit/tours/first-thumbnail.tour.json playwright test tests/e2e/tourkit.spec.ts --grep @tour:first-thumbnail"
   },
   "dependencies": {
     "@distube/ytdl-core": "^4.16.12",
@@ -94,6 +101,7 @@
   "sideEffects": false,
   "devDependencies": {
     "@next/bundle-analyzer": "^16.1.1",
+    "@playwright/test": "^1.58.2",
     "@tailwindcss/postcss": "^4",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/react": "^16.3.2",
@@ -104,12 +112,15 @@
     "@types/react-syntax-highlighter": "^15.5.11",
     "@vitejs/plugin-react": "^4.7.0",
     "chrome-launcher": "^1.1.0",
+    "cross-env": "^10.1.0",
+    "dotenv": "^17.3.1",
     "eslint": "^9",
     "eslint-config-next": "16.1.1",
     "happy-dom": "^20.6.1",
     "jsdom": "^27.0.1",
     "lighthouse": "^12.0.0",
     "tailwindcss": "^4",
+    "tsx": "^4.21.0",
     "typescript": "^5",
     "vitest": "^4.0.16",
     "web-vitals": "^4.2.4"

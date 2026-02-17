@@ -23,6 +23,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getAllowedRedirect } from "@/lib/utils/redirect-allowlist";
 import { track } from "@/lib/analytics/track";
+import { emitTourEvent } from "@/tourkit/app/tourEvents.browser";
 
 /** Lazy-load FeedbackModal (Dialog/sonner) so auth first paint and LCP are not delayed. */
 const FeedbackModalLazy = dynamic(
@@ -51,7 +52,7 @@ function GoogleIcon({ className }: { className?: string }) {
 function AuthForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { signIn, signUp, signInWithGoogle, isAuthenticated, isLoading: authLoading } = useAuth();
+  const { signIn, signUp, signInWithGoogle, user, isAuthenticated, isLoading: authLoading } = useAuth();
 
   // All hooks must run unconditionally before any return (Rules of Hooks)
   const [isMobile, setIsMobile] = useState(false);
@@ -86,6 +87,19 @@ function AuthForm() {
     }
   }, [isAuthenticated, authLoading, router, redirectTo]);
 
+  useEffect(() => {
+    if (authLoading || isAuthenticated) return;
+
+    emitTourEvent("tour.event.route.ready", {
+      routeKey: "auth",
+      anchorsPresent: [
+        "tour.auth.form.input.email",
+        "tour.auth.form.input.password",
+        "tour.auth.form.btn.submit",
+      ],
+    });
+  }, [authLoading, isAuthenticated]);
+
   // Show loading state while checking auth
   if (authLoading) {
     return (
@@ -117,8 +131,10 @@ function AuthForm() {
       const { error } = await signIn(email, password);
       if (error) {
         setError(error.message || "Failed to sign in");
+        emitTourEvent("tour.event.auth.failed", { method: "password", message: error.message || "Failed to sign in" });
       } else {
         track("sign_in");
+        emitTourEvent("tour.event.auth.success", { method: "password", userId: user?.id ?? null });
         // Redirect will happen automatically via useEffect
         router.push(redirectTo);
       }
@@ -188,9 +204,11 @@ function AuthForm() {
       const { error } = await signInWithGoogle(redirectTo);
       if (error) {
         setError(error.message || "Failed to sign in with Google");
+        emitTourEvent("tour.event.auth.failed", { method: "google", message: error.message || "Failed to sign in with Google" });
         setLoading(false);
       } else {
         track("sign_in");
+        emitTourEvent("tour.event.auth.success", { method: "google", userId: user?.id ?? null });
       }
       // If successful, Google OAuth will redirect the user
     } catch (err) {
@@ -463,10 +481,10 @@ function AuthForm() {
               className="w-full"
             >
               <TabsList className="mb-6 w-full">
-                <TabsTrigger value="signin" className="flex-1">
+                <TabsTrigger data-tour="tour.auth.form.tab.signin" value="signin" className="flex-1">
                   Sign In
                 </TabsTrigger>
-                <TabsTrigger value="signup" className="flex-1">
+                <TabsTrigger data-tour="tour.auth.form.tab.signup" value="signup" className="flex-1">
                   Sign Up
                 </TabsTrigger>
               </TabsList>
@@ -490,6 +508,7 @@ function AuthForm() {
                     <Label htmlFor="signin-email">Email</Label>
                     <Input
                       id="signin-email"
+                      data-tour="tour.auth.form.input.email"
                       type="email"
                       placeholder="you@example.com"
                       value={email}
@@ -504,6 +523,7 @@ function AuthForm() {
                       <Label htmlFor="signin-password">Password</Label>
                       <Button
                         type="button"
+                        data-tour="tour.auth.form.link.forgotPassword"
                         variant="link"
                         size="sm"
                         onClick={handleForgotPassword}
@@ -514,6 +534,7 @@ function AuthForm() {
                     </div>
                     <Input
                       id="signin-password"
+                      data-tour="tour.auth.form.input.password"
                       type="password"
                       placeholder="••••••••"
                       value={password}
@@ -523,7 +544,7 @@ function AuthForm() {
                       autoComplete="current-password"
                     />
                   </div>
-                  <Button type="submit" className="w-full" size="lg" disabled={loading}>
+                  <Button type="submit" data-tour="tour.auth.form.btn.submit" className="w-full" size="lg" disabled={loading}>
                     {loading ? (
                       <>
                         <ViewBaitLogo className="mr-2 h-4 w-4 animate-spin" />
@@ -639,6 +660,7 @@ function AuthForm() {
               {/* Google OAuth */}
               <Button
                 type="button"
+                data-tour="tour.auth.form.btn.google"
                 variant="outline"
                 className="w-full"
                 size="lg"

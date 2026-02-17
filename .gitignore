@@ -48,3 +48,8 @@ next-env.d.ts
 /docs/critiques/
 /docs/guides/
 /docs/plans/
+
+# TourKit secrets (credentials for tour runs)
+/tourkit/.env.tourkit
+
+!/tourkit/.env.tourkit.example

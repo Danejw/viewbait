@@ -82,6 +82,7 @@ export const StudioResultsHeader = memo(function StudioResultsHeader({
         <div className="flex items-center gap-2">
           <h2 className="mb-2 text-2xl font-bold">Create Thumbnails</h2>
           <Button
+            data-tour="tour.studio.results.results.btn.refresh"
             variant="ghost"
             size="sm"
             onClick={handleRefresh}
@@ -101,7 +102,7 @@ export const StudioResultsHeader = memo(function StudioResultsHeader({
             <GridZoomSlider value={gridZoomLevel} onValueChange={onGridZoomChange} />
           )}
           <Select value={sortValue} onValueChange={handleSortChange}>
-            <SelectTrigger className="w-[180px]" aria-label="Sort results">
+            <SelectTrigger data-tour="tour.studio.results.results.select.sort" className="w-[180px]" aria-label="Sort results">
               <SelectValue placeholder="Sort" />
             </SelectTrigger>
             <SelectContent>
@@ -270,7 +271,7 @@ export function StudioResults() {
     [zoomLevel]
   );
   return (
-    <div>
+    <div data-tour="tour.studio.results.results.container.main">
       <StudioResultsHeader
         gridZoomLevel={zoomLevel}
         onGridZoomChange={handleZoomChange}

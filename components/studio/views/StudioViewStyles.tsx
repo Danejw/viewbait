@@ -5,7 +5,7 @@
  * My Styles view - displays and manages saved visual styles.
  */
 
-import React, { useState, useCallback, memo, useMemo } from "react";
+import React, { useState, useCallback, useEffect, memo, useMemo } from "react";
 import { useStudio } from "@/components/studio/studio-provider";
 import { ViewControls, ViewHeader, type FilterOption, type SortOption } from "@/components/studio/view-controls";
 import { StyleThumbnailCard, StyleThumbnailCardSkeleton } from "@/components/studio/style-thumbnail-card";
@@ -30,6 +30,7 @@ import { useAuth } from "@/lib/hooks/useAuth";
 import { useStyles } from "@/lib/hooks/useStyles";
 import { useSubscription } from "@/lib/hooks/useSubscription";
 import type { DbStyle, StyleInsert, StyleUpdate } from "@/lib/types/database";
+import { emitTourEvent } from "@/tourkit/app/tourEvents.browser";
 
 type StyleFilter = "all" | "mine" | "defaults" | "public";
 
@@ -78,6 +79,13 @@ function StudioViewStyles() {
   const [sortValue, setSortValue] = useState("newest");
   const [searchQuery, setSearchQuery] = useState("");
   const [favoritesOnly, setFavoritesOnly] = useState(false);
+
+  useEffect(() => {
+    emitTourEvent("tour.event.route.ready", {
+      routeKey: "studio.styles",
+      anchorsPresent: ["tour.studio.styles.grid.container.main"],
+    });
+  }, []);
 
   const filteredStyles = useMemo(() => {
     let result = styles;
@@ -230,7 +238,7 @@ function StudioViewStyles() {
 
   if (error) {
     return (
-      <div>
+      <div data-tour="tour.studio.styles.grid.container.main">
         <ViewHeader title="My Styles" description="Manage your saved visual styles" />
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
@@ -246,7 +254,7 @@ function StudioViewStyles() {
   }
 
   return (
-    <div>
+    <div data-tour="tour.studio.styles.grid.container.main">
       <ViewHeader
         title="My Styles"
         description="Manage your saved visual styles for consistent thumbnail generation"

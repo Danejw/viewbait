@@ -124,6 +124,7 @@ export const ThumbnailGrid = memo(function ThumbnailGrid({
 
   return (
     <MasonryGrid
+      data-tour="tour.studio.results.results.grid.thumbnailGrid"
       breakpointCols={cols}
       gap={12}
       className={cn("w-full p-1", gridClassName)}
@@ -134,6 +135,7 @@ export const ThumbnailGrid = memo(function ThumbnailGrid({
             thumbnail={thumbnail}
             priority={index < 6}
             clickRankBorder={clickRankBorderById?.get(thumbnail.id)}
+            tourAnchor={index === 0 ? "tour.studio.results.results.item.thumbnail" : undefined}
           />
         </GridItem>
       ))}
