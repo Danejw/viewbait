@@ -28,6 +28,7 @@ import { RecentThumbnailsStrip } from "@/components/studio/recent-thumbnails-str
 import { CharacterSnapshotsStrip } from "@/components/studio/character-snapshots-strip";
 import { PlaceSnapshotsStrip } from "@/components/studio/place-snapshots-strip";
 import { ViewBaitLogo } from "@/components/ui/viewbait-logo";
+import { extractUrlsFromText } from "@/lib/utils/extract-urls";
 import { toast } from "sonner";
 
 export default function StudioViewYouTube() {
@@ -120,6 +121,11 @@ export default function StudioViewYouTube() {
     const q = searchQuery.toLowerCase();
     return videos.filter((v) => v.title?.toLowerCase().includes(q));
   }, [videos, searchQuery]);
+
+  const channelSocialLinks = useMemo(
+    () => extractUrlsFromText(channel?.description).slice(0, 8),
+    [channel?.description]
+  );
 
   const youtubeStyleExtract = useYouTubeStyleExtract(filteredVideos);
   const handleExtractAndOpenEditor = useCallback(async () => {
@@ -399,6 +405,7 @@ export default function StudioViewYouTube() {
                           .map((v) => v.thumbnailUrl)}
                         onThumbnailSetSuccess={fetchVideos}
                         canSetThumbnail={canSetThumbnail}
+                        channelSocialLinks={channelSocialLinks}
                       />
                     ))}
                   </div>
