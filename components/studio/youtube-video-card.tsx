@@ -12,7 +12,7 @@ import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from "
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useDraggable } from "@dnd-kit/core";
 import { motion } from "framer-motion";
-import { Copy, ExternalLink, Eye, ThumbsUp, BarChart3, ScanLine, Thermometer, RefreshCw, Layers, ImagePlus, Lightbulb } from "lucide-react";
+import { Copy, ExternalLink, Eye, ThumbsUp, BarChart3, ScanLine, Thermometer, RefreshCw, Layers, ImagePlus, Lightbulb, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -47,6 +47,7 @@ import { checkChannelConsistency } from "@/lib/services/youtube-channel-consiste
 import { buildVideoUnderstandingSummary } from "@/lib/utils/video-context-summary";
 import { copyToClipboardWithToast } from "@/lib/utils/clipboard";
 import { SetThumbnailPicker } from "@/components/studio/set-thumbnail-picker";
+import { YouTubeSeoOptimizerModal } from "@/components/studio/youtube-seo-optimizer-modal";
 import type { DragData } from "@/components/studio/studio-dnd-context";
 import type { Thumbnail } from "@/lib/types/database";
 
@@ -79,6 +80,8 @@ export interface YouTubeVideoCardProps {
   onThumbnailSetSuccess?: () => void;
   /** When false, hide "Use thumbnail for this video" (e.g. not Pro, not connected, or missing scope). Default true for backward compatibility. */
   canSetThumbnail?: boolean;
+  /** Channel social/profile links (for generated SEO description links section). */
+  channelSocialLinks?: string[];
 }
 
 const YOUTUBE_WATCH_URL = "https://www.youtube.com/watch?v=";
@@ -119,16 +122,19 @@ export const YouTubeVideoCard = memo(function YouTubeVideoCard({
   otherChannelThumbnailUrls,
   onThumbnailSetSuccess,
   canSetThumbnail = true,
+  channelSocialLinks,
 }: YouTubeVideoCardProps) {
   const { videoId, title, thumbnailUrl, viewCount, likeCount } = video;
   const [setThumbnailPickerVideo, setSetThumbnailPickerVideo] = useState<{
     videoId: string;
     title: string;
   } | null>(null);
+  const [seoModalOpen, setSeoModalOpen] = useState(false);
   const hasStats = viewCount != null || likeCount != null;
   const { state, actions } = useStudio();
   const isVideoAnalyticsLoading = state.videoAnalyticsLoadingVideoIds.includes(videoId);
   const hasAnalyticsCached = state.videoAnalyticsCache[videoId] != null;
+  const cachedAnalytics = state.videoAnalyticsCache[videoId];
   const hasSuggestConceptsCached = (state.videoSuggestConceptsCache[videoId]?.length ?? 0) > 0;
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isReRolling, setIsReRolling] = useState(false);
@@ -495,6 +501,13 @@ export const YouTubeVideoCard = memo(function YouTubeVideoCard({
       }}
     >
       <ActionButton icon={Copy} label="Use title" onClick={handleUseTitle} />
+      {canSetThumbnail && hasAnalyticsCached && (
+        <ActionButton
+          icon={Sparkles}
+          label="Generate SEO title + description"
+          onClick={() => setSeoModalOpen(true)}
+        />
+      )}
       {canSetThumbnail && (
         <ActionButton
           icon={ImagePlus}
@@ -820,6 +833,18 @@ export const YouTubeVideoCard = memo(function YouTubeVideoCard({
           open={true}
           onOpenChange={(open) => !open && setSetThumbnailPickerVideo(null)}
           onSuccess={onThumbnailSetSuccess}
+        />
+      )}
+      {seoModalOpen && cachedAnalytics && (
+        <YouTubeSeoOptimizerModal
+          open={seoModalOpen}
+          onOpenChange={setSeoModalOpen}
+          videoId={videoId}
+          videoTitle={title}
+          analytics={cachedAnalytics}
+          channelTitle={channel?.title}
+          channelDescription={channel?.description}
+          channelSocialLinks={channelSocialLinks}
         />
       )}
     </div>
