@@ -28,7 +28,9 @@
     "tour:all": "playwright test tests/e2e/tourkit.spec.ts --grep @tourkit",
     "pw:ui": "playwright test --ui",
     "tour:first-thumbnail": "cross-env TOUR_FILE=tourkit/tours/first-thumbnail.tour.json playwright test tests/e2e/tourkit.spec.ts --grep @tour:first-thumbnail --headed",
-    "tour:first-thumbnail:ci": "cross-env TOUR_FILE=tourkit/tours/first-thumbnail.tour.json playwright test tests/e2e/tourkit.spec.ts --grep @tour:first-thumbnail"
+    "tour:first-thumbnail:ci": "cross-env TOUR_FILE=tourkit/tours/first-thumbnail.tour.json playwright test tests/e2e/tourkit.spec.ts --grep @tour:first-thumbnail",
+    "tour:title-custom-instructions-tips": "cross-env TOUR_OVERLAY=0 TOUR_FILE=tourkit/tours/title-custom-instructions-tips.tour.json playwright test tests/e2e/tourkit.spec.ts --grep @tour:title-custom-instructions-tips --headed",
+    "tour:title-custom-instructions-tips:ci": "cross-env TOUR_OVERLAY=0 TOUR_FILE=tourkit/tours/title-custom-instructions-tips.tour.json playwright test tests/e2e/tourkit.spec.ts --grep @tour:title-custom-instructions-tips"
   },
   "dependencies": {
     "@distube/ytdl-core": "^4.16.12",

@@ -1,15 +1,34 @@
 import fs from "node:fs";
 import path from "node:path";
 
+type StepMetadata = {
+  preDelayMs?: number;
+  narration?: string;
+  capture?: { when: "before" | "after"; name: string; fullPage?: boolean };
+  annotate?: { targetScreenshot?: string; instructions: string; style?: string; notes?: string };
+};
+
+type TourStepBase = StepMetadata & {
+  label?: string;
+  timeoutMs?: number;
+};
+
 type TourStep =
-  | { type: "say"; message: string }
-  | { type: "goto"; routeKey: string }
-  | { type: "click"; label: string; anchor: string }
-  | { type: "fill"; label: string; anchor: string; value?: string; valueEnv?: string }
-  | { type: "waitForEvent"; label: string; name: string; timeoutMs: number }
-  | { type: "expectVisible"; label: string; anchor: string; timeoutMs: number }
-  | { type: "waitMs"; ms: number }
-  | { type: "snapshot"; label: string; name: string };
+  | (TourStepBase & { type: "narration" | "say"; message: string })
+  | (TourStepBase & { type: "goto"; routeKey: string })
+  | (TourStepBase & { type: "click"; anchor: string })
+  | (TourStepBase & { type: "fill"; anchor: string; value?: string; valueEnv?: string })
+  | (TourStepBase & { type: "waitForEvent"; name: string; timeoutMs: number })
+  | (TourStepBase & { type: "expectVisible"; anchor: string; timeoutMs: number })
+  | (TourStepBase & { type: "waitMs"; durationMs: number })
+  | (TourStepBase & { type: "screenshot" | "snapshot"; name: string; fullPage?: boolean })
+  | (TourStepBase & {
+      type: "annotate";
+      targetScreenshot?: string;
+      instructions: string;
+      style?: string;
+      notes?: string;
+    });
 
 type TourFile = {
   tourId: string;
@@ -24,6 +43,10 @@ type TourMap = {
 };
 
 const DEFAULT_TIMEOUT = 10_000;
+const INTRO_BY_TOUR: Record<string, string> = {
+  "title-custom-instructions-tips":
+    "Welcome! In this quick tour, we'll compare thumbnail titles with and without subtitles, then use custom instructions to make results more relevant to your video context.",
+};
 
 function die(message: string): never {
   console.error(message);
@@ -51,7 +74,7 @@ function levenshtein(a: string, b: string): number {
 }
 
 function nearestMatches(target: string, candidates: string[], max = 3): string[] {
-  const ranked = candidates
+  return candidates
     .map((candidate) => ({
       candidate,
       score:
@@ -62,8 +85,6 @@ function nearestMatches(target: string, candidates: string[], max = 3): string[]
     .sort((a, b) => a.score - b.score)
     .slice(0, max)
     .map((item) => item.candidate);
-
-  return ranked;
 }
 
 function extractParenValue(input: string): string {
@@ -78,6 +99,57 @@ function parseTimeout(raw: string | undefined): number {
   return Number.isFinite(parsed) ? parsed : DEFAULT_TIMEOUT;
 }
 
+function extractQuoted(text: string): string {
+  const trimmed = text.trim();
+  if (
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'"))
+  ) {
+    return trimmed.slice(1, -1);
+  }
+  return trimmed;
+}
+
+function splitBaseAndModifiers(line: string): { base: string; meta: StepMetadata } {
+  const parts = line.split(" |").map((part) => part.trim());
+  const base = parts[0]?.trim() ?? line;
+  const meta: StepMetadata = {};
+
+  for (const raw of parts.slice(1)) {
+    if (!raw) continue;
+
+    if (raw.startsWith("predelay:")) {
+      const n = Number(raw.replace(/^predelay:/, "").trim());
+      if (Number.isFinite(n) && n >= 0) meta.preDelayMs = n;
+      continue;
+    }
+
+    if (raw.startsWith("narration:")) {
+      meta.narration = extractQuoted(raw.replace(/^narration:/, ""));
+      continue;
+    }
+
+    if (raw.startsWith("capture:")) {
+      const m = raw.match(/^capture:(before|after):([^:]+)(?::fullPage=(true|false))?$/i);
+      if (m) {
+        meta.capture = {
+          when: m[1].toLowerCase() as "before" | "after",
+          name: m[2].trim(),
+          ...(m[3] ? { fullPage: m[3].toLowerCase() === "true" } : {}),
+        };
+      }
+      continue;
+    }
+
+    if (raw.startsWith("annotate:")) {
+      meta.annotate = { instructions: extractQuoted(raw.replace(/^annotate:/, "")) };
+      continue;
+    }
+  }
+
+  return { base, meta };
+}
+
 function parseGuideLines(lines: string[]): TourStep[] {
   const steps: TourStep[] = [];
 
@@ -85,35 +157,42 @@ function parseGuideLines(lines: string[]): TourStep[] {
     const line = rawLine.trim();
     if (!line || line.startsWith("#")) continue;
 
-    if (line.startsWith("Say:")) {
-      steps.push({ type: "say", message: line.replace(/^Say:\s*/, "") });
+    const { base, meta } = splitBaseAndModifiers(line);
+
+    if (base.startsWith("Narration:")) {
+      steps.push({ type: "narration", message: base.replace(/^Narration:\s*/, ""), ...meta });
       continue;
     }
 
-    if (line.startsWith("Goto routeKey:")) {
-      steps.push({ type: "goto", routeKey: line.replace(/^Goto routeKey:\s*/, "").trim() });
+    if (base.startsWith("Say:")) {
+      steps.push({ type: "narration", message: base.replace(/^Say:\s*/, ""), ...meta });
       continue;
     }
 
-    if (line.startsWith("Click ")) {
-      const anchor = extractParenValue(line);
-      const label = line.replace(/^Click\s+/, "").replace(/\s*\([^)]+\)\s*$/, "").trim();
-      steps.push({ type: "click", label, anchor });
+    if (base.startsWith("Goto routeKey:")) {
+      steps.push({ type: "goto", routeKey: base.replace(/^Goto routeKey:\s*/, "").trim(), ...meta });
       continue;
     }
 
-    if (line.startsWith("Fill ")) {
-      const anchor = extractParenValue(line);
-      const label = line
+    if (base.startsWith("Click ")) {
+      const anchor = extractParenValue(base);
+      const label = base.replace(/^Click\s+/, "").replace(/\s*\([^)]+\)\s*$/, "").trim();
+      steps.push({ type: "click", label, anchor, ...meta });
+      continue;
+    }
+
+    if (base.startsWith("Fill ")) {
+      const anchor = extractParenValue(base);
+      const label = base
         .replace(/^Fill\s+/, "")
         .replace(/\s*\([^)]+\)\s*(value|env):.*$/, "")
         .trim();
 
-      const envMatch = line.match(/\senv:([A-Z0-9_]+)/);
-      const valueMatch = line.match(/\svalue:(.+)$/);
+      const envMatch = base.match(/\senv:([A-Z0-9_]+)/);
+      const valueMatch = base.match(/\svalue:(.+)$/);
 
       if (!envMatch && !valueMatch) {
-        throw new Error(`Fill step requires value:<literal> or env:<ENV>. Line: ${line}`);
+        throw new Error(`Fill step requires value:<literal> or env:<ENV>. Line: ${base}`);
       }
 
       steps.push({
@@ -122,49 +201,104 @@ function parseGuideLines(lines: string[]): TourStep[] {
         anchor,
         ...(envMatch ? { valueEnv: envMatch[1] } : {}),
         ...(valueMatch ? { value: valueMatch[1].trim() } : {}),
+        ...meta,
       });
       continue;
     }
 
-    if (line.startsWith("Wait for ")) {
-      const name = extractParenValue(line);
-      const timeoutMatch = line.match(/\stimeout:(\d+)/);
-      const label = line
+    if (base.startsWith("Wait for ")) {
+      const name = extractParenValue(base);
+      const timeoutMatch = base.match(/\stimeout:(\d+)/);
+      const label = base
         .replace(/^Wait for\s+/, "")
         .replace(/\s*\([^)]+\)\s*(timeout:\d+)?\s*$/, "")
         .trim();
 
-      steps.push({ type: "waitForEvent", label, name, timeoutMs: parseTimeout(timeoutMatch?.[1]) });
+      steps.push({
+        type: "waitForEvent",
+        label,
+        name,
+        timeoutMs: parseTimeout(timeoutMatch?.[1]),
+        ...meta,
+      });
       continue;
     }
 
-    if (line.startsWith("Expect visible ")) {
-      const anchor = extractParenValue(line);
-      const timeoutMatch = line.match(/\stimeout:(\d+)/);
-      const label = line
+    if (base.startsWith("Expect visible ")) {
+      const anchor = extractParenValue(base);
+      const timeoutMatch = base.match(/\stimeout:(\d+)/);
+      const label = base
         .replace(/^Expect visible\s+/, "")
         .replace(/\s*\([^)]+\)\s*(timeout:\d+)?\s*$/, "")
         .trim();
 
-      steps.push({ type: "expectVisible", label, anchor, timeoutMs: parseTimeout(timeoutMatch?.[1]) });
+      steps.push({
+        type: "expectVisible",
+        label,
+        anchor,
+        timeoutMs: parseTimeout(timeoutMatch?.[1]),
+        ...meta,
+      });
       continue;
     }
 
-    const waitMatch = line.match(/^Wait\s+(\d+)ms$/);
+    const waitMatch = base.match(/^Wait\s+(\d+)ms$/);
     if (waitMatch) {
-      steps.push({ type: "waitMs", ms: Number(waitMatch[1]) });
+      steps.push({ type: "waitMs", durationMs: Number(waitMatch[1]), ...meta });
       continue;
     }
 
-    if (line.startsWith("Snapshot ")) {
-      const nameMatch = line.match(/\sname:([^\s]+)$/);
-      const label = line.replace(/^Snapshot\s+/, "").replace(/\sname:[^\s]+\s*$/, "").trim();
+    if (base.startsWith("Screenshot ")) {
+      const nameMatch = base.match(/\sname:([^\s]+)$/);
+      const fullPageMatch = base.match(/\sfullPage:(true|false)$/);
+      const label = base
+        .replace(/^Screenshot\s+/, "")
+        .replace(/\sname:[^\s]+\s*(fullPage:(true|false))?\s*$/, "")
+        .trim();
       const name = nameMatch?.[1] ?? label;
-      steps.push({ type: "snapshot", label, name });
+
+      steps.push({
+        type: "screenshot",
+        label,
+        name,
+        ...(fullPageMatch ? { fullPage: fullPageMatch[1] === "true" } : {}),
+        ...meta,
+      });
       continue;
     }
 
-    throw new Error(`Unsupported DSL line: ${line}`);
+    if (base.startsWith("Snapshot ")) {
+      const nameMatch = base.match(/\sname:([^\s]+)$/);
+      const label = base.replace(/^Snapshot\s+/, "").replace(/\sname:[^\s]+\s*$/, "").trim();
+      const name = nameMatch?.[1] ?? label;
+      steps.push({ type: "screenshot", label, name, ...meta });
+      continue;
+    }
+
+    if (base.startsWith("Annotate ")) {
+      const targetMatch = base.match(/\starget:([^\s]+)\s/);
+      const instructionsMatch = base.match(/\sinstructions:(.+)$/);
+      if (!instructionsMatch) {
+        throw new Error(`Annotate step requires instructions:<text>. Line: ${base}`);
+      }
+
+      const label = base
+        .replace(/^Annotate\s+/, "")
+        .replace(/\starget:[^\s]+\s+instructions:.+$/, "")
+        .replace(/\sinstructions:.+$/, "")
+        .trim();
+
+      steps.push({
+        type: "annotate",
+        label,
+        ...(targetMatch ? { targetScreenshot: targetMatch[1] } : {}),
+        instructions: instructionsMatch[1].trim(),
+        ...meta,
+      });
+      continue;
+    }
+
+    throw new Error(`Unsupported DSL line: ${base}`);
   }
 
   return steps;
@@ -198,6 +332,18 @@ function inlineFragments(lines: string[], guidesRoot: string): string[] {
   return out;
 }
 
+function ensureIntroStep(tourId: string, steps: TourStep[]): TourStep[] {
+  if (steps.length > 0 && (steps[0].type === "narration" || steps[0].type === "say")) {
+    return steps;
+  }
+
+  const message =
+    INTRO_BY_TOUR[tourId] ??
+    "Welcome! In this quick tour we'll walk through this workflow step by step and highlight the most important controls and outcomes.";
+
+  return [{ type: "narration", message }, ...steps];
+}
+
 function main(): void {
   const guideArg = process.argv[2];
   if (!guideArg) {
@@ -218,7 +364,10 @@ function main(): void {
 
   const rawLines = fs.readFileSync(guidePath, "utf8").split(/\r?\n/);
   const resolvedLines = inlineFragments(rawLines, path.resolve(process.cwd(), "tourkit/guides"));
-  const steps = parseGuideLines(resolvedLines);
+  let steps = parseGuideLines(resolvedLines);
+
+  const tourId = path.basename(guidePath, path.extname(guidePath));
+  steps = ensureIntroStep(tourId, steps);
 
   const mapPath = path.resolve(process.cwd(), "tourkit/maps/tour.map.json");
   const mapExists = fs.existsSync(mapPath);
@@ -268,7 +417,6 @@ function main(): void {
     process.exit(1);
   }
 
-  const tourId = path.basename(guidePath, path.extname(guidePath));
   const tourFile: TourFile = {
     tourId,
     description: `Generated from guide ${path.basename(guidePath)}`,
