@@ -65,6 +65,13 @@ function StudioViewFaces() {
   const [sortValue, setSortValue] = useState("newest");
   const [searchQuery, setSearchQuery] = useState("");
 
+  useEffect(() => {
+    emitTourEvent("tour.event.route.ready", {
+      routeKey: "studio.faces",
+      anchorsPresent: ["tour.studio.faces.grid.container.main"],
+    });
+  }, []);
+
   const faces = useMemo(() => {
     let result = allFaces;
     if (searchQuery.trim()) {
@@ -145,7 +152,7 @@ function StudioViewFaces() {
 
   if (error) {
     return (
-      <div>
+      <div data-tour="tour.studio.faces.grid.container.main">
         <ViewHeader title="My Faces" description="Manage your saved face references" />
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
@@ -161,7 +168,7 @@ function StudioViewFaces() {
   }
 
   return (
-    <div>
+    <div data-tour="tour.studio.faces.grid.container.main">
       <ViewHeader
         title="My Faces"
         description="Manage your saved face references for consistent thumbnail generation"

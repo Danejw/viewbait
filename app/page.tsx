@@ -8,6 +8,7 @@ import { Crown } from "lucide-react";
 import { PublicBetaBanner } from "@/components/landing/public-beta-banner";
 import { ScrollReveal } from "@/components/landing/scroll-reveal";
 import { useAuth } from "@/lib/hooks/useAuth";
+import { emitTourEvent } from "@/tourkit/app/tourEvents.browser";
 
 /** Lazy-load Lenis after FCP to avoid initial TBT from rAF loop; smooth scroll loads later. */
 const LenisRootLazy = dynamic(
@@ -65,6 +66,17 @@ export default function ViewBaitLanding() {
 
   /** Studio entry: signed-in users go to studio, others to auth. */
   const studioOrAuthHref = isAuthenticated ? "/studio" : "/auth";
+
+  useEffect(() => {
+    emitTourEvent("tour.event.route.ready", {
+      routeKey: "home",
+      anchorsPresent: [
+        "tour.home.nav.cta.openStudio",
+        "tour.home.hero.cta.startCreating",
+        "tour.home.footer.link.openStudio",
+      ],
+    });
+  }, []);
 
   /** Throttled scroll listener for nav (background when scrollY > 50). Runs until Lenis takes over; then Lenis drives scrollY. */
   useEffect(() => {
@@ -225,6 +237,7 @@ export default function ViewBaitLanding() {
           ))}
           <Link
             href={studioOrAuthHref}
+            data-tour="tour.home.nav.cta.openStudio"
             onClick={handleNavClick}
             className="btn-crt btn-crt-primary"
             style={{
@@ -553,6 +566,7 @@ export default function ViewBaitLanding() {
               >
                 <Link
                   href={studioOrAuthHref}
+                  data-tour="tour.home.hero.cta.startCreating"
                   className="hot-zone btn-crt btn-crt-primary"
                   style={{
                     padding: "16px 28px",
@@ -1810,6 +1824,7 @@ export default function ViewBaitLanding() {
 
           <Link
             href={studioOrAuthHref}
+            data-tour="tour.home.footer.link.openStudio"
             className="hot-zone btn-crt btn-crt-primary"
             style={{
               padding: "20px 44px",

@@ -150,6 +150,7 @@ export function StudioGeneratorThumbnailText() {
       <div className="relative">
         <Input
           ref={thumbnailTextRef}
+          data-tour="tour.studio.create.form.input.thumbnailTitle"
           value={thumbnailText}
           onChange={(e) => setThumbnailText(e.target.value)}
           placeholder="Enter a title for your thumbnail..."
@@ -226,6 +227,7 @@ export function StudioGeneratorCustomInstructions() {
       <label className="mb-2 block text-sm font-medium">Custom Instructions</label>
       <Textarea
         ref={customInstructionsRef}
+        data-tour="tour.studio.create.form.text.customInstructions"
         value={customInstructions}
         onChange={(e) => setCustomInstructions(e.target.value)}
         placeholder="Describe your thumbnail in detail..."
@@ -926,6 +928,7 @@ export function StudioGeneratorAspectRatio() {
               size="sm"
               disabled={!allowed}
               onClick={() => allowed && setSelectedAspectRatio(ratio)}
+              data-tour={ratio === "16:9" ? "tour.studio.create.form.btn.aspectRatio.16_9" : undefined}
               className="gap-1"
             >
               {!allowed && <Lock className="h-3 w-3 shrink-0" />}
@@ -975,6 +978,7 @@ export function StudioGeneratorResolution() {
               size="sm"
               disabled={!allowed}
               onClick={() => allowed && setSelectedResolution(res)}
+              data-tour={res === "1K" ? "tour.studio.create.form.btn.resolution.1k" : undefined}
               className="gap-1"
             >
               {!allowed && <Lock className="h-3 w-3 shrink-0" />}
@@ -1033,6 +1037,7 @@ export function StudioGeneratorVariations() {
               size="sm"
               disabled={!allowed}
               onClick={() => allowed && setVariations(n)}
+              data-tour={n === 1 ? "tour.studio.create.form.btn.variations.1" : undefined}
               className="gap-1"
             >
               {!allowed && <Lock className="h-3 w-3 shrink-0" />}
@@ -1424,6 +1429,7 @@ export function StudioGeneratorSubmit({
     <div className="space-y-2">
       <Button
         onClick={generateThumbnails}
+        data-tour="tour.studio.create.form.btn.generate"
         disabled={isDisabled}
         size="lg"
         className={cn(

@@ -10,7 +10,7 @@
  * Grid zoom slider: zoom in = fewer columns (larger thumbnails), zoom out = more columns (more thumbnails). Preference persisted in localStorage.
  */
 
-import React, { useState, useCallback, useRef } from "react";
+import React, { useState, useCallback, useRef, useEffect } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { ArrowLeft, ImageIcon } from "lucide-react";
@@ -23,6 +23,7 @@ import { MasonryGrid, type MasonryGridBreakpoints } from "@/components/studio/ma
 import { GridZoomSlider } from "@/components/studio/grid-zoom-slider";
 import { SharedGalleryCard, SharedGalleryCardSkeleton } from "@/components/studio/shared-gallery-card";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { emitTourEvent } from "@/tourkit/app/tourEvents.browser";
 import { recordSharedProjectClick } from "@/lib/services/projects";
 import { getMasonryBreakpointCols, DEFAULT_ZOOM_LEVEL } from "@/lib/utils/grid-zoom";
 import { useGridZoom } from "@/lib/hooks/useGridZoom";
@@ -99,6 +100,13 @@ export default function SharedProjectGalleryPage() {
   const { data, canComment, projectId, isLoading, error, refetch } = useSharedProjectGallery(slug);
   const [selectedThumbnail, setSelectedThumbnail] = useState<PublicThumbnailData | null>(null);
   const [zoomLevel, , handleZoomChange] = useGridZoom("shared-gallery-zoom");
+  useEffect(() => {
+    emitTourEvent("tour.event.route.ready", {
+      routeKey: "share.project",
+      anchorsPresent: ["tour.share.project.grid.container.main"],
+    });
+  }, []);
+
   /** One click per 1 second per thumbnail (different thumbnails can be recorded without waiting). */
   const lastRecordedByThumbIdRef = useRef<Record<string, number>>({});
   const CLICK_COOLDOWN_MS = 1000;
@@ -227,6 +235,7 @@ export default function SharedProjectGalleryPage() {
             ) : (
               <>
                 <MasonryGrid
+                  data-tour="tour.share.project.grid.container.main"
                   breakpointCols={getMasonryBreakpointCols(zoomLevel) as MasonryGridBreakpoints}
                   gap={12}
                   className="w-full"
@@ -244,13 +253,15 @@ export default function SharedProjectGalleryPage() {
                   ))}
                 </MasonryGrid>
                 {selectedThumbnail && (
-                  <ImageModal
+                  <div data-tour="tour.share.project.modal.modal.thumbnail">
+                    <ImageModal
                     open={selectedThumbnail !== null}
                     onOpenChange={(open) => !open && setSelectedThumbnail(null)}
                     src={selectedThumbnail.image_url}
                     alt={selectedThumbnail.title}
                     title={selectedThumbnail.title}
                   />
+                  </div>
                 )}
               </>
             )}

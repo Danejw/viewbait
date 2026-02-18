@@ -46,6 +46,7 @@
   import { TooltipProvider } from "@/components/ui/tooltip";
   import { isAllowedRedirect } from "@/lib/utils/redirect-allowlist";
   import type { Thumbnail } from "@/lib/types/database";
+import { emitTourEvent } from "@/tourkit/app/tourEvents.browser";
 
   const ONBOARDING_REDIRECT_KEY = "onboarding_redirect";
 
@@ -66,6 +67,17 @@
   function OnboardingWelcomeShell({ onGetStarted }: { onGetStarted: () => void }) {
     const router = useRouter();
     const [isSkippingToStudio, setIsSkippingToStudio] = useState(false);
+
+    useEffect(() => {
+      emitTourEvent("tour.event.route.ready", {
+        routeKey: "onboarding",
+        anchorsPresent: [
+          "tour.onboarding.welcome.btn.getStarted",
+          "tour.onboarding.welcome.btn.skipToStudio",
+          "tour.onboarding.step.progress.container.main",
+        ],
+      });
+    }, []);
 
     async function handleSkipToStudio() {
       setIsSkippingToStudio(true);
@@ -174,6 +186,7 @@
 
           <button
             type="button"
+            data-tour="tour.onboarding.welcome.btn.skipToStudio"
             onClick={handleSkipToStudio}
             disabled={isSkippingToStudio}
             className="btn-crt"
@@ -204,7 +217,8 @@
             zIndex: 1,
           }}
         >
-          <div className="progress-container w-full">
+          <div className="progress-container w-full"
+            data-tour="tour.onboarding.step.progress.container.main">
             {[0, 1, 2, 3, 4, 5].map((i) => (
               <div key={i} className="progress-step">
                 <div className="progress-step-fill" style={{ width: i === 0 ? "100%" : "0%" }} />
@@ -252,6 +266,7 @@
               <button
                 type="button"
                 className="btn-primary w-full"
+                data-tour="tour.onboarding.welcome.btn.getStarted"
                 onClick={onGetStarted}
               >
                 Get started

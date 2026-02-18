@@ -6,7 +6,7 @@
  * Uses local state for sorting/filtering preferences separate from generator view.
  */
 
-import React, { useState, useCallback, memo, useMemo } from "react";
+import React, { useState, useCallback, useEffect, memo, useMemo } from "react";
 import { ViewControls, ViewHeader, type FilterOption, type SortOption } from "@/components/studio/view-controls";
 import { ThumbnailGrid } from "@/components/studio/thumbnail-grid";
 import { GridZoomSlider } from "@/components/studio/grid-zoom-slider";
@@ -21,6 +21,7 @@ import { useGridZoom } from "@/lib/hooks/useGridZoom";
 import { getMasonryBreakpointCols } from "@/lib/utils/grid-zoom";
 import { getClickRankBorderMap } from "@/lib/utils/click-rank-borders";
 import type { ThumbnailSortOption, SortDirection } from "@/lib/hooks/useThumbnails";
+import { emitTourEvent } from "@/tourkit/app/tourEvents.browser";
 
 const GALLERY_PROJECT_NONE = "__none__";
 const GALLERY_PROJECT_ALL = "all";
@@ -95,6 +96,13 @@ function StudioViewGallery() {
     projectId: projectIdForQuery,
   });
 
+  useEffect(() => {
+    emitTourEvent("tour.event.route.ready", {
+      routeKey: "studio.gallery",
+      anchorsPresent: ["tour.studio.gallery.grid.container.main"],
+    });
+  }, []);
+
   const thumbnails = useMemo(() => {
     if (!searchQuery.trim()) return allThumbnails;
     const query = searchQuery.toLowerCase();
@@ -121,7 +129,7 @@ function StudioViewGallery() {
 
   if (isError) {
     return (
-      <div>
+      <div data-tour="tour.studio.gallery.grid.container.main">
         <div className="mb-6">
           <h1 className="mb-2 text-2xl font-bold">Gallery</h1>
           <p className="text-muted-foreground">All your generated thumbnails</p>
@@ -142,7 +150,7 @@ function StudioViewGallery() {
   }
 
   return (
-    <div>
+    <div data-tour="tour.studio.gallery.grid.container.main">
       <ViewHeader
         title="Gallery"
         description="All your generated thumbnails"

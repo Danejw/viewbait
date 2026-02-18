@@ -28,6 +28,7 @@ import { cn } from "@/lib/utils";
 import { useSubscription } from "@/lib/hooks/useSubscription";
 import { useWatermarkedImage } from "@/lib/hooks/useWatermarkedImage";
 import type { Thumbnail } from "@/lib/types/database";
+import { emitTourEvent } from "@/tourkit/app/tourEvents.browser";
 
 export interface ThumbnailEditData {
   title: string;
@@ -60,6 +61,12 @@ export function ThumbnailEditModal({
 
   // Reset form when thumbnail changes or modal opens
   useEffect(() => {
+    if (open) {
+      emitTourEvent("tour.event.modal.opened", { modalKey: "thumbnailEdit" });
+    } else {
+      emitTourEvent("tour.event.modal.closed", { modalKey: "thumbnailEdit" });
+    }
+
     if (thumbnail && open) {
       setTitle(thumbnail.name || "");
       setCustomPrompt("");

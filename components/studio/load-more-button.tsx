@@ -25,6 +25,7 @@ export function LoadMoreButton({ onLoadMore, loading, className }: LoadMoreButto
       <Button
         variant="outline"
         onClick={onLoadMore}
+        data-tour="tour.studio.results.results.btn.loadMore"
         disabled={loading}
         className="gap-2"
       >

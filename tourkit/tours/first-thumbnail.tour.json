@@ -1,0 +1,126 @@
+{
+  "tourId": "first-thumbnail",
+  "description": "Generated from guide first-thumbnail.md",
+  "steps": [
+    {
+      "type": "say",
+      "message": "Logging in to the app."
+    },
+    {
+      "type": "goto",
+      "routeKey": "auth"
+    },
+    {
+      "type": "fill",
+      "label": "Email",
+      "anchor": "tour.auth.form.input.email",
+      "valueEnv": "E2E_EMAIL"
+    },
+    {
+      "type": "fill",
+      "label": "Password",
+      "anchor": "tour.auth.form.input.password",
+      "valueEnv": "E2E_PASSWORD"
+    },
+    {
+      "type": "click",
+      "label": "Login",
+      "anchor": "tour.auth.form.btn.submit"
+    },
+    {
+      "type": "waitForEvent",
+      "label": "Auth Success",
+      "name": "tour.event.auth.success",
+      "timeoutMs": 30000
+    },
+    {
+      "type": "say",
+      "message": "Great, you're signed in. Let's create your first thumbnail."
+    },
+    {
+      "type": "goto",
+      "routeKey": "studio.create"
+    },
+    {
+      "type": "waitForEvent",
+      "label": "Studio Create Ready",
+      "name": "tour.event.route.ready",
+      "timeoutMs": 1200000
+    },
+    {
+      "type": "expectVisible",
+      "label": "Create Sidebar Button",
+      "anchor": "tour.studio.nav.sidebar.btn.create",
+      "timeoutMs": 15000
+    },
+    {
+      "type": "click",
+      "label": "Create Sidebar Button",
+      "anchor": "tour.studio.nav.sidebar.btn.create"
+    },
+    {
+      "type": "fill",
+      "label": "Thumbnail Title",
+      "anchor": "tour.studio.create.form.input.thumbnailTitle",
+      "value": "My First Thumbnail"
+    },
+    {
+      "type": "click",
+      "label": "Aspect Ratio 16:9",
+      "anchor": "tour.studio.create.form.btn.aspectRatio.16_9"
+    },
+    {
+      "type": "click",
+      "label": "Resolution 1K",
+      "anchor": "tour.studio.create.form.btn.resolution.1k"
+    },
+    {
+      "type": "click",
+      "label": "Variations 1",
+      "anchor": "tour.studio.create.form.btn.variations.1"
+    },
+    {
+      "type": "snapshot",
+      "label": "Studio Form Ready",
+      "name": "studio-form-ready"
+    },
+    {
+      "type": "click",
+      "label": "Create Thumbnail",
+      "anchor": "tour.studio.create.form.btn.generate"
+    },
+    {
+      "type": "waitForEvent",
+      "label": "Generation Complete",
+      "name": "tour.event.studio.generate.complete",
+      "timeoutMs": 1200000
+    },
+    {
+      "type": "expectVisible",
+      "label": "Results Container",
+      "anchor": "tour.studio.results.results.container.main",
+      "timeoutMs": 600000
+    },
+    {
+      "type": "expectVisible",
+      "label": "Thumbnail Grid",
+      "anchor": "tour.studio.results.results.grid.thumbnailGrid",
+      "timeoutMs": 600000
+    },
+    {
+      "type": "snapshot",
+      "label": "Generation Complete",
+      "name": "generation-complete"
+    },
+    {
+      "type": "click",
+      "label": "First Generated Thumbnail",
+      "anchor": "tour.studio.results.results.item.thumbnail"
+    },
+    {
+      "type": "snapshot",
+      "label": "Thumbnail Opened",
+      "name": "thumbnail-opened"
+    }
+  ]
+}

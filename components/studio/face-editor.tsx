@@ -26,6 +26,7 @@ import { cn } from "@/lib/utils";
 import { getErrorMessage } from "@/lib/utils/error";
 import { VALIDATION_NAME_REQUIRED } from "@/lib/constants/validation-messages";
 import type { DbFace } from "@/lib/types/database";
+import { emitTourEvent } from "@/tourkit/app/tourEvents.browser";
 
 const MAX_IMAGES = 3;
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
@@ -227,6 +228,14 @@ export function FaceEditor({
   const [images, setImages] = useState<ImagePreview[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (open) {
+      emitTourEvent("tour.event.modal.opened", { modalKey: "faceEditor" });
+    } else {
+      emitTourEvent("tour.event.modal.closed", { modalKey: "faceEditor" });
+    }
+  }, [open]);
 
   // Initialize state when face changes or dialog opens
   useEffect(() => {

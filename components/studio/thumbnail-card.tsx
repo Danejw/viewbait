@@ -236,6 +236,8 @@ export interface ThumbnailCardProps {
   clickRankBorder?: ClickRankBorderStyle;
   /** Whether to show the share-gallery clicks badge on hover (default: true). Set false e.g. in recent creations strip. */
   showClicksBadge?: boolean;
+  /** Optional tour anchor for E2E targeting */
+  tourAnchor?: string;
 }
 
 /**
@@ -336,6 +338,7 @@ export const ThumbnailCard = memo(function ThumbnailCard({
   draggable = true,
   clickRankBorder,
   showClicksBadge = true,
+  tourAnchor,
 }: ThumbnailCardProps) {
   // Get all actions and currentUserId from context
   const {
@@ -701,6 +704,7 @@ export const ThumbnailCard = memo(function ThumbnailCard({
     <Card
       ref={setNodeRef}
       style={{ aspectRatio: normalizeAspectRatio(thumbnail?.aspect_ratio ?? null) }}
+      data-tour={tourAnchor}
       className={cn(
             "group relative z-0 w-full cursor-pointer overflow-hidden p-0 transition-all",
             "hover:z-20 hover:ring-2 hover:ring-primary/50 hover:shadow-lg",

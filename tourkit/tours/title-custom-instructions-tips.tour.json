@@ -1,0 +1,214 @@
+{
+  "tourId": "title-custom-instructions-tips",
+  "description": "Generated from guide title-custom-instructions-tips.md",
+  "steps": [
+    {
+      "type": "narration",
+      "message": "In this tour we'll compare title formatting with and without a subtitle, then show how custom instructions add video context for better thumbnail relevance."
+    },
+    {
+      "type": "narration",
+      "message": "Logging in to the app."
+    },
+    {
+      "type": "goto",
+      "routeKey": "auth"
+    },
+    {
+      "type": "fill",
+      "label": "Email",
+      "anchor": "tour.auth.form.input.email",
+      "valueEnv": "E2E_EMAIL"
+    },
+    {
+      "type": "fill",
+      "label": "Password",
+      "anchor": "tour.auth.form.input.password",
+      "valueEnv": "E2E_PASSWORD"
+    },
+    {
+      "type": "click",
+      "label": "Login",
+      "anchor": "tour.auth.form.btn.submit"
+    },
+    {
+      "type": "waitForEvent",
+      "label": "Auth Success",
+      "name": "tour.event.auth.success",
+      "timeoutMs": 30000
+    },
+    {
+      "type": "goto",
+      "routeKey": "studio.create"
+    },
+    {
+      "type": "waitForEvent",
+      "label": "Studio Create Ready",
+      "name": "tour.event.route.ready",
+      "timeoutMs": 60000
+    },
+    {
+      "type": "click",
+      "label": "Create View",
+      "anchor": "tour.studio.nav.sidebar.btn.create"
+    },
+    {
+      "type": "narration",
+      "message": "First, use a title without a colon. This creates only a main title line."
+    },
+    {
+      "type": "fill",
+      "label": "Thumbnail Title",
+      "anchor": "tour.studio.create.form.input.thumbnailTitle",
+      "value": "Summer Camping Guide"
+    },
+    {
+      "type": "fill",
+      "label": "Custom Instructions",
+      "anchor": "tour.studio.create.form.text.customInstructions",
+      "value": "Outdoor campsite at golden hour, host demonstrating tent setup, hiking gear visible, warm natural light."
+    },
+    {
+      "type": "click",
+      "label": "Aspect Ratio 16:9",
+      "anchor": "tour.studio.create.form.btn.aspectRatio.16_9"
+    },
+    {
+      "type": "click",
+      "label": "Resolution 1K",
+      "anchor": "tour.studio.create.form.btn.resolution.1k"
+    },
+    {
+      "type": "click",
+      "label": "Variations 1",
+      "anchor": "tour.studio.create.form.btn.variations.1"
+    },
+    {
+      "type": "screenshot",
+      "label": "No Subtitle Setup",
+      "name": "No Subtitle Setup",
+      "fullPage": true
+    },
+    {
+      "type": "click",
+      "label": "Create Thumbnail",
+      "anchor": "tour.studio.create.form.btn.generate"
+    },
+    {
+      "type": "waitForEvent",
+      "label": "First Generation Complete",
+      "name": "tour.event.studio.generate.complete",
+      "timeoutMs": 120000
+    },
+    {
+      "type": "waitForEvent",
+      "label": "Studio Results Ready",
+      "name": "tour.event.route.ready",
+      "timeoutMs": 60000
+    },
+    {
+      "type": "expectVisible",
+      "label": "Result Grid",
+      "anchor": "tour.studio.results.results.grid.thumbnailGrid",
+      "timeoutMs": 60000
+    },
+    {
+      "type": "screenshot",
+      "label": "No Subtitle Result",
+      "name": "No Subtitle Result",
+      "fullPage": true
+    },
+    {
+      "type": "annotate",
+      "label": "No Subtitle Result",
+      "targetScreenshot": "result-no-subtitle",
+      "instructions": "Highlight the thumbnail text area and label it Main title only."
+    },
+    {
+      "type": "goto",
+      "routeKey": "studio.create"
+    },
+    {
+      "type": "waitForEvent",
+      "label": "Studio Create Ready Again",
+      "name": "tour.event.route.ready",
+      "timeoutMs": 60000
+    },
+    {
+      "type": "click",
+      "label": "Create View Again",
+      "anchor": "tour.studio.nav.sidebar.btn.create"
+    },
+    {
+      "type": "narration",
+      "message": "Now add a colon to split main title and subtitle. Text on the left is main title, and text on the right becomes subtitle."
+    },
+    {
+      "type": "fill",
+      "label": "Thumbnail Title With Subtitle",
+      "anchor": "tour.studio.create.form.input.thumbnailTitle",
+      "value": "Summer Camping Guide: Beginner Essentials"
+    },
+    {
+      "type": "fill",
+      "label": "Custom Instructions With More Context",
+      "anchor": "tour.studio.create.form.text.customInstructions",
+      "value": "YouTube tutorial for first-time campers at Yosemite, host packing gear checklist, tent and campfire in frame, expressive face, high clarity."
+    },
+    {
+      "type": "narration",
+      "message": "Tip one: mention where the video happens. Tip two: explain what the person is doing. Tip three: include the exact topic so visuals match your video."
+    },
+    {
+      "type": "screenshot",
+      "label": "Subtitle Setup",
+      "name": "Subtitle Setup",
+      "fullPage": true
+    },
+    {
+      "type": "annotate",
+      "label": "Subtitle Setup",
+      "targetScreenshot": "title-with-subtitle",
+      "instructions": "Add a callout showing main title on the left of colon and subtitle on the right."
+    },
+    {
+      "type": "click",
+      "label": "Create Thumbnail With Subtitle",
+      "anchor": "tour.studio.create.form.btn.generate"
+    },
+    {
+      "type": "waitForEvent",
+      "label": "Second Generation Complete",
+      "name": "tour.event.studio.generate.complete",
+      "timeoutMs": 120000
+    },
+    {
+      "type": "waitForEvent",
+      "label": "Studio Results Ready After Second Run",
+      "name": "tour.event.route.ready",
+      "timeoutMs": 60000
+    },
+    {
+      "type": "expectVisible",
+      "label": "Result Grid After Second Run",
+      "anchor": "tour.studio.results.results.grid.thumbnailGrid",
+      "timeoutMs": 60000
+    },
+    {
+      "type": "screenshot",
+      "label": "Subtitle Result",
+      "name": "Subtitle Result",
+      "fullPage": true
+    },
+    {
+      "type": "annotate",
+      "label": "Subtitle Result",
+      "targetScreenshot": "result-with-subtitle",
+      "instructions": "Add a comparison note that subtitle version can communicate extra detail."
+    },
+    {
+      "type": "narration",
+      "message": "Great! You saw title-only versus title-plus-subtitle, plus custom instruction patterns you can reuse for highly relevant thumbnails."
+    }
+  ]
+}

@@ -21,6 +21,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useStudio } from "@/components/studio/studio-provider";
 import { useUserRole } from "@/lib/hooks/useUserRole";
+import { emitTourEvent } from "@/tourkit/app/tourEvents.browser";
 
 /**
  * Syncs ?view=admin, ?view=roadmap, and ?view=analytics from URL to studio view when user is admin (for /admin redirect and bookmarks).
@@ -48,6 +49,40 @@ function StudioViewFromQuery() {
       }
     }
   }, [searchParams, isAdmin, setView]);
+
+  return null;
+}
+
+/**
+ * Surfaces YouTube OAuth callback errors from ?error= and optional ?redirect_uri_hint=.
+ * Shows a toast and clears the params from the URL so the user sees what went wrong.
+ * Uses history.replaceState to avoid triggering a full GET /studio request.
+ */
+function StudioRouteReadyEmitter() {
+  const {
+    state: { currentView },
+  } = useStudio();
+
+  useEffect(() => {
+    if (currentView === "generator") {
+      emitTourEvent("tour.event.route.ready", {
+        routeKey: "studio.create",
+        anchorsPresent: [
+          "tour.studio.nav.sidebar.btn.create",
+          "tour.studio.create.form.input.thumbnailTitle",
+          "tour.studio.create.form.btn.generate",
+        ],
+      });
+
+      emitTourEvent("tour.event.route.ready", {
+        routeKey: "studio.results",
+        anchorsPresent: [
+          "tour.studio.results.results.container.main",
+          "tour.studio.results.results.grid.thumbnailGrid",
+        ],
+      });
+    }
+  }, [currentView]);
 
   return null;
 }
@@ -184,6 +219,7 @@ export default function StudioPage() {
             <StudioYouTubeConnectResultFromQuery />
             <StudioViewFromQuery />
             <StudioProjectFromQuery />
+            <StudioRouteReadyEmitter />
           </Suspense>
           <StudioPageContent />
         </StudioDndContext>

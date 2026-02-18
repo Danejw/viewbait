@@ -95,6 +95,27 @@ function navItemKey(item: NavItem): string {
   return item.href ?? item.view;
 }
 
+function tourAnchorForView(view: StudioView): string | undefined {
+  switch (view) {
+    case "generator":
+      return "tour.studio.nav.sidebar.btn.create";
+    case "browse":
+      return "tour.studio.nav.sidebar.btn.browse";
+    case "gallery":
+      return "tour.studio.nav.sidebar.btn.gallery";
+    case "projects":
+      return "tour.studio.nav.sidebar.btn.projects";
+    case "styles":
+      return "tour.studio.nav.sidebar.btn.styles";
+    case "palettes":
+      return "tour.studio.nav.sidebar.btn.palettes";
+    case "faces":
+      return "tour.studio.nav.sidebar.btn.faces";
+    default:
+      return undefined;
+  }
+}
+
 /**
  * StudioSidebarNav
  * Navigation items in the sidebar - switches views within SPA
@@ -117,6 +138,7 @@ export function StudioSidebarNav() {
       item.locked && !(item.unlockWithPro && tier === "pro");
     const openModalOnClick = isLocked && item.unlockWithPro;
     const canNavigate = item.href && !isLocked;
+    const tourAnchor = tourAnchorForView(item.view);
 
     const buttonContent = canNavigate ? (
       <Button
@@ -129,7 +151,7 @@ export function StudioSidebarNav() {
           "text-sidebar-foreground"
         )}
       >
-        <Link href={item.href!}>
+        <Link href={item.href!} data-tour={tourAnchor}>
           <Icon className="h-4 w-4 shrink-0" />
           {!leftSidebarCollapsed && <span>{item.label}</span>}
         </Link>
@@ -147,6 +169,7 @@ export function StudioSidebarNav() {
           }
         }}
         disabled={isLocked && !openModalOnClick}
+        data-tour={tourAnchor}
         className={cn(
           "w-full",
           leftSidebarCollapsed ? "shrink-0 justify-center hover:bg-transparent" : "justify-start text-left gap-3",

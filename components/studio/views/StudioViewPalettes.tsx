@@ -5,7 +5,7 @@
  * My Palettes view - displays and manages saved color palettes.
  */
 
-import React, { useState, useCallback, memo, useMemo } from "react";
+import React, { useState, useCallback, useEffect, memo, useMemo } from "react";
 import { useStudio } from "@/components/studio/studio-provider";
 import { ViewControls, ViewHeader, type FilterOption, type SortOption } from "@/components/studio/view-controls";
 import { PaletteCardManage, PaletteCardManageSkeleton } from "@/components/studio/palette-card-manage";
@@ -29,6 +29,7 @@ import { useAuth } from "@/lib/hooks/useAuth";
 import { usePalettes } from "@/lib/hooks/usePalettes";
 import { useSubscription } from "@/lib/hooks/useSubscription";
 import type { DbPalette, PaletteInsert, PaletteUpdate } from "@/lib/types/database";
+import { emitTourEvent } from "@/tourkit/app/tourEvents.browser";
 
 type PaletteFilter = "all" | "mine" | "defaults" | "public";
 
@@ -74,6 +75,13 @@ function StudioViewPalettes() {
   const [sortValue, setSortValue] = useState("newest");
   const [searchQuery, setSearchQuery] = useState("");
   const [favoritesOnly, setFavoritesOnly] = useState(false);
+
+  useEffect(() => {
+    emitTourEvent("tour.event.route.ready", {
+      routeKey: "studio.palettes",
+      anchorsPresent: ["tour.studio.palettes.grid.container.main"],
+    });
+  }, []);
 
   const filteredPalettes = useMemo(() => {
     let result = palettes;
@@ -180,7 +188,7 @@ function StudioViewPalettes() {
 
   if (isLoading) {
     return (
-      <div>
+      <div data-tour="tour.studio.palettes.grid.container.main">
         <ViewHeader title="My Palettes" description="Manage your saved color palettes" />
         <div className="mb-6 h-14 animate-pulse rounded-lg bg-muted" />
         <div className="grid gap-4 p-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -194,7 +202,7 @@ function StudioViewPalettes() {
 
   if (error) {
     return (
-      <div>
+      <div data-tour="tour.studio.palettes.grid.container.main">
         <ViewHeader title="My Palettes" description="Manage your saved color palettes" />
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
@@ -210,7 +218,7 @@ function StudioViewPalettes() {
   }
 
   return (
-    <div>
+    <div data-tour="tour.studio.palettes.grid.container.main">
       <ViewHeader
         title="My Palettes"
         description="Manage your saved color palettes"
