@@ -13,84 +13,154 @@
     "steps": {
       "type": "array",
       "items": {
-        "oneOf": [
+        "allOf": [
           {
             "type": "object",
             "properties": {
-              "type": { "const": "say" },
-              "message": { "type": "string" }
+              "preDelayMs": { "type": "number", "minimum": 0 },
+              "narration": { "type": "string" },
+              "capture": {
+                "type": "object",
+                "properties": {
+                  "when": { "type": "string", "enum": ["before", "after"] },
+                  "name": { "type": "string" },
+                  "fullPage": { "type": "boolean" }
+                },
+                "required": ["when", "name"],
+                "additionalProperties": true
+              },
+              "annotate": {
+                "type": "object",
+                "properties": {
+                  "targetScreenshot": { "type": "string" },
+                  "instructions": { "type": "string" },
+                  "style": { "type": "string" },
+                  "notes": { "type": "string" }
+                },
+                "required": ["instructions"],
+                "additionalProperties": true
+              }
             },
-            "required": ["type", "message"],
             "additionalProperties": true
           },
           {
-            "type": "object",
-            "properties": {
-              "type": { "const": "goto" },
-              "routeKey": { "type": "string" }
-            },
-            "required": ["type", "routeKey"],
-            "additionalProperties": true
-          },
-          {
-            "type": "object",
-            "properties": {
-              "type": { "const": "click" },
-              "anchor": { "type": "string", "pattern": "^tour\\." },
-              "timeoutMs": { "type": "number" }
-            },
-            "required": ["type", "anchor"],
-            "additionalProperties": true
-          },
-          {
-            "type": "object",
-            "properties": {
-              "type": { "const": "fill" },
-              "anchor": { "type": "string", "pattern": "^tour\\." },
-              "value": { "type": "string" },
-              "valueEnv": { "type": "string" },
-              "timeoutMs": { "type": "number" }
-            },
-            "required": ["type", "anchor"],
-            "additionalProperties": true
-          },
-          {
-            "type": "object",
-            "properties": {
-              "type": { "const": "expectVisible" },
-              "anchor": { "type": "string", "pattern": "^tour\\." },
-              "timeoutMs": { "type": "number" }
-            },
-            "required": ["type", "anchor"],
-            "additionalProperties": true
-          },
-          {
-            "type": "object",
-            "properties": {
-              "type": { "const": "waitForEvent" },
-              "name": { "type": "string", "pattern": "^tour\\.event\\." },
-              "timeoutMs": { "type": "number" }
-            },
-            "required": ["type", "name"],
-            "additionalProperties": true
-          },
-          {
-            "type": "object",
-            "properties": {
-              "type": { "const": "waitMs" },
-              "ms": { "type": "number" }
-            },
-            "required": ["type", "ms"],
-            "additionalProperties": true
-          },
-          {
-            "type": "object",
-            "properties": {
-              "type": { "const": "snapshot" },
-              "name": { "type": "string" }
-            },
-            "required": ["type", "name"],
-            "additionalProperties": true
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "type": { "const": "narration" },
+                  "message": { "type": "string" }
+                },
+                "required": ["type", "message"],
+                "additionalProperties": true
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "type": { "const": "say" },
+                  "message": { "type": "string" }
+                },
+                "required": ["type", "message"],
+                "additionalProperties": true
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "type": { "const": "goto" },
+                  "routeKey": { "type": "string" }
+                },
+                "required": ["type", "routeKey"],
+                "additionalProperties": true
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "type": { "const": "click" },
+                  "anchor": { "type": "string", "pattern": "^tour\\." },
+                  "timeoutMs": { "type": "number" }
+                },
+                "required": ["type", "anchor"],
+                "additionalProperties": true
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "type": { "const": "fill" },
+                  "anchor": { "type": "string", "pattern": "^tour\\." },
+                  "value": { "type": "string" },
+                  "valueEnv": { "type": "string" },
+                  "timeoutMs": { "type": "number" }
+                },
+                "required": ["type", "anchor"],
+                "additionalProperties": true
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "type": { "const": "expectVisible" },
+                  "anchor": { "type": "string", "pattern": "^tour\\." },
+                  "timeoutMs": { "type": "number" }
+                },
+                "required": ["type", "anchor"],
+                "additionalProperties": true
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "type": { "const": "waitForEvent" },
+                  "name": { "type": "string", "pattern": "^tour\\.event\\." },
+                  "timeoutMs": { "type": "number" }
+                },
+                "required": ["type", "name"],
+                "additionalProperties": true
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "type": { "const": "waitMs" },
+                  "ms": { "type": "number" },
+                  "durationMs": { "type": "number" }
+                },
+                "required": ["type"],
+                "anyOf": [
+                  { "required": ["ms"] },
+                  { "required": ["durationMs"] }
+                ],
+                "additionalProperties": true
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "type": { "const": "screenshot" },
+                  "name": { "type": "string" },
+                  "fullPage": { "type": "boolean" }
+                },
+                "required": ["type", "name"],
+                "additionalProperties": true
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "type": { "const": "snapshot" },
+                  "name": { "type": "string" },
+                  "fullPage": { "type": "boolean" }
+                },
+                "required": ["type", "name"],
+                "additionalProperties": true
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "type": { "const": "annotate" },
+                  "instructions": { "type": "string" },
+                  "targetScreenshot": { "type": "string" },
+                  "style": { "type": "string" },
+                  "notes": { "type": "string" }
+                },
+                "required": ["type", "instructions"],
+                "additionalProperties": true
+              }
+            ]
           }
         ]
       }
