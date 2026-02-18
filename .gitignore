@@ -51,5 +51,25 @@ next-env.d.ts
 
 # TourKit secrets (credentials for tour runs)
 /tourkit/.env.tourkit
-
 !/tourkit/.env.tourkit.example
+
+
+# --- TourKit artifacts (never commit) ---
+/tourkit/artifacts/
+/tourkit/artifacts/**
+
+# --- Playwright outputs (never commit) ---
+/test-results/
+/test-results/**
+/playwright-report/
+/playwright-report/**
+/blob-report/
+/blob-report/**
+/playwright/.cache/
+/playwright/.cache/**
+
+# Videos / traces / screenshots anywhere (extra safety)
+*.webm
+*.mp4
+*.zip
+*.png

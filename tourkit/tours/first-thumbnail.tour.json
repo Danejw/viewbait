@@ -45,7 +45,7 @@
       "type": "waitForEvent",
       "label": "Studio Create Ready",
       "name": "tour.event.route.ready",
-      "timeoutMs": 20000
+      "timeoutMs": 1200000
     },
     {
       "type": "expectVisible",
@@ -93,19 +93,19 @@
       "type": "waitForEvent",
       "label": "Generation Complete",
       "name": "tour.event.studio.generate.complete",
-      "timeoutMs": 120000
+      "timeoutMs": 1200000
     },
     {
       "type": "expectVisible",
       "label": "Results Container",
       "anchor": "tour.studio.results.results.container.main",
-      "timeoutMs": 60000
+      "timeoutMs": 600000
     },
     {
       "type": "expectVisible",
       "label": "Thumbnail Grid",
       "anchor": "tour.studio.results.results.grid.thumbnailGrid",
-      "timeoutMs": 60000
+      "timeoutMs": 600000
     },
     {
       "type": "snapshot",

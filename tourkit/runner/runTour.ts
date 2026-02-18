@@ -1,278 +1,400 @@
-import fs from "node:fs";
-import path from "node:path";
+// tourkit/runner/runTour.ts
+import {
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  statSync,
+  writeFileSync,
+  copyFileSync,
+} from "node:fs";
+import { basename, extname, join, resolve } from "node:path";
 import type { Page, TestInfo } from "@playwright/test";
-import { expect } from "@playwright/test";
+import { ensureTourParam, isTourModeActive } from "@/tourkit/app/tourMode";
+import { anchorLocator } from "@/tourkit/app/tourSelectors";
 
-type StepType =
-  | "say"
-  | "goto"
-  | "click"
-  | "fill"
-  | "expectVisible"
-  | "waitForEvent"
-  | "waitMs"
-  | "snapshot";
+type TourStep =
+  | { type: "say"; text?: string; message?: string }
+  | { type: "goto"; routeKey: string; timeoutMs?: number }
+  | { type: "click"; anchor: string; timeoutMs?: number }
+  | { type: "fill"; anchor: string; value?: string; valueEnv?: string; timeoutMs?: number }
+  | { type: "expectVisible"; anchor: string; timeoutMs?: number }
+  | { type: "waitForEvent"; name: string; timeoutMs?: number }
+  | { type: "waitMs"; durationMs?: number; ms?: number }
+  | { type: "snapshot"; name: string };
 
-export interface TourStep {
-  type: StepType;
-  [key: string]: unknown;
-}
-
-export interface Tour {
-  tourId: string;
+export type Tour = {
+  // support both schemas
+  id?: string;
+  tourId?: string;
+  title?: string;
   description?: string;
   steps: TourStep[];
-}
+};
 
-interface RouteEntry {
-  routeKey: string;
-  path: string;
-}
+type TourMap = {
+  routes: Record<string, { path: string; anchors: string[] }>;
+  events: string[];
+};
 
-interface RoutesConfig {
-  routes: RouteEntry[];
-}
-
-interface RunOptions {
+export type RunTourOptions = {
   artifactDir: string;
   testInfo: TestInfo;
+};
+
+const ACTION_TIMEOUT_MS = 30_000;
+const GOTO_TIMEOUT_MS_DEFAULT = 45_000;
+const RETRY_POLL_MS = 150;
+
+function nowIsoCompact(): string {
+  const d = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(
+    d.getHours()
+  )}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
 }
 
-function anchorSelector(anchor: string): string {
-  return `[data-tour="${anchor}"]`;
+function loadTourMap(): TourMap {
+  const mapPath = resolve(process.cwd(), "tourkit/maps/tour.map.json");
+  return JSON.parse(readFileSync(mapPath, "utf8")) as TourMap;
 }
 
-function sanitizeFileName(input: string): string {
-  return input.replace(/[^a-zA-Z0-9._-]+/g, "_");
-}
-
-function isTourModeActive(): boolean {
-  return process.env.TOUR_MODE === "tour_mode" || process.env.TOUR_MODE === "1";
-}
-
-function ensureTourParam(target: string): string {
-  const base = process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3000";
-  const url = new URL(target, base);
-  url.searchParams.set("tour", "1");
-  return `${url.pathname}${url.search}${url.hash}`;
-}
-
-function readRoutes(): Map<string, string> {
-  const routesPath = path.resolve(process.cwd(), "tourkit/config/routes.json");
-  const raw = fs.readFileSync(routesPath, "utf8");
-  const parsed = JSON.parse(raw) as RoutesConfig;
-
-  const routeMap = new Map<string, string>();
-  for (const route of parsed.routes) {
-    routeMap.set(route.routeKey, route.path);
-  }
-
-  return routeMap;
-}
-
-function appendRunLog(file: string, line: string): void {
-  fs.appendFileSync(file, `${line}\n`, "utf8");
-}
-
-async function safeClick(page: Page, anchor: string, timeoutMs = 10_000): Promise<void> {
-  const selector = anchorSelector(anchor);
-  const deadline = Date.now() + timeoutMs;
-
-  while (Date.now() < deadline) {
-    try {
-      const locator = page.locator(selector).first();
-      await locator.waitFor({ state: "visible", timeout: Math.min(5_000, deadline - Date.now()) });
-      await locator.click({ timeout: Math.min(5_000, deadline - Date.now()) });
-      return;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      const retryable =
-        message.includes("detached") ||
-        message.includes("intercept") ||
-        message.includes("not attached") ||
-        message.includes("Element is not attached");
-
-      if (!retryable && Date.now() >= deadline) throw error;
-      await page.waitForTimeout(200);
+function findFileRecursive(root: string, filename: string): string | null {
+  const entries = readdirSync(root);
+  for (const entry of entries) {
+    const full = join(root, entry);
+    const stat = statSync(full);
+    if (stat.isDirectory()) {
+      const nested = findFileRecursive(full, filename);
+      if (nested) return nested;
+    } else if (entry === filename) {
+      return full;
     }
   }
-
-  throw new Error(`safeClick timed out for anchor: ${anchor} (${timeoutMs}ms)`);
+  return null;
 }
 
-async function safeFill(page: Page, anchor: string, value: string, timeoutMs = 10_000): Promise<void> {
-  const selector = anchorSelector(anchor);
-  const deadline = Date.now() + timeoutMs;
+function isDetachedishError(err: unknown): boolean {
+  const msg = String((err as any)?.message ?? err ?? "");
+  return (
+    msg.includes("Element is not attached to the DOM") ||
+    msg.includes("not attached") ||
+    msg.includes("has been detached") ||
+    msg.includes("Target closed") ||
+    msg.includes("Execution context was destroyed") ||
+    msg.includes("Cannot find context") ||
+    msg.includes("because the page has navigated")
+  );
+}
 
-  while (Date.now() < deadline) {
-    try {
-      const locator = page.locator(selector).first();
-      await locator.waitFor({ state: "visible", timeout: Math.min(5_000, deadline - Date.now()) });
-      await locator.fill(value, { timeout: Math.min(5_000, deadline - Date.now()) });
-      return;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      const retryable =
-        message.includes("detached") ||
-        message.includes("intercept") ||
-        message.includes("not attached") ||
-        message.includes("Element is not attached");
+function isGotoRetryable(err: unknown): boolean {
+  const msg = String((err as any)?.message ?? err ?? "");
+  return (
+    msg.includes("net::ERR_ABORTED") ||
+    msg.includes("frame was detached") ||
+    msg.includes("Execution context was destroyed") ||
+    msg.includes("Target closed") ||
+    msg.includes("because the page has navigated") ||
+    msg.includes("page.goto: Timeout") // treat goto timeouts as retryable too
+  );
+}
 
-      if (!retryable && Date.now() >= deadline) throw error;
-      await page.waitForTimeout(200);
+function locatorForAnchor(page: Page, anchor: string) {
+  return page.locator(anchorLocator(anchor)).first();
+}
+
+/**
+ * Install a browser-side event buffer so waits never miss fast events.
+ * Runs before any navigation and persists across reloads.
+ */
+async function installTourEventBuffer(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    const w = window as any;
+    if (w.__tourkit?.installed) return;
+
+    w.__tourkit = w.__tourkit ?? {};
+    w.__tourkit.installed = true;
+    w.__tourkit.events = w.__tourkit.events ?? [];
+
+    const origDispatch = window.dispatchEvent.bind(window);
+
+    window.dispatchEvent = (event: Event) => {
+      try {
+        const ev: any = event as any;
+        const name = String(ev?.type ?? "");
+        if (name.startsWith("tour.event.")) {
+          w.__tourkit.events.push({
+            name,
+            detail: ev?.detail ?? null,
+            ts: Date.now(),
+          });
+
+          // cap buffer
+          if (w.__tourkit.events.length > 500) {
+            w.__tourkit.events.splice(0, w.__tourkit.events.length - 500);
+          }
+        }
+      } catch {
+        // ignore
+      }
+      return origDispatch(event);
+    };
+  });
+}
+
+async function waitForTourEvent(
+  page: Page,
+  eventName: string,
+  timeoutMs = ACTION_TIMEOUT_MS
+): Promise<unknown> {
+  const existing = await page.evaluate((name) => {
+    const w = window as any;
+    const evs: any[] = w.__tourkit?.events ?? [];
+    for (let i = evs.length - 1; i >= 0; i--) {
+      if (evs[i]?.name === name) return evs[i]?.detail ?? null;
     }
-  }
-
-  throw new Error(`safeFill timed out for anchor: ${anchor} (${timeoutMs}ms)`);
-}
-
-async function waitForTourEvent(page: Page, eventName: string, timeoutMs: number): Promise<void> {
-  const alreadyFired = await page.evaluate((name) => {
-    const events = (window as unknown as { __tourkit_events?: Array<{ type: string }> }).__tourkit_events ?? [];
-    return events.some((event) => event.type === name);
+    return "__TOURKIT_NOT_FOUND__";
   }, eventName);
 
-  if (alreadyFired) return;
+  if (existing !== "__TOURKIT_NOT_FOUND__") return existing;
 
   await page.waitForFunction(
     (name) => {
-      const events = (window as unknown as { __tourkit_events?: Array<{ type: string }> }).__tourkit_events ?? [];
-      return events.some((event) => event.type === name);
+      const w = window as any;
+      const evs: any[] = w.__tourkit?.events ?? [];
+      return evs.some((e) => e?.name === name);
     },
     eventName,
     { timeout: timeoutMs }
   );
-}
 
-async function runStep(
-  page: Page,
-  step: TourStep,
-  stepIndex: number,
-  routeMap: Map<string, string>,
-  logFile: string,
-  screensDir: string
-): Promise<void> {
-  const type = step.type;
-  const currentUrl = page.url();
-
-  const contextKey =
-    typeof step.anchor === "string"
-      ? step.anchor
-      : typeof step.name === "string"
-        ? step.name
-        : typeof step.routeKey === "string"
-          ? step.routeKey
-          : "";
-
-  appendRunLog(logFile, `[STEP ${stepIndex}] type=${type} key=${contextKey} url=${currentUrl}`);
-
-  if (type === "say") {
-    appendRunLog(logFile, `  say: ${String(step.message ?? "")}`);
-    return;
-  }
-
-  if (type === "goto") {
-    const routeKey = String(step.routeKey ?? "");
-    const targetPath = routeMap.get(routeKey);
-    if (!targetPath) throw new Error(`Unknown routeKey in goto step: ${routeKey}`);
-
-    const finalPath = isTourModeActive() ? ensureTourParam(targetPath) : targetPath;
-    await page.goto(finalPath, { waitUntil: "domcontentloaded" });
-    return;
-  }
-
-  if (type === "click") {
-    const anchor = String(step.anchor ?? "");
-    await safeClick(page, anchor, Number(step.timeoutMs ?? 10_000));
-    return;
-  }
-
-  if (type === "fill") {
-    const anchor = String(step.anchor ?? "");
-    const valueEnv = typeof step.valueEnv === "string" ? step.valueEnv : undefined;
-    const literalValue = typeof step.value === "string" ? step.value : undefined;
-
-    const value = valueEnv ? process.env[valueEnv] : literalValue;
-    if (value == null) {
-      throw new Error(`Fill step missing value. anchor=${anchor} valueEnv=${valueEnv ?? "<none>"}`);
+  return await page.evaluate((name) => {
+    const w = window as any;
+    const evs: any[] = w.__tourkit?.events ?? [];
+    for (let i = evs.length - 1; i >= 0; i--) {
+      if (evs[i]?.name === name) return evs[i]?.detail ?? null;
     }
-
-    await safeFill(page, anchor, value, Number(step.timeoutMs ?? 10_000));
-    return;
-  }
-
-  if (type === "expectVisible") {
-    const anchor = String(step.anchor ?? "");
-    const timeoutMs = Number(step.timeoutMs ?? 10_000);
-    await expect(page.locator(anchorSelector(anchor)).first()).toBeVisible({ timeout: timeoutMs });
-    return;
-  }
-
-  if (type === "waitForEvent") {
-    const name = String(step.name ?? "");
-    const timeoutMs = Number(step.timeoutMs ?? 10_000);
-    await waitForTourEvent(page, name, timeoutMs);
-    return;
-  }
-
-  if (type === "waitMs") {
-    const ms = Number(step.ms ?? 0);
-    await page.waitForTimeout(ms);
-    return;
-  }
-
-  if (type === "snapshot") {
-    const name = sanitizeFileName(String(step.name ?? `step-${stepIndex}`));
-    const file = path.join(screensDir, `${String(stepIndex).padStart(3, "0")}_${name}.png`);
-    await page.screenshot({ path: file, fullPage: true });
-    appendRunLog(logFile, `  snapshot: ${file}`);
-    return;
-  }
-
-  throw new Error(`Unsupported step type: ${String(type)}`);
+    return null;
+  }, eventName);
 }
 
-export async function runTour(page: Page, tour: Tour, opts: RunOptions): Promise<void> {
-  const { artifactDir } = opts;
-  fs.mkdirSync(artifactDir, { recursive: true });
-  const screensDir = path.join(artifactDir, "screens");
-  fs.mkdirSync(screensDir, { recursive: true });
-  const logFile = path.join(artifactDir, "runlog.txt");
+/**
+ * Robust goto for SPAs:
+ * - use domcontentloaded (more reliable for Next.js + redirects than commit)
+ * - retry on abort/detach/timeouts
+ */
+async function safeGoto(page: Page, url: string, timeoutMs = 120_000): Promise<void> {
+  // Preflight: if the server isn't responding, fail with a useful message immediately.
+  try {
+    const resp = await page.request.get(url, { timeout: 15_000 });
+    if (!resp.ok()) {
+      throw new Error(`HTTP ${resp.status()} ${resp.statusText()}`);
+    }
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    throw new Error(
+      `TourKit could not reach the app at ${url}.\n` +
+      `Fix: start the app (or let Playwright webServer finish booting), then retry.\n` +
+      `Details: ${msg}`
+    );
+  }
 
-  appendRunLog(logFile, `Tour ${tour.tourId} started at ${new Date().toISOString()}`);
+  // Navigation: give Next enough time on cold boot.
+  await page.goto(url, { waitUntil: "domcontentloaded", timeout: timeoutMs });
+}
 
-  await page.addInitScript(() => {
-    (window as unknown as { __tourkit_events?: Array<{ type: string; detail: unknown; time: number }> }).__tourkit_events =
-      (window as unknown as { __tourkit_events?: Array<{ type: string; detail: unknown; time: number }> }).__tourkit_events ?? [];
+async function safeClick(page: Page, anchor: string, timeoutMs = ACTION_TIMEOUT_MS): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
 
-    const originalDispatch = window.dispatchEvent.bind(window);
-    window.dispatchEvent = function patchedDispatch(event: Event): boolean {
-      if (event.type.startsWith("tour.event.")) {
-        const custom = event as CustomEvent;
-        const store = (window as unknown as { __tourkit_events: Array<{ type: string; detail: unknown; time: number }> })
-          .__tourkit_events;
-        store.push({
-          type: event.type,
-          detail: custom.detail,
-          time: Date.now(),
-        });
+  while (true) {
+    const loc = locatorForAnchor(page, anchor);
+
+    try {
+      await loc.waitFor({ state: "visible", timeout: Math.min(2_500, Math.max(250, deadline - Date.now())) });
+      await loc.click({ trial: true, timeout: 2_500 });
+      await loc.click({ timeout: 10_000 });
+      return;
+    } catch (err) {
+      if (Date.now() > deadline) throw err;
+
+      const msg = String((err as any)?.message ?? err ?? "");
+      if (isDetachedishError(err)) {
+        await page.waitForTimeout(RETRY_POLL_MS);
+        continue;
+      }
+      if (
+        msg.includes("Element is not visible") ||
+        msg.includes("intercepts pointer events") ||
+        msg.includes("waiting for element to be visible") ||
+        msg.includes("Timeout") ||
+        msg.includes("strict mode violation")
+      ) {
+        await page.waitForTimeout(RETRY_POLL_MS);
+        continue;
       }
 
-      return originalDispatch(event);
-    };
-  });
-
-  const routeMap = readRoutes();
-
-  try {
-    for (let index = 0; index < tour.steps.length; index += 1) {
-      await runStep(page, tour.steps[index], index, routeMap, logFile, screensDir);
+      throw err;
     }
-
-    appendRunLog(logFile, `Tour ${tour.tourId} completed at ${new Date().toISOString()}`);
-  } catch (error) {
-    const stack = error instanceof Error ? error.stack ?? error.message : String(error);
-    appendRunLog(logFile, `[ERROR] ${stack}`);
-    throw error;
   }
+}
+
+async function safeFill(page: Page, anchor: string, value: string, timeoutMs = ACTION_TIMEOUT_MS): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+
+  while (true) {
+    const loc = locatorForAnchor(page, anchor);
+
+    try {
+      await loc.waitFor({ state: "visible", timeout: Math.min(2_500, Math.max(250, deadline - Date.now())) });
+      await loc.fill(value, { timeout: 10_000 });
+      return;
+    } catch (err) {
+      if (Date.now() > deadline) throw err;
+
+      const msg = String((err as any)?.message ?? err ?? "");
+      if (isDetachedishError(err)) {
+        await page.waitForTimeout(RETRY_POLL_MS);
+        continue;
+      }
+      if (msg.includes("Element is not visible") || msg.includes("Timeout") || msg.includes("waiting for")) {
+        await page.waitForTimeout(RETRY_POLL_MS);
+        continue;
+      }
+
+      throw err;
+    }
+  }
+}
+
+async function bestEffortStabilize(page: Page) {
+  await page.waitForLoadState("domcontentloaded");
+  try {
+    await page.waitForLoadState("networkidle", { timeout: 3_000 });
+  } catch {
+    // ignore
+  }
+  await page.waitForTimeout(50);
+}
+
+function resolveTourId(tour: Tour): string {
+  return tour.id ?? tour.tourId ?? "unknown-tour";
+}
+
+export async function runTour(page: Page, tour: Tour, options: RunTourOptions): Promise<void> {
+  const map = loadTourMap();
+  const logs: string[] = [];
+  const startedAt = nowIsoCompact();
+
+  mkdirSync(options.artifactDir, { recursive: true });
+  const screensDir = join(options.artifactDir, "screens");
+  mkdirSync(screensDir, { recursive: true });
+
+  const log = (message: string) => {
+    const line = `[${new Date().toISOString()}] ${message}`;
+    logs.push(line);
+    console.log(`[tourkit:run] ${message}`);
+  };
+
+  await installTourEventBuffer(page);
+
+  const tourId = resolveTourId(tour);
+  log(`tour=${tourId} stepCount=${tour.steps.length} started=${startedAt}`);
+
+  for (let i = 0; i < tour.steps.length; i += 1) {
+    const step = tour.steps[i];
+    const stepNumber = i + 1;
+
+    log(`step ${stepNumber}/${tour.steps.length}: ${step.type}`);
+
+    switch (step.type) {
+      case "say": {
+        const text = step.text ?? step.message ?? "";
+        log(`say: ${text}`);
+        break;
+      }
+
+      case "goto": {
+        const route = map.routes[step.routeKey];
+        if (!route) throw new Error(`Unknown routeKey '${step.routeKey}' in step ${stepNumber}`);
+
+        const base =
+          process.env.PLAYWRIGHT_BASE_URL ??
+          process.env.NEXT_PUBLIC_APP_URL ??
+          "http://localhost:3000";
+
+        const absolute = new URL(route.path, base).toString();
+        const url = isTourModeActive() ? ensureTourParam(absolute) : absolute;
+
+        log(`goto: ${step.routeKey} => ${url}`);
+
+        await safeGoto(page, url, step.timeoutMs ?? GOTO_TIMEOUT_MS_DEFAULT);
+        await bestEffortStabilize(page);
+        break;
+      }
+
+      case "click": {
+        await safeClick(page, step.anchor, step.timeoutMs ?? ACTION_TIMEOUT_MS);
+        break;
+      }
+
+      case "fill": {
+        const value = step.valueEnv ? process.env[step.valueEnv] : step.value;
+        if (!value) throw new Error(`Missing fill value for '${step.anchor}' (value/valueEnv)`);
+        await safeFill(page, step.anchor, value, step.timeoutMs ?? ACTION_TIMEOUT_MS);
+        break;
+      }
+
+      case "expectVisible": {
+        await locatorForAnchor(page, step.anchor).waitFor({
+          state: "visible",
+          timeout: step.timeoutMs ?? ACTION_TIMEOUT_MS,
+        });
+        break;
+      }
+
+      case "waitForEvent": {
+        const detail = await waitForTourEvent(page, step.name, step.timeoutMs ?? ACTION_TIMEOUT_MS);
+        log(`event: ${step.name} detail=${JSON.stringify(detail)}`);
+        break;
+      }
+
+      case "waitMs": {
+        const ms = step.durationMs ?? step.ms ?? 0;
+        await page.waitForTimeout(ms);
+        break;
+      }
+
+      case "snapshot": {
+        const fileName = `${String(stepNumber).padStart(3, "0")}_${step.name}.png`;
+        const destination = join(screensDir, fileName);
+        await page.screenshot({ path: destination, fullPage: true });
+        log(`snapshot: ${destination}`);
+        break;
+      }
+
+      default: {
+        const exhaustive: never = step;
+        throw new Error(`Unhandled step ${(exhaustive as { type?: string }).type ?? "unknown"}`);
+      }
+    }
+  }
+
+  const videoPath = findFileRecursive(options.testInfo.outputDir, "video.webm");
+  if (videoPath) {
+    copyFileSync(videoPath, join(options.artifactDir, "video.webm"));
+    log("copied video.webm");
+  }
+
+  const tracePath = findFileRecursive(options.testInfo.outputDir, "trace.zip");
+  if (tracePath) {
+    copyFileSync(tracePath, join(options.artifactDir, "trace.zip"));
+    log("copied trace.zip");
+  }
+
+  writeFileSync(join(options.artifactDir, "runlog.txt"), `${logs.join("\n")}\n`, "utf8");
+}
+
+export function inferTourIdFromFile(path: string): string {
+  const file = basename(path);
+  if (file.endsWith(".tour.json")) return file.slice(0, -".tour.json".length);
+  return file.replace(extname(file), "");
 }

@@ -26,6 +26,7 @@ import { cn } from "@/lib/utils";
 import { getErrorMessage } from "@/lib/utils/error";
 import { VALIDATION_NAME_REQUIRED } from "@/lib/constants/validation-messages";
 import type { DbFace } from "@/lib/types/database";
+import { emitTourEvent } from "@/tourkit/app/tourEvents.browser";
 
 const MAX_IMAGES = 3;
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB

@@ -19,6 +19,10 @@ test.describe("TourKit Tours", () => {
   test(`@tourkit @tour:${tourId} — ${tour.description || tourId}`, async ({ page }, testInfo) => {
     fs.mkdirSync(path.join(artifactDir, "screens"), { recursive: true });
 
+    // Navigation can be slow on auth routes / cold start
+    page.setDefaultNavigationTimeout(90_000);
+    page.setDefaultTimeout(30_000);
+
     await runTour(page, tour, { artifactDir, testInfo });
 
     const video = page.video();

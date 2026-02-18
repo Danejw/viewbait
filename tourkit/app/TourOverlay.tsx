@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { isTourMode } from "@/tourkit/app/tourMode";
+import { isTourModeActive } from "@/tourkit/app/tourMode";
 
 type AnchorBox = {
   anchor: string;
@@ -16,7 +16,7 @@ export function TourOverlay() {
   const [boxes, setBoxes] = useState<AnchorBox[]>([]);
 
   const shouldRender = useMemo(() => {
-    if (!isTourMode()) return false;
+    if (!isTourModeActive()) return false;
     return process.env.NEXT_PUBLIC_TOUR_OVERLAY !== "0";
   }, []);
 
