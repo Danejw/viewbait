@@ -63,7 +63,7 @@ Make it eye-catching, representative of this visual style.`
       aiResult = await callGeminiImageGenerationSimple(
         userPrompt,
         referenceImage,
-        'gemini-3-pro-image-preview'
+        'gemini-3.1-flash-image'
       )
     } catch (error) {
       return aiServiceErrorResponse(error, 'Failed to generate style preview', {

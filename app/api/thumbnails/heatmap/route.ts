@@ -130,7 +130,7 @@ export async function POST(request: Request) {
         HEATMAP_PROMPT,
         imageData,
         undefined,
-        'gemini-3-pro-image-preview'
+        'gemini-3.1-flash-image'
       )
     } catch (error) {
       return aiServiceErrorResponse(
