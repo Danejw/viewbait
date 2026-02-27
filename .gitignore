@@ -48,3 +48,7 @@ next-env.d.ts
 /docs/critiques/
 /docs/guides/
 /docs/plans/
+
+# Allow committing curated brainstorm outputs when needed
+!/docs/brainstorms/
+!/docs/brainstorms/**/*

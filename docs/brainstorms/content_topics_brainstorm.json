@@ -1,0 +1,199 @@
+[
+  {
+    "id": "scroll_stopper_playbook",
+    "type": "brainstorm",
+    "title": "Publish the Scroll Stopper Playbook",
+    "summary": "Teach creators a repeatable checklist for higher-click thumbnails and better mobile readability.",
+    "details": {
+      "problem": "Creators know thumbnails matter but lack a simple, repeatable framework to design for clicks.",
+      "proposedSolution": "Create a practical playbook that breaks down thumbnail hierarchy, contrast, emotion, and curiosity into actionable steps and examples.",
+      "benefits": [
+        "Positions ViewBait as an expert guide, not just a tool",
+        "Improves user outcomes by upgrading prompt quality",
+        "Creates evergreen SEO content for creator searches"
+      ],
+      "challenges": [
+        "Avoiding generic advice that feels like every other thumbnail guide",
+        "Providing examples without relying on unlicensed creator assets"
+      ],
+      "implementationSteps": [
+        "Outline a 10-point pre-publish checklist with short explanations",
+        "Create 6 to 10 annotated examples showing fixes by pattern",
+        "Add a one-page downloadable checklist and promote it in-product"
+      ],
+      "estimatedEffort": "medium",
+      "priority": "high",
+      "relatedFeatures": ["Studio generator", "Batch variations", "Style templates"],
+      "targetUsers": "New and intermediate YouTube creators who want higher CTR without design skills."
+    }
+  },
+  {
+    "id": "video_to_thumbnail_minutes",
+    "type": "brainstorm",
+    "title": "Show Video to Thumbnail Workflow",
+    "summary": "Demonstrate turning video context into strong thumbnail concepts and fast variations.",
+    "details": {
+      "problem": "Creators get stuck on ideation and default to generic prompts that produce generic thumbnails.",
+      "proposedSolution": "Publish a walkthrough that uses video analysis and concept suggestions to generate context-aware thumbnail prompts and variations.",
+      "benefits": [
+        "Reduces the blank page problem for users",
+        "Highlights ViewBait’s YouTube-aware differentiation",
+        "Improves activation by showing a clear first workflow"
+      ],
+      "challenges": [
+        "Tier gating may limit who can follow every step",
+        "Requires clear messaging about what is automated vs user-controlled"
+      ],
+      "implementationSteps": [
+        "Capture a real example workflow from the YouTube tab to generation",
+        "Explain how to pick one variable to iterate (emotion, text, background)",
+        "Add a quick-start section for users without Pro features"
+      ],
+      "estimatedEffort": "medium",
+      "priority": "high",
+      "relatedFeatures": ["YouTube video analysis", "Suggest thumbnail concepts", "Custom instructions"],
+      "targetUsers": "Creators who publish regularly and want a repeatable ideation loop."
+    }
+  },
+  {
+    "id": "face_library_masterclass",
+    "type": "brainstorm",
+    "title": "Teach Face Library Best Practices",
+    "summary": "Help creators build a face pack that produces consistent, natural results.",
+    "details": {
+      "problem": "Face-based thumbnails convert well, but users often upload poor references and get inconsistent results.",
+      "proposedSolution": "Create a masterclass on capturing and organizing face references, including expression sets and multi-character guidance.",
+      "benefits": [
+        "Improves generation quality and reduces wasted credits",
+        "Drives adoption of a core differentiator",
+        "Builds trust with practical, non-AI-hype guidance"
+      ],
+      "challenges": [
+        "Needs clear examples without encouraging low-quality selfies",
+        "Must be sensitive about privacy and face data handling"
+      ],
+      "implementationSteps": [
+        "Define a recommended face pack checklist (lighting, angles, expressions)",
+        "Show common failure cases and how to fix them",
+        "Add an in-app tip link near face uploads to the guide"
+      ],
+      "estimatedEffort": "low",
+      "priority": "high",
+      "relatedFeatures": ["Face library", "Emotion selection", "Multi-character faces"],
+      "targetUsers": "Creators who appear on camera and want consistent face thumbnails."
+    }
+  },
+  {
+    "id": "style_templates_brand_consistency",
+    "type": "brainstorm",
+    "title": "Explain Style Templates for Branding",
+    "summary": "Show how to save and reuse winning visual formulas across a channel.",
+    "details": {
+      "problem": "Creators struggle to keep thumbnails consistent across a series without spending more time designing.",
+      "proposedSolution": "Publish a guide that explains styles and palettes as reusable constraints and how to organize them by series and intent.",
+      "benefits": [
+        "Encourages repeat usage by making styles feel like a system",
+        "Reduces cognitive load for users building a channel identity",
+        "Creates upgrade motivation tied to workflow, not features"
+      ],
+      "challenges": [
+        "Must avoid overselling “one style fits all”",
+        "Needs easy, concrete examples that match real creator niches"
+      ],
+      "implementationSteps": [
+        "Create a simple framework: series style, format style, hook style",
+        "Show before and after examples of consistent branding",
+        "Provide a template for naming and organizing saved styles"
+      ],
+      "estimatedEffort": "medium",
+      "priority": "medium",
+      "relatedFeatures": ["Style templates", "Palettes", "Gallery and history"],
+      "targetUsers": "Creators and small teams who want consistent thumbnails at speed."
+    }
+  },
+  {
+    "id": "ab_testing_without_chaos",
+    "type": "brainstorm",
+    "title": "Publish Simple A/B Testing Guide",
+    "summary": "Teach a low-stress workflow to generate, pick, and learn from thumbnail variations.",
+    "details": {
+      "problem": "Creators want to test thumbnails but the process feels messy and time consuming.",
+      "proposedSolution": "Create a step-by-step playbook that focuses on testing one variable at a time and using small sets of finalists.",
+      "benefits": [
+        "Promotes batch generation as a workflow",
+        "Improves outcomes through disciplined iteration",
+        "Creates content that supports a future experiments feature set"
+      ],
+      "challenges": [
+        "Attribution is imperfect when external factors change",
+        "Needs to stay actionable for creators without analytics expertise"
+      ],
+      "implementationSteps": [
+        "Define the top variables to test first and why they matter",
+        "Provide an experiment template (hypothesis, variable, result)",
+        "Add a short section on interpreting noisy results responsibly"
+      ],
+      "estimatedEffort": "low",
+      "priority": "medium",
+      "relatedFeatures": ["Batch variations", "YouTube integration", "Experiments"],
+      "targetUsers": "Growth-focused creators and content marketing teams."
+    }
+  },
+  {
+    "id": "heatmaps_explained",
+    "type": "brainstorm",
+    "title": "Explain Attention Heatmaps Simply",
+    "summary": "Teach what heatmaps mean and how to use them to pick better thumbnails faster.",
+    "details": {
+      "problem": "Creators often cannot tell which thumbnail will win and lack confidence in selecting a final variant.",
+      "proposedSolution": "Publish an educational guide that explains attention heatmaps, common patterns, and practical fixes for focus and legibility.",
+      "benefits": [
+        "Highlights a premium feature with clear value",
+        "Improves user decision making and satisfaction",
+        "Reduces repeated regenerate loops by guiding selection"
+      ],
+      "challenges": [
+        "Must set expectations that heatmaps are guidance, not guaranteed outcomes",
+        "Requires strong visual examples to be convincing"
+      ],
+      "implementationSteps": [
+        "Write a plain-language explanation of heatmaps and limitations",
+        "Create a pattern library (split focus, text competing with face, low contrast)",
+        "Add a short 'do this next' checklist for each pattern"
+      ],
+      "estimatedEffort": "medium",
+      "priority": "medium",
+      "relatedFeatures": ["Attention heatmap", "Thumbnail cards", "Tier gating"],
+      "targetUsers": "Advanced creators and teams who want more confidence before publishing."
+    }
+  },
+  {
+    "id": "credits_cooldowns_tiers_guide",
+    "type": "brainstorm",
+    "title": "Clarify Credits Cooldowns and Tiers",
+    "summary": "Explain how credits map to resolution and variations so users maximize value and avoid surprises.",
+    "details": {
+      "problem": "Usage-based credits, cooldowns, and tier limits can feel confusing during onboarding and pricing evaluation.",
+      "proposedSolution": "Publish a straightforward guide with examples by creator cadence and clear 'best tier for you' scenarios.",
+      "benefits": [
+        "Reduces pricing friction and support questions",
+        "Improves upgrade conversion with clarity",
+        "Sets accurate expectations and reduces churn"
+      ],
+      "challenges": [
+        "Must keep documentation in sync with tier config changes",
+        "Needs to avoid sounding overly salesy"
+      ],
+      "implementationSteps": [
+        "Explain credits by resolution and variations with 3 example scenarios",
+        "Add a table of cooldowns and what they mean for workflow",
+        "Link from pricing and subscription modal as a 'learn more' resource"
+      ],
+      "estimatedEffort": "low",
+      "priority": "high",
+      "relatedFeatures": ["Subscription tiers", "Credits system", "Generate cooldown"],
+      "targetUsers": "New users evaluating plans and power users optimizing usage."
+    }
+  }
+]
+

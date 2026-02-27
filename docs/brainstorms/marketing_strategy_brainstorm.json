@@ -1,0 +1,32 @@
+[
+  {
+    "id": "thumbnail_studio_flywheel",
+    "type": "brainstorm",
+    "title": "Launch the Thumbnail Studio Flywheel",
+    "summary": "Use education, creator clinics, and sharing loops to drive acquisition, activation, and upgrades.",
+    "details": {
+      "problem": "Creators need proof of outcomes and a clear workflow before adopting a new thumbnail tool, especially with credits and tiers.",
+      "proposedSolution": "Run a three-part strategy: an educational content series, recurring creator thumbnail clinics, and product-led sharing plus referrals.",
+      "benefits": [
+        "Builds trust with creators through actionable education",
+        "Drives consistent top-of-funnel via SEO and short-form content",
+        "Improves conversion by connecting premium features to clear outcomes"
+      ],
+      "challenges": [
+        "Requires consistent publishing cadence and content quality",
+        "Partnership execution takes coordination and creator alignment"
+      ],
+      "implementationSteps": [
+        "Define 12 core topics that map to product workflows (faces, styles, variations, heatmaps, YouTube context)",
+        "Produce one clinic per month with before and after breakdowns and shareable assets",
+        "Add in-product prompts for sharing and referrals after download and favorites",
+        "Track funnel KPIs: content signup, activation, and upgrade rates by channel"
+      ],
+      "estimatedEffort": "medium",
+      "priority": "high",
+      "relatedFeatures": ["Landing page", "YouTube integration", "Referral system", "Subscription tiers"],
+      "targetUsers": "YouTube creators, course creators, and video marketing teams seeking faster, higher-quality thumbnails."
+    }
+  }
+]
+
