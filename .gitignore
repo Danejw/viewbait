@@ -43,7 +43,8 @@ next-env.d.ts
 
 # docs (audits, brainstorms, checks, critiques, guides, plans)
 /docs/audits/
-/docs/brainstorms/
+/docs/brainstorms/*
+!/docs/brainstorms/new_features_brainstorm.md
 /docs/checks/
 /docs/critiques/
 /docs/guides/
