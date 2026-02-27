@@ -62,7 +62,7 @@ export async function callGeminiImageGeneration(
   const { width, height } = getResolutionDimensions(resolution, aspectRatio)
 
   // Call Gemini API
-  const model = 'gemini-3-pro-image-preview'
+  const model = 'gemini-3.1-flash-image-preview'
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`
 
   const requestBody = {
@@ -166,7 +166,7 @@ export async function callGeminiImageGeneration(
 export async function callGeminiTextGeneration(
   systemPrompt: string,
   userPrompt: string,
-  model: string = 'gemini-2.5-flash' //'gemini-3-pro-preview'
+  model: string = 'gemini-3.1-pro-preview' //'gemini-3-pro-preview'
 ): Promise<string> {
   const apiKey = process.env.GEMINI_API_KEY
   if (!apiKey) {
@@ -807,7 +807,7 @@ export async function callGeminiImageEdit(
   editPrompt: string,
   originalImage: { data: string; mimeType: string },
   referenceImages?: Array<{ data: string; mimeType: string }>,
-  model: string = 'gemini-3-pro-image-preview'
+  model: string = 'gemini-3.1-flash-image-preview'
 ): Promise<GenerateThumbnailResult | null> {
   const apiKey = process.env.GEMINI_API_KEY
   if (!apiKey) {
