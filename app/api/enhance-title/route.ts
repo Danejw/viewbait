@@ -123,7 +123,7 @@ Do not include numbers, bullets, or any other formatting. Just three titles, one
     // Call AI core service
     let response
     try {
-      response = await callGeminiTextGeneration(systemPrompt, userPrompt, 'gemini-3-pro-preview')
+      response = await callGeminiTextGeneration(systemPrompt, userPrompt, 'gemini-3.1-pro-preview')
     } catch (error) {
       return aiServiceErrorResponse(error, 'Failed to enhance title', {
         route: 'POST /api/enhance-title',
