@@ -48,3 +48,7 @@ next-env.d.ts
 /docs/critiques/
 /docs/guides/
 /docs/plans/
+
+# Allow committed brainstorm deliverables (keeps directory mostly ignored by default).
+!/docs/brainstorms/
+!/docs/brainstorms/new_features_brainstorm.md

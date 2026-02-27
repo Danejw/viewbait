@@ -1,178 +1,289 @@
 # System Understanding
 
-**Version:** 2025-01-29 (document generated for onboarding lead engineers; update this date/time when regenerating.)  
-**Repository:** viewbait (Next.js 16, React 19, Supabase, Stripe, Google Gemini)
+**Version:** 2026-02-14 08:38:58Z  
+**Audience:** New lead engineers onboarding to this repository  
+**Perspective:** Onboarding lead engineer (how I’d explain the system and how to change it safely)
 
-This document describes real execution paths, file locations, and boundaries so new lead engineers can safely reason about and modify the system.
-
----
-
-## 1. End-to-end data flow (UI → server → Supabase → return)
-
-### 1.1 Request lifecycle (page load and API)
-
-1. **Browser request** hits the Next.js server. Static assets and API routes are excluded from middleware via `middleware.ts` config matcher (e.g. `_next/static`, `_next/image`, favicon, image extensions).
-
-2. **Middleware** (`viewbait/middleware.ts`):
-   - Runs for all non-static, non-API paths (matcher excludes API routes).
-   - Creates a Supabase server client with `createServerClient` from `@supabase/ssr`, using `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and cookie handlers that read from `request.cookies` and write to the response.
-   - Calls `supabase.auth.getUser()` to resolve the session.
-   - If path is in `PROTECTED_ROUTES` (e.g. `/studio` and children) and there is no user → redirect to `/auth?redirect=<pathname>`.
-   - If path is in `AUTH_ROUTES` (e.g. `/auth`) and user exists and path is not reset-password or callback → redirect to `redirect` query param or `/studio`.
-   - Returns the Supabase response object (with cookies) so the session stays in sync.
-
-3. **App layout** (`viewbait/app/layout.tsx`):
-   - Renders `<Providers>` (from `viewbait/app/providers.tsx`) which wraps: `ThemeProvider` → `QueryClientProvider` → `AuthProvider` → `SubscriptionProvider`.
-   - No server-side call to `getInitialAuthState` was found in the codebase at doc time; `AuthProvider` accepts optional `initialUser`, `initialSession`, `initialProfile` from its parent. If a root layout or parent passes these (e.g. from a server component), that would be the source of initial auth state.
-
-4. **Client auth** (`viewbait/lib/hooks/useAuth.tsx`):
-   - `AuthProvider` holds `user`, `session`, `profile`, and auth methods. It can initialize from `initialUser` / `initialSession` / `initialProfile` or rely on client-side Supabase auth state.
-   - `useAuth()` is used across the app (e.g. `viewbait/app/page.tsx`, `viewbait/app/studio/page.tsx`, `viewbait/components/studio/studio-sidebar.tsx`) for `isAuthenticated`, `user`, `signOut`, etc.
-   - Profile updates go through `viewbait/lib/services/profiles.ts` (e.g. `getProfile()`), which call API routes; those routes use the server Supabase client.
-
-5. **Typical API flow (e.g. list thumbnails)**:
-   - **UI:** Component uses a hook or service that calls `fetch('/api/thumbnails?...')` (e.g. `viewbait/lib/services/thumbnails.ts` → `getThumbnails()` builds query params and `fetch(url)`).
-   - **Route handler:** `viewbait/app/api/thumbnails/route.ts`:
-     - `createClient()` from `viewbait/lib/supabase/server.ts` (async, uses `cookies()` from `next/headers`) to get a Supabase server client with anon key and cookie-based session.
-     - `requireAuth(supabase)` from `viewbait/lib/server/utils/auth.ts` → `supabase.auth.getUser()`; if no user, throws `NextResponse.json(..., 401)`.
-     - Builds query via `buildThumbnailsQuery()` in `viewbait/lib/server/data/thumbnails.ts` (uses `QueryPatterns.userOwnedWithFavorites` from `viewbait/lib/server/utils/query-builder.ts`), then `applyCursorPagination()` from the same query-builder.
-     - Executes query against `thumbnails` table (RLS applies because the client uses the user’s session).
-     - `refreshThumbnailUrls()` from `viewbait/lib/server/utils/url-refresh.ts` refreshes signed storage URLs for each thumbnail.
-     - Returns JSON (e.g. `createCachedResponse(..., { strategy: 'private-user', maxAge: 300 }, request)` from `viewbait/lib/server/utils/cache-headers.ts`).
-   - **Supabase:** All reads/writes go through the server-created client; RLS policies on `thumbnails` (and other tables) enforce `user_id` and visibility rules.
-
-6. **Auth callback (OAuth / email link):**
-   - Request hits `viewbait/app/auth/callback/route.ts` with `?code=...`.
-   - `createClient()` from `viewbait/lib/supabase/server.ts` then `supabase.auth.exchangeCodeForSession(code)`.
-   - On success, provider tokens (e.g. Google) are read from `data.session` and persisted via `persistYouTubeTokens()` which uses `createServiceClient()` from `viewbait/lib/supabase/service.ts` to upsert into `youtube_integrations` (service role bypasses RLS).
-   - Response: redirect to `next` or `redirect` query param, default `/studio`.
-
-### 1.2 AI generation flow (thumbnail generate)
-
-- **UI** triggers generation (e.g. via studio components that call the generate API).
-- **Route:** `viewbait/app/api/generate/route.ts`:
-  - `createClient()` + `requireAuth(supabase)`.
-  - Tier and credits: `getTierForUser(supabase, user.id)` (`viewbait/lib/server/utils/tier.ts`) and credit checks; `decrementCreditsAtomic()` in `viewbait/lib/server/utils/credits.ts` uses **service role** client and RPC `decrement_credits_atomic` (idempotency key, etc.).
-  - Prompt is built in the route; then `callGeminiImageGeneration()` in `viewbait/lib/services/ai-core.ts` (uses `process.env.GEMINI_API_KEY`, no prompt in client).
-  - Image is uploaded to Supabase Storage (user-scoped path), then thumbnail row is written via the same server client.
-- **Return:** Thumbnail metadata and/or image URL back to the client; errors go through `serverErrorResponse` / `aiServiceErrorResponse` in `viewbait/lib/server/utils/error-handler.ts`, which use `sanitizeErrorForClient()` from `viewbait/lib/utils/error-sanitizer.ts` so prompts and internal details are not sent to the client.
-
-### 1.3 Assistant chat flow
-
-- **Route:** `viewbait/app/api/assistant/chat/route.ts`.
-- Uses `getOptionalAuth(supabase)` (assistant can be used unauthenticated or authenticated).
-- Calls `callGeminiWithFunctionCalling()` in `viewbait/lib/services/ai-core.ts` with conversation history and tool definition (`assistantToolDefinition`); prompts and system behavior are defined in the route and in ai-core, not exposed to the client beyond the structured response (e.g. `human_readable_message`, `ui_components`, `form_state_updates`).
+This document is intentionally **execution-path driven**. Every described behavior references the exact file paths and exported functions that implement it. If you can’t find the referenced file/function in the repo, treat it as a **gap/assumption** (and see the “Known gaps and assumptions” section).
 
 ---
 
-## 2. Major subsystems and boundaries
+## End-to-end data flow narrative (UI → server → Supabase → return)
 
-| Subsystem | Location | Responsibility |
-|-----------|----------|----------------|
-| **Routing & auth gate** | `viewbait/middleware.ts` | Session refresh, protected vs auth routes, redirects. Does not run for API routes. |
-| **App shell** | `viewbait/app/layout.tsx`, `viewbait/app/providers.tsx` | Root layout, theme, React Query, AuthProvider, SubscriptionProvider. |
-| **Pages** | `viewbait/app/page.tsx` (landing), `viewbait/app/studio/page.tsx` (studio), `viewbait/app/auth/*` | Entry points; studio is a single-page experience inside `/studio`. |
-| **API routes** | `viewbait/app/api/**/*.ts` | All server-side API handlers; use server Supabase client and server utils only. |
-| **Supabase clients** | `viewbait/lib/supabase/server.ts`, `viewbait/client.ts`, `viewbait/service.ts` | Server (cookies, RLS), browser (anon, RLS), service role (bypass RLS). |
-| **Auth utilities** | `viewbait/lib/server/utils/auth.ts` | `requireAuth(supabase)`, `getOptionalAuth(supabase)` for route handlers. |
-| **Server data layer** | `viewbait/lib/server/data/*.ts` | Query builders and server-side fetch helpers (thumbnails, auth, notifications, subscription, etc.). |
-| **Query building** | `viewbait/lib/server/utils/query-builder.ts` | `QueryPatterns.userOwned`, `userOwnedWithFavorites`, `applyCursorPagination`, `applyPagination`, `applyOrder`. |
-| **Services (client-callable)** | `viewbait/lib/services/*.ts` | Thumbnails, styles, palettes, faces, storage, subscriptions, notifications, auth, Stripe, YouTube, AI (ai-core). Services call `fetch('/api/...')` or Supabase from client where applicable; **secrets and prompt construction stay in API routes and server**. |
-| **Error handling** | `viewbait/lib/server/utils/error-handler.ts`, `viewbait/lib/utils/error-sanitizer.ts` | Standardized API error responses; sanitization to avoid leaking prompts/PII. |
-| **URL refresh** | `viewbait/lib/server/utils/url-refresh.ts` | Refresh signed storage URLs (thumbnails, faces, style-references) with expiry/threshold logic. |
-| **Credits & tier** | `viewbait/lib/server/utils/credits.ts`, `viewbait/lib/server/utils/tier.ts`, `viewbait/lib/server/data/subscription-tiers.ts` | Atomic credit deduction (RPC), tier resolution from `user_subscriptions` + product config. |
-| **Hooks** | `viewbait/lib/hooks/*.ts(x)` | useAuth, useSubscription, useThumbnails, useStyles, usePalettes, useFaces, useNotifications, etc.; wrap React Query or auth state. |
-| **Types** | `viewbait/lib/types/database.ts` | Shared DB and API types (Profile, DbThumbnail, etc.). |
+At a high level:
 
-**Boundaries:**
+- **UI**: `app/**` (pages/layouts) + `components/**` (reusable UI)  
+- **Client data layer**: `lib/hooks/**` (React Query hooks) → `lib/services/**` (typed `fetch('/api/...')` wrappers)  
+- **Server surface**: `app/api/**/route.ts` (Next.js Route Handlers)  
+- **Database/storage**: Supabase (Postgres with RLS + Storage signed URLs) via `lib/supabase/{server,client,service}.ts`
 
-- **Client vs server:** API routes and Server Components use `viewbait/lib/supabase/server.ts` and server utils; client components use `viewbait/lib/supabase/client.ts` and services that call APIs. Never pass service role client or env secrets to the client.
-- **RLS:** Normal reads/writes use the server or browser Supabase client (anon key + user session). Service role (`viewbait/lib/supabase/service.ts`) is used only where RLS must be bypassed (e.g. auth callback YouTube tokens, credits RPC, broadcast notifications, Stripe webhook handling).
-- **AI:** Prompt construction and Gemini calls are in API routes and `viewbait/lib/services/ai-core.ts`; `GEMINI_API_KEY` is server-only. Client only sends structured input and receives sanitized or structured output.
+### Execution path: Studio thumbnails list (canonical “read” flow)
 
----
+1. **Route entrypoint (UI)**
+   - Studio is a SPA mounted at `app/studio/page.tsx` (default export `StudioPage`), which mounts `StudioProvider` and the Studio component tree.
 
-## 3. Source of truth
+2. **React Query hook**
+   - Thumbnails are fetched via `lib/hooks/useThumbnails.ts` (export `useThumbnails`).
+   - `useThumbnails` uses `useInfiniteQuery(...)` and calls the service `getThumbnails(...)`.
 
-### 3.1 Authentication
+3. **Client service**
+   - `lib/services/thumbnails.ts` exports `getThumbnails(userId, options)`.
+   - It builds query params and calls:
+     - `fetchWithTimeout('/api/thumbnails?...', { credentials: 'include' })` from `lib/utils/fetch-with-timeout.ts`.
 
-- **Session:** Supabase Auth; session is stored in cookies and read in middleware and in route handlers via `createClient()` from `viewbait/lib/supabase/server.ts` (and in auth callback via the same).
-- **Who is logged in:** Determined by `supabase.auth.getUser()` in middleware and in `requireAuth` / `getOptionalAuth` (`viewbait/lib/server/utils/auth.ts`). No separate session store; Supabase is the source of truth.
-- **Profile (display name, avatar, etc.):** `profiles` table; RLS and application code enforce that users can only read/update their own row. Initial profile for the client can be supplied by server (e.g. root layout) or fetched via `getProfile()` from `viewbait/lib/services/profiles.ts` which hits the API.
+4. **API route handler**
+   - `app/api/thumbnails/route.ts` exports `GET(request: Request)`.
+   - It:
+     - Creates a cookie-backed Supabase client via `createClient()` from `lib/supabase/server.ts`.
+     - Enforces auth via `requireAuth(supabase)` from `lib/server/utils/auth.ts`.
+     - Parses and validates query params via `parseQueryParams(...)` from `lib/server/utils/api-helpers.ts`.
+     - Builds the base query via `buildThumbnailsQuery(...)` from `lib/server/data/thumbnails.ts`.
+     - Applies cursor pagination via `applyCursorPagination(...)` from `lib/server/utils/query-builder.ts`.
+     - Refreshes signed URLs via `refreshThumbnailUrls(...)` from `lib/server/utils/url-refresh.ts`.
+     - Returns JSON using `createCachedResponse(...)` from `lib/server/utils/cache-headers.ts` (strategy `private-dynamic`).
 
-### 3.2 Access control
+5. **Supabase**
+   - Database access uses the user’s session cookies via the server client in `lib/supabase/server.ts`, so **RLS must enforce row isolation**.
 
-- **Route-level protection:** Middleware (`viewbait/middleware.ts`) redirects unauthenticated users away from `PROTECTED_ROUTES` (e.g. `/studio`) and authenticated users away from `AUTH_ROUTES` (e.g. `/auth`) except reset-password and callback.
-- **API-level protection:** Each protected API route calls `requireAuth(supabase)` (or `getOptionalAuth` where optional). No single middleware enforces auth for all APIs; each route is responsible.
-- **Admin:** Admin-only behavior (e.g. broadcast notifications) is enforced in the route by reading `profiles.is_admin` with the user’s client. Example: `viewbait/app/api/notifications/broadcast/route.ts` — after `requireAuth(supabase)`, it selects `profiles.is_admin` for that user and returns 403 if not admin; then uses `createServiceClient()` for the bulk insert.
-- **RLS:** Database policies (defined in Supabase migrations under `viewbait/supabase/migrations/`) are the source of truth for which rows a user can select/insert/update/delete. Service role bypasses RLS.
+6. **Return to UI**
+   - The JSON payload returns to the client, and `useThumbnails` maps DB rows to UI types using `mapDbThumbnailToThumbnail` from `lib/types/database.ts`.
 
-### 3.3 Production secrets and env
+### Execution path: AI thumbnail generation (canonical “write” flow)
 
-- **Defined in:** `.env` / `.env.local` (not committed). Example template: `viewbait/.env.example`.
-- **Server-only (never expose to client):**
-  - `SUPABASE_SERVICE_ROLE_KEY` — used only in `viewbait/lib/supabase/service.ts`.
-  - `GEMINI_API_KEY` — used only in `viewbait/lib/services/ai-core.ts` (server-side).
-  - `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` — used in `viewbait/app/api/webhooks/stripe/route.ts` and Stripe service code.
-  - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` — used server-side for OAuth (e.g. Supabase Auth provider config; callback persists tokens via service client).
-- **Client-safe (NEXT_PUBLIC_*):**
-  - `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` — used by browser client and middleware; anon key is safe for client use with RLS.
-- **Validation:** Service role client throws if `SUPABASE_SERVICE_ROLE_KEY` is missing; Stripe webhook and other routes check for their required env and return 500 or 400 if missing. No single startup validation file was found for all env vars.
+1. **Client service**
+   - Generation is initiated by calling `generateThumbnail(options)` in `lib/services/thumbnails.ts`, which calls `POST /api/generate`.
 
----
+2. **API route handler**
+   - `app/api/generate/route.ts` exports `POST(request: Request)`.
+   - Core steps:
+     - Server Supabase client: `createClient()` from `lib/supabase/server.ts`.
+     - Auth: `requireAuth(supabase)` from `lib/server/utils/auth.ts`.
+     - Rate limiting: `enforceRateLimit('generate', request, user.id)` from `lib/server/utils/rate-limit.ts`.
+     - Tier gating: `getTierForUser(...)` / tier config from `lib/server/utils/tier.ts` and `lib/server/data/subscription-tiers.ts`.
+     - Credits: reads subscription via `getSubscriptionRow(...)` from `lib/server/data/subscription.ts` and performs atomic deduction via `decrementCreditsAtomic(...)` from `lib/server/utils/credits.ts`.
+       - Credit mutation uses a **service role Supabase client**: `createServiceClient()` from `lib/supabase/service.ts` (bypasses RLS) and calls the RPC `decrement_credits_atomic`.
+     - Prompt construction happens **inside the route** (see `promptData` and `prompt` in `app/api/generate/route.ts`).
+     - Gemini call happens in `lib/services/ai-core.ts` via `callGeminiImageGeneration(...)` using `process.env.GEMINI_API_KEY` (server-only).
+     - Storage upload + signed URLs + DB update happen in `generateSingleVariation(...)` (local helper in `app/api/generate/route.ts`).
 
-## 4. System invariants
+3. **Return to UI**
+   - Single variation: `{ imageUrl, thumbnailId, creditsUsed, creditsRemaining }`
+   - Batch variations: `{ results: [...], creditsUsed, creditsRemaining, totalRequested, totalSucceeded, totalFailed }`
 
-- **Session consistency:** Middleware must return the same response object that had cookies set by the Supabase client (or copy cookies onto any new response). Otherwise the session can go out of sync and users can be logged out. See comments in `viewbait/middleware.ts`.
-- **No secrets in client bundle:** No `SUPABASE_SERVICE_ROLE_KEY`, `GEMINI_API_KEY`, `STRIPE_SECRET_KEY`, or webhook secrets in client code or in `NEXT_PUBLIC_*` vars. AI prompts are built only in API routes or server-side ai-core.
-- **User-scoped data:** Thumbnails, faces, styles, palettes, etc. are keyed by `user_id`. API routes override or ignore `user_id` from the body and set it from `requireAuth(supabase)` (e.g. `viewbait/app/api/thumbnails/route.ts` POST).
-- **Credits:** Credit deduction is done via RPC `decrement_credits_atomic` with an idempotency key; only server-side code uses the service role client for this. Free tier limits and tier resolution are enforced in routes using `getTierForUser()` and tier config from `viewbait/lib/server/data/subscription-tiers.ts` and `viewbait/lib/constants/subscription-tiers.ts`.
-- **Errors to client:** All API error responses that might contain implementation details or third-party messages go through helpers in `viewbait/lib/server/utils/error-handler.ts` and `viewbait/lib/utils/error-sanitizer.ts` so that prompts, stack traces, and raw API errors are not sent to the client.
-- **Signed URLs:** Storage URLs returned to the client are short-lived signed URLs. The `url-refresh` utility is used to refresh them when expired or near expiry when serving lists (e.g. thumbnails).
+### Execution path: Auth bootstrap (server → client hydration)
 
----
+1. **Server layout**
+   - `app/layout.tsx` (default export `RootLayout`) calls `getInitialAuthState()` from `lib/server/data/auth.ts`.
 
-## 5. How to safely modify the system
+2. **Auth state computation**
+   - `lib/server/data/auth.ts` exports `getInitialAuthState` (wrapped with `cache(...)`).
+   - It creates a server Supabase client (`lib/supabase/server.ts`), resolves user via `getOptionalAuth(...)`, then fetches `supabase.auth.getSession()` plus profile+role via `getProfileWithRole(...)` (local helper in the same file).
 
-### 5.1 Adding new API routes
+3. **Client provider layer**
+   - `app/providers.tsx` wraps `QueryClientProvider` → `AuthProvider` → `SubscriptionProvider`.
+   - `AuthProvider` is `lib/hooks/useAuth.tsx` and supports server-provided `initialUser`/`initialSession`/`initialProfile`.
 
-- **Place:** Add a new file under `viewbait/app/api/<resource>/route.ts` (or `viewbait/app/api/<resource>/[id]/route.ts` for dynamic segments). Follow existing patterns (e.g. `viewbait/app/api/thumbnails/route.ts`).
-- **Auth:** Use `createClient()` from `viewbait/lib/supabase/server.ts`, then `requireAuth(supabase)` for protected routes or `getOptionalAuth(supabase)` for optional auth.
-- **Data access:** Prefer the server data layer (`viewbait/lib/server/data/*.ts`) and `QueryPatterns` / helpers in `viewbait/lib/server/utils/query-builder.ts` so RLS applies and patterns stay consistent. Use the **service role** client only when you have a clear reason (e.g. cross-user write, RPC that must bypass RLS) and document it.
-- **Responses:** Use helpers from `viewbait/lib/server/utils/error-handler.ts` for errors and, where appropriate, `createCachedResponse()` from `viewbait/lib/server/utils/cache-headers.ts` for cache headers.
-- **Validation:** Validate and parse input (query params, body); reject invalid input with `validationErrorResponse()` or similar. Do not trust `user_id` (or other auth-related fields) from the client; set them from the authenticated user.
-
-### 5.2 Adding new features that call external APIs or use secrets
-
-- **Secrets:** Keep all new secrets in server-side env (no `NEXT_PUBLIC_*`). Use them only in API route handlers or server-only modules (e.g. under `viewbait/lib/server/`, or in `viewbait/lib/services/*.ts` only when called from the server).
-- **Prompts and AI:** Keep prompt construction and model calls in API routes or in `viewbait/lib/services/ai-core.ts` (or a similar server-only service). Never send raw prompts or system instructions to the client; use structured request/response and sanitize errors with `sanitizeErrorForClient()` / `sanitizeApiErrorResponse()` before logging or returning.
-- **Stripe / webhooks:** Webhook handlers must verify signatures using the webhook secret (see `viewbait/app/api/webhooks/stripe/route.ts`). Use the service role client for any DB updates triggered by webhooks if they affect multiple users or internal state.
-
-### 5.3 Adding new protected or auth routes
-
-- **Protected pages:** Add the path to `PROTECTED_ROUTES` in `viewbait/middleware.ts` so unauthenticated users are redirected to `/auth` with a redirect param.
-- **Auth-only pages (e.g. login):** Add the path to `AUTH_ROUTES` so logged-in users are redirected away (e.g. to `/studio`).
-- **New API routes:** As above, call `requireAuth(supabase)` at the start of the handler; do not rely only on middleware because middleware does not run for API routes.
-
-### 5.4 Validating changes
-
-- **Typecheck:** `npm run typecheck` (or `tsc` with project `tsconfig.build.json`).
-- **Lint:** `npm run lint` (ESLint).
-- **Tests:** `npm run test` / `npm run test:run` (Vitest). Prefer tests for server utils (auth, credits, query builder, error sanitizer) and for services that are easy to mock.
-- **Manual:** Test auth flows (login, logout, protected route redirect, auth callback), at least one full flow (e.g. list thumbnails, generate thumbnail), and error paths (401, 403, 500) to ensure no raw errors or prompts leak.
-- **Env:** Ensure any new env vars are documented in `viewbait/.env.example` and that server-only vars are not prefixed with `NEXT_PUBLIC_`.
+Whether the server result is currently plumbed all the way into `AuthProvider` is a **known gap** (see below).
 
 ---
 
-## 6. Known gaps and assumptions
+## Major subsystems and their boundaries
 
-- **Initial auth state:** The doc did not find a root layout or parent that passes `getInitialAuthState()` (from `viewbait/lib/server/data/auth.ts`) into `AuthProvider`. If such wiring exists elsewhere (e.g. in a layout under `app/`), that would be the source of server-rendered auth state and would reduce client-side flicker. If not, the app may show a brief unauthenticated state before client-side auth hydrates.
-- **RLS policies:** Only a subset of migrations was read (e.g. `001_create_notifications.sql`, `002_add_profiles_is_admin.sql`). The full set of RLS policies for all tables (thumbnails, profiles, user_subscriptions, etc.) lives in Supabase migrations and possibly in Supabase dashboard; they were not fully enumerated here. Assume all user-scoped tables have RLS that restricts by `auth.uid()` or equivalent.
-- **Stripe webhook idempotency:** The Stripe webhook handler checks `stripe_webhook_events` for `event.id` and skips processing if already present. The exact schema and any other idempotency mechanisms (e.g. for checkout or subscription updates) were not fully traced.
-- **Cron / cleanup:** There is a route `viewbait/app/api/cron/cleanup-free-tier-thumbnails/route.ts`. How it is invoked (Vercel cron, external scheduler, or manual) and whether it is protected by a secret or token were not confirmed.
-- **Database schema:** Types in `viewbait/lib/types/database.ts` are the main reference for the app; the actual schema is defined in Supabase migrations and may have more tables or columns (e.g. optional `thumbnail_400w_url` mentioned in code). For authoritative schema, rely on migrations and Supabase.
-- **Feature flags / experiments:** Routes under `viewbait/app/api/experiments/` exist; the full experiment and analytics model and how they integrate with the rest of the product were not fully traced.
+### UI and client state
+
+- **Routes/layouts**: `app/**` (App Router)
+  - Examples: `app/studio/page.tsx`, `app/admin/page.tsx`, `app/auth/*`
+- **Reusable components**: `components/**`
+- **React Query hooks (client)**: `lib/hooks/**` (example: `lib/hooks/useThumbnails.ts`)
+- **Service layer (client-callable HTTP)**: `lib/services/**` (example: `lib/services/thumbnails.ts`)
+
+Client code should not embed secrets, should prefer `@/` imports, and should not directly use the service-role client.
+
+### Server/API surface (Next.js route handlers)
+
+- **API routes**: `app/api/**/route.ts`
+- **Shared server helpers**:
+  - Auth guards: `lib/server/utils/auth.ts` (`requireAuth`, `getOptionalAuth`)
+  - Role checks: `lib/server/utils/roles.ts` (`requireAdmin`, `getUserRole`)
+  - Tier checks: `lib/server/utils/tier.ts` (`getTierForUser`, `getTierNameForUser`)
+  - Error responses: `lib/server/utils/error-handler.ts`
+  - Error sanitization: `lib/utils/error-sanitizer.ts`
+  - Query building: `lib/server/utils/query-builder.ts`
+
+### Supabase (Postgres + Storage)
+
+- **Supabase clients**:
+  - Server session client: `lib/supabase/server.ts` (`createClient`)
+  - Browser anon client: `lib/supabase/client.ts` (`createClient`)
+  - Service role client: `lib/supabase/service.ts` (`createServiceClient`)
+- **Schema and migrations**:
+  - SQL migrations: `supabase/migrations/**`
+  - Schema exports: `supabase/tables/**` and `supabase/tables/SCHEMA_SUMMARY.md`
+
+### AI (Gemini)
+
+- **Low-level API calls**: `lib/services/ai-core.ts` (e.g. `callGeminiImageGeneration`, `callGeminiWithFunctionCalling`)
+- **Prompt/system instruction construction**: intentionally in route handlers
+  - Example: `app/api/generate/route.ts` builds prompts.
+
+### Assistant chat
+
+- `app/api/assistant/chat/route.ts` is a full server-side orchestrator:
+  - Auth (requires user): `getOptionalAuth(...)` then returns 401 if missing.
+  - Rate limiting: `enforceRateLimit('assistant-chat', ...)`.
+  - Gemini structured output: `callGeminiWithFunctionCalling(...)` from `lib/services/ai-core.ts`.
+  - Server-side uploads for attached images: `uploadBase64ToStyleReferences(...)` and `uploadBase64ToFaceImage(...)` local helpers.
+  - “Server-only” keys are stripped before returning to client via `stripServerOnlyFormUpdates(...)`.
+
+### Billing (Stripe)
+
+- Webhook handler: `app/api/webhooks/stripe/route.ts`
+  - Verifies signatures using `STRIPE_WEBHOOK_SECRET`.
+  - Uses service role client (`createServiceClient`) for DB updates and idempotency tracking (`stripe_webhook_events`).
+
+### YouTube integration
+
+Two parallel implementations exist:
+
+- **App-owned OAuth**:
+  - Start: `app/api/youtube/connect/authorize/route.ts` (Pro-only)
+  - Callback: `app/api/youtube/connect/callback/route.ts`
+  - Persists tokens via `createServiceClient()` into `youtube_integrations`.
+
+- **Supabase auth callback capture**:
+  - `app/auth/callback/route.ts` exchanges Supabase `code` for session and may persist `provider_token` via service role into `youtube_integrations`.
+
+---
+
+## Source of truth locations (auth, access control, production secrets)
+
+### Authentication
+
+- **Server auth checks**: `lib/server/utils/auth.ts`
+  - `requireAuth(supabase)` is the canonical hard gate.
+  - `getOptionalAuth(supabase)` is the canonical optional gate.
+- **Server Supabase client (cookie session)**: `lib/supabase/server.ts` (`createClient`)
+- **Client auth state**: `lib/hooks/useAuth.tsx` (`AuthProvider`, `useAuth`)
+
+### Access control
+
+Access control is layered and must be consistent:
+
+- **DB/RLS**: implemented in Supabase (see `supabase/migrations/**` and the live project)
+- **API layer**:
+  - “Must be signed in”: `requireAuth(...)`
+  - “Admin only”: `requireAdmin(...)` in `lib/server/utils/roles.ts`
+  - “Tier gated”: `getTierNameForUser(...)` checks in routes like:
+    - `app/api/youtube/connect/authorize/route.ts`
+    - `app/api/assistant/chat/route.ts`
+- **Client visibility of admin UI**:
+  - Role is exposed by `app/api/user/role/route.ts` (GET) using `getUserRole(...)`.
+
+### Production secrets and env vars
+
+- **Template**: `.env.example`
+- **Client-safe (public) env vars**:
+  - `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` (used in `lib/supabase/client.ts` and `lib/supabase/server.ts`)
+  - `NEXT_PUBLIC_APP_URL` (used for OAuth redirect URI construction in `app/api/youtube/connect/*`)
+- **Server-only secrets (must never reach the client bundle)**:
+  - `SUPABASE_SERVICE_ROLE_KEY` (used in `lib/supabase/service.ts`)
+  - `GEMINI_API_KEY` (used in `lib/services/ai-core.ts`)
+  - `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` (used in `app/api/webhooks/stripe/route.ts`)
+  - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` (used in `app/api/youtube/connect/*`)
+
+---
+
+## System invariants
+
+- **Service role must stay server-only**
+  - Only use `createServiceClient()` from `lib/supabase/service.ts` inside server code.
+  - Treat it as root access (bypasses RLS).
+
+- **Every protected API route must enforce auth**
+  - There is no repo-root `middleware.ts` currently enforcing API auth.
+  - Pattern: `const supabase = await createClient(); const user = await requireAuth(supabase);`
+
+- **Credits must be mutated atomically and idempotently**
+  - Use `decrementCreditsAtomic(...)` in `lib/server/utils/credits.ts` (RPC `decrement_credits_atomic`).
+
+- **Prompts/system instructions are server-side only**
+  - Prompt construction should remain in route handlers (example: `app/api/generate/route.ts`).
+  - Gemini calling code in `lib/services/ai-core.ts` should remain low-level and avoid embedding app prompt logic.
+
+- **Never leak prompts/secrets via errors**
+  - Use `sanitizeErrorForClient(...)` and `sanitizeApiErrorResponse(...)` from `lib/utils/error-sanitizer.ts`.
+  - Prefer standardized API responses from `lib/server/utils/error-handler.ts`.
+
+- **Redirects must be allowlisted**
+  - Use `getAllowedRedirect(...)` from `lib/utils/redirect-allowlist.ts` (example usage: `app/auth/callback/route.ts`).
+
+---
+
+## How to safely modify the system
+
+### Where to add new routes/features
+
+- **New API route**
+  - Add `app/api/<feature>/route.ts` (or nested segments).
+  - Copy the structure from `app/api/thumbnails/route.ts`:
+    - `createClient()` → `requireAuth(...)`
+    - parse + validate inputs (`parseQueryParams(...)` or zod patterns used elsewhere)
+    - do DB work through Supabase client (RLS)
+    - return standardized errors (`lib/server/utils/error-handler.ts`) and/or `handleApiError(...)`
+
+- **New client feature**
+  - Put API calls in `lib/services/<feature>.ts`.
+  - Wrap with a React Query hook in `lib/hooks/use<Feature>.ts`.
+  - Keep components mostly “coordination” code in `components/**`.
+
+### How to avoid leaking secrets or prompts
+
+- **Secrets**
+  - Never add secrets to `NEXT_PUBLIC_*`.
+  - Only read secrets inside server routes or server-only modules.
+
+- **Prompts**
+  - Build prompts in the route handler that owns the feature (e.g. generation prompt in `app/api/generate/route.ts`).
+  - If you must share prompt logic, put it under `lib/server/**` to avoid accidental client imports.
+
+- **Logging**
+  - Do not log prompts, tokens, or base64 images.
+  - When logging third-party failures, sanitize error bodies via `sanitizeApiErrorResponse(...)`.
+
+### How to validate changes
+
+- **Lint**: `npm run lint`
+- **Typecheck**: `npm run typecheck`
+- **Tests**: `npm run test:run`
+- **Performance/network score** (when UI/network changes): `npm run score`
+
+Manual smoke tests I expect for risky work:
+
+- Auth: sign in/out; API routes return 401 when unauthenticated.
+- Generate: credits deducted only on success; retries don’t double-charge.
+- Stripe: webhook signature verification and idempotency (`stripe_webhook_events`) behave.
+- YouTube: state cookie prevents CSRF; tokens persist in `youtube_integrations`.
+
+---
+
+## Known gaps and assumptions
+
+- **Server auth hydration wiring appears incomplete**
+  - `app/layout.tsx` passes `initialAuthState` to `Providers`, but `app/providers.tsx` currently only accepts `{ children }` and does not pass initial state into `AuthProvider` (`lib/hooks/useAuth.tsx`). This suggests the intended “no auth flicker” bootstrap may not currently be active.
+
+- **Schema exports are explicitly incomplete**
+  - `supabase/tables/SCHEMA_SUMMARY.md` states the schema is inferred and “complete schema (constraints, indexes, RLS policies) needs to be fetched.” Treat `supabase/migrations/**` plus the live Supabase project as the authoritative source.
+
+- **No repo-root `middleware.ts`**
+  - There is no `middleware.ts` file in the repository root. Route protection must therefore be enforced per-route (API) and/or per-page layout patterns (UI).
+
+- **Local-only “agent log” instrumentation exists in `app/auth/callback/route.ts`**
+  - That file contains `fetch('http://127.0.0.1:7250/ingest/...')` blocks. From repo state alone, it’s unclear whether this is intended to run in production.
+
+- **Env var validation is distributed**
+  - Some routes validate config (Stripe webhook checks `STRIPE_WEBHOOK_SECRET`), while others throw deeper (Gemini key check is inside `lib/services/ai-core.ts`). There is no single centralized env validation module.
 
 ---
 
 *End of system understanding document.*
+
