@@ -48,3 +48,8 @@ next-env.d.ts
 /docs/critiques/
 /docs/guides/
 /docs/plans/
+
+# Allow committing the curated content brainstorm deliverable
+!/docs/brainstorms/
+!/docs/brainstorms/content_topics_brainstorm.md
+!/docs/brainstorms/technical_solutions_brainstorm.md
