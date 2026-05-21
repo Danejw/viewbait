@@ -41,6 +41,7 @@ import { cn } from "@/lib/utils";
 import SubscriptionModal from "@/components/subscription-modal";
 import { DROP_ZONE_IDS, type DragData } from "@/components/studio/studio-dnd-context";
 import type { StyleInsert, StyleUpdate, DbStyle } from "@/lib/types/database";
+import { IMAGE_MODEL_OPTIONS, type ImageModelChoice } from "@/lib/constants/image-models";
 import { ASPECT_RATIO_DISPLAY_ORDER } from "@/lib/constants/subscription-tiers";
 import { enhanceTitle } from "@/lib/services/thumbnails";
 import { useOnboarding } from "@/lib/contexts/onboarding-context";
@@ -1383,6 +1384,38 @@ type StudioGeneratorSubmitProps = {
 };
 
 /**
+ * StudioGeneratorImageModel
+ * Dropdown to choose Nano Banana Pro vs Nano Banana 2 (persisted in localStorage via studio provider).
+ */
+export function StudioGeneratorImageModel() {
+  const {
+    state: { imageModel },
+    actions: { setImageModel },
+  } = useStudio();
+
+  return (
+    <div className="mb-6 ml-1">
+      <label className="mb-2 block text-sm font-medium">Image model</label>
+      <Select
+        value={imageModel}
+        onValueChange={(value) => setImageModel(value as ImageModelChoice)}
+      >
+        <SelectTrigger className="w-full">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {IMAGE_MODEL_OPTIONS.map((option) => (
+            <SelectItem key={option.id} value={option.id}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+}
+
+/**
  * StudioGeneratorSubmit
  * Generate button with validation and loading state; optional Save settings to project when a project is selected.
  */
@@ -1556,6 +1589,7 @@ export function StudioGenerator() {
         </div>
         <StudioGeneratorAspectAndResolution />
         <StudioGeneratorVariations />
+        <StudioGeneratorImageModel />
       </div>
       <div className="flex-shrink-0">
         <StudioGeneratorSubmit />

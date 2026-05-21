@@ -2,6 +2,12 @@
 
 import React, { createContext, useContext, useState, useRef, useCallback, useEffect, useTransition } from "react";
 import { useThumbnailGeneration } from "@/lib/hooks/useThumbnailGeneration";
+import {
+  DEFAULT_IMAGE_MODEL,
+  loadCachedImageModel,
+  saveCachedImageModel,
+  type ImageModelChoice,
+} from "@/lib/constants/image-models";
 import { getGenerateCooldownMs } from "@/lib/constants/subscription-tiers";
 import { useThumbnails, useDeleteThumbnail, useToggleFavorite } from "@/lib/hooks/useThumbnails";
 import { useFaces } from "@/lib/hooks/useFaces";
@@ -118,6 +124,7 @@ export interface StudioState {
   selectedAspectRatio: string;
   selectedResolution: string;
   variations: number;
+  imageModel: ImageModelChoice;
   includeStyleReferences: boolean;
   styleReferences: string[];
   // Loading state
@@ -231,6 +238,7 @@ export interface StudioActions {
   setSelectedAspectRatio: (ratio: string) => void;
   setSelectedResolution: (resolution: string) => void;
   setVariations: (count: number) => void;
+  setImageModel: (model: ImageModelChoice) => void;
   setIncludeStyleReferences: (include: boolean) => void;
   setStyleReferences: (references: string[]) => void;
   addStyleReference: (url: string) => void;
@@ -592,6 +600,8 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<StudioState>(() => {
     const activeProjectId =
       typeof window !== "undefined" ? localStorage.getItem("studio-active-project-id") : null;
+    const imageModel =
+      typeof window !== "undefined" ? loadCachedImageModel() : DEFAULT_IMAGE_MODEL;
     return {
       currentView: "generator",
       mode: "manual",
@@ -618,6 +628,7 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
       selectedAspectRatio: "16:9",
       selectedResolution: "1K",
       variations: 1,
+      imageModel,
       includeStyleReferences: false,
       styleReferences: [],
       isGenerating: false,
@@ -855,6 +866,7 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
       selectedAspectRatio: state.selectedAspectRatio,
       selectedResolution: state.selectedResolution,
       variations: state.variations,
+      imageModel: state.imageModel,
       styleReferences:
         allowCustom && state.includeStyleReferences && state.styleReferences.length > 0
           ? state.styleReferences
@@ -1124,15 +1136,21 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
       // Edit API loads the thumbnail by ID and creates a new thumbnail (original is kept).
       const editPrompt =
         data.customPrompt?.trim() || "Keep the same style and composition.";
-      const referenceImages = [
-        thumbnail.thumbnail800wUrl ?? thumbnail.imageUrl,
-      ].filter(Boolean) as string[];
+      const baseRef = thumbnail.thumbnail800wUrl ?? thumbnail.imageUrl;
+      const referenceImages = Array.from(
+        new Set(
+          [baseRef, ...(data.referenceImageUrls ?? [])].filter(
+            (url): url is string => Boolean(url)
+          )
+        )
+      );
 
       const { result, error: editError } = await thumbnailsService.editThumbnail(
         thumbnail.id,
         editPrompt,
         referenceImages.length > 0 ? referenceImages : undefined,
-        data.title?.trim() || undefined
+        data.title?.trim() || undefined,
+        state.imageModel
       );
 
       if (editError) {
@@ -1166,7 +1184,7 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
           error instanceof Error ? error.message : "Failed to regenerate thumbnail",
       }));
     }
-  }, [state.thumbnailToEdit, refreshThumbnails]);
+  }, [state.thumbnailToEdit, state.imageModel, refreshThumbnails]);
 
   // Image modal handlers
   const onViewThumbnail = useCallback((thumbnail: Thumbnail) => {
@@ -1598,6 +1616,10 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
     setSelectedResolution: (resolution) =>
       setState((s) => ({ ...s, selectedResolution: resolution })),
     setVariations: (count) => setState((s) => ({ ...s, variations: count })),
+    setImageModel: (model) => {
+      saveCachedImageModel(model);
+      setState((s) => ({ ...s, imageModel: model }));
+    },
     setIncludeStyleReferences: (include) =>
       setState((s) => ({ ...s, includeStyleReferences: include })),
     setStyleReferences: (references) => setState((s) => ({ ...s, styleReferences: references })),

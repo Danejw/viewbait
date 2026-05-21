@@ -17,7 +17,9 @@ import {
   FREE_TIER_MAX_CUSTOM_PALETTES,
   FREE_TIER_MAX_CUSTOM_STYLES,
 } from '@/lib/constants/free-tier-limits'
+import { resolveImageModel, type ImageModelProvider } from '@/lib/constants/image-models'
 import { callGeminiImageGeneration } from '@/lib/services/ai-core'
+import { callOpenAIImageGeneration } from '@/lib/services/openai-image'
 import { getEmotionDescription, getPoseDescription } from '@/lib/utils/ai-helpers'
 import { logError } from '@/lib/server/utils/logger'
 import { generateThumbnailVariants } from '@/lib/server/utils/image-variants'
@@ -55,6 +57,8 @@ export interface GenerateThumbnailRequest {
   customStyle?: string
   thumbnailText?: string
   variations?: number // Number of variations to generate (1-4, default: 1)
+  /** User image model choice: nano-banana-pro | nano-banana-2 | gpt-image-2 */
+  imageModel?: string
   /** Optional project id; thumbnail will be associated with this project if valid and owned by user */
   project_id?: string | null
 }
@@ -120,6 +124,12 @@ function normalizeGenerationError(message: string): string {
   if (message.includes('temporarily unavailable') || message.includes('503')) {
     return 'Image service is temporarily unavailable. Please try again in a few minutes.'
   }
+  if (message.includes('rate limit') || message.includes('429') || message.includes('busy')) {
+    return 'AI service is busy. Please try again in a moment.'
+  }
+  if (message.includes('content policy') || message.includes('moderation')) {
+    return 'Image could not be generated due to content restrictions. Please adjust your prompt.'
+  }
   return message
 }
 
@@ -137,19 +147,32 @@ async function generateSingleVariation(
   prompt: string,
   referenceImages: string[],
   allFaceImages: string[],
-  aspectRatio: string
+  aspectRatio: string,
+  provider: ImageModelProvider,
+  apiModel: string
 ): Promise<SingleVariationResult> {
   try {
-    // Generate thumbnail image using AI core service
     let aiResult
     try {
-      aiResult = await callGeminiImageGeneration(
-        prompt,
-        referenceImages,
-        allFaceImages,
-        requestedResolution,
-        aspectRatio
-      )
+      if (provider === 'openai') {
+        aiResult = await callOpenAIImageGeneration(
+          prompt,
+          referenceImages,
+          allFaceImages,
+          requestedResolution,
+          aspectRatio,
+          apiModel
+        )
+      } else {
+        aiResult = await callGeminiImageGeneration(
+          prompt,
+          referenceImages,
+          allFaceImages,
+          requestedResolution,
+          aspectRatio,
+          apiModel
+        )
+      }
     } catch (error) {
       // Handle timeout errors specifically
       if (error instanceof TimeoutError) {
@@ -445,8 +468,12 @@ export async function POST(request: Request) {
       return insufficientCreditsResponse(creditsRemaining, totalCreditCost)
     }
 
-    // Check if AI service is configured
-    if (!process.env.GEMINI_API_KEY) {
+    const { provider, apiModelId } = resolveImageModel(body.imageModel)
+
+    if (provider === 'openai' && !process.env.OPENAI_API_KEY) {
+      return configErrorResponse('OpenAI image service not configured')
+    }
+    if (provider === 'gemini' && !process.env.GEMINI_API_KEY) {
       return configErrorResponse('AI service not configured')
     }
 
@@ -640,7 +667,9 @@ export async function POST(request: Request) {
         prompt,
         referenceImages,
         allFaceImages,
-        aspectRatio
+        aspectRatio,
+        provider,
+        apiModelId
       )
     )
 

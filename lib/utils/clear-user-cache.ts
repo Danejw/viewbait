@@ -12,6 +12,7 @@ import type { QueryClient } from "@tanstack/react-query";
 /** localStorage keys that hold user-specific or session-specific data. */
 const LOCAL_STORAGE_KEYS = [
   "studio-active-project-id",
+  "studio-image-model",
   "thumbnail-assistant-chat-history",
   "thumbnail-generator-manual-settings",
   "thumbnail-generator-form-settings",
