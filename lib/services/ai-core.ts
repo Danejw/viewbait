@@ -18,7 +18,8 @@ export async function callGeminiImageGeneration(
   referenceImages: string[],
   faceImages: string[],
   resolution: '1K' | '2K' | '4K',
-  aspectRatio: string
+  aspectRatio: string,
+  model: string = 'gemini-3-pro-image-preview'
 ): Promise<GenerateThumbnailResult | null> {
   const apiKey = process.env.GEMINI_API_KEY
   if (!apiKey) {
@@ -61,8 +62,6 @@ export async function callGeminiImageGeneration(
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { width, height } = getResolutionDimensions(resolution, aspectRatio)
 
-  // Call Gemini API
-  const model = 'gemini-3.1-flash-image-preview'
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`
 
   const requestBody = {

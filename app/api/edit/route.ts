@@ -8,7 +8,10 @@
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { NextResponse } from 'next/server'
+import { resolveImageModel } from '@/lib/constants/image-models'
 import { callGeminiImageEdit } from '@/lib/services/ai-core'
+import { callOpenAIImageEdit } from '@/lib/services/openai-image'
+import type { Resolution } from '@/lib/constants/subscription-tiers'
 import { fetchImageAsBase64 } from '@/lib/utils/ai-helpers'
 import { logError } from '@/lib/server/utils/logger'
 import { generateThumbnailVariants } from '@/lib/server/utils/image-variants'
@@ -36,6 +39,8 @@ export interface EditThumbnailRequest {
   editPrompt: string
   referenceImages?: string[] // Optional reference images for editing
   title?: string // Optional title for the new thumbnail (defaults to original)
+  /** User image model choice: nano-banana-pro | nano-banana-2 | gpt-image-2 */
+  imageModel?: string
 }
 
 export async function POST(request: Request) {
@@ -90,8 +95,12 @@ export async function POST(request: Request) {
     // Sanitize edit prompt (remove control characters)
     const sanitizedPrompt = body.editPrompt.replace(/[\x00-\x1F\x7F]/g, '').trim()
 
-    // Check if AI service is configured
-    if (!process.env.GEMINI_API_KEY) {
+    const { provider, apiModelId } = resolveImageModel(body.imageModel)
+
+    if (provider === 'openai' && !process.env.OPENAI_API_KEY) {
+      return configErrorResponse('OpenAI image service not configured')
+    }
+    if (provider === 'gemini' && !process.env.GEMINI_API_KEY) {
       return configErrorResponse('AI service not configured')
     }
 
@@ -178,12 +187,27 @@ Requirements:
     let aiResult
     let timeoutOccurred = false
     
+    const editResolution = (thumbnail.resolution || '1K') as Resolution
+    const editAspectRatio = thumbnail.aspect_ratio || '16:9'
+
     try {
-      aiResult = await callGeminiImageEdit(
-        structuredEditPrompt,
-        originalImage,
-        processedReferenceImages.length > 0 ? processedReferenceImages : undefined
-      )
+      if (provider === 'openai') {
+        aiResult = await callOpenAIImageEdit(
+          structuredEditPrompt,
+          originalImage,
+          processedReferenceImages.length > 0 ? processedReferenceImages : undefined,
+          editResolution,
+          editAspectRatio,
+          apiModelId
+        )
+      } else {
+        aiResult = await callGeminiImageEdit(
+          structuredEditPrompt,
+          originalImage,
+          processedReferenceImages.length > 0 ? processedReferenceImages : undefined,
+          apiModelId
+        )
+      }
     } catch (error) {
       timeoutOccurred = error instanceof TimeoutError
       

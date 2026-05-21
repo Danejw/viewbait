@@ -8,6 +8,7 @@
  */
 
 import { useState, useCallback } from "react";
+import { loadCachedImageModel } from "@/lib/constants/image-models";
 import * as thumbnailsService from "@/lib/services/thumbnails";
 import { logClientError } from "@/lib/utils/client-logger";
 import type { Thumbnail } from "@/app/components/ThumbnailCard";
@@ -140,7 +141,9 @@ export function useThumbnailActions({
       const { result, error: editError } = await thumbnailsService.editThumbnail(
         selectedThumbnail.id,
         prompt,
-        referenceImages
+        referenceImages,
+        undefined,
+        loadCachedImageModel()
       );
 
       if (editError) {

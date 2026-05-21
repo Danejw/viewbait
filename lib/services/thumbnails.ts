@@ -5,6 +5,7 @@
  * All database operations are server-side only.
  */
 
+import type { ImageModelChoice } from '@/lib/constants/image-models'
 import { fetchWithTimeout, DEFAULT_LIST_DETAIL_TIMEOUT_MS } from '@/lib/utils/fetch-with-timeout'
 import type {
   DbThumbnail,
@@ -594,6 +595,7 @@ export interface GenerateThumbnailOptions {
   customStyle?: string
   thumbnailText?: string
   variations?: number // Number of variations to generate (1-4, default: 1)
+  imageModel?: ImageModelChoice
   /** Optional project id; thumbnail will be associated with this project if valid */
   project_id?: string | null
 }
@@ -688,7 +690,8 @@ export async function editThumbnail(
   thumbnailId: string,
   editPrompt: string,
   referenceImages?: string[],
-  title?: string
+  title?: string,
+  imageModel?: ImageModelChoice
 ): Promise<{
   result: GenerateThumbnailResult | null
   error: Error | null
@@ -704,6 +707,7 @@ export async function editThumbnail(
         editPrompt,
         referenceImages: referenceImages && referenceImages.length > 0 ? referenceImages : undefined,
         title: title != null && title.trim() !== '' ? title.trim() : undefined,
+        imageModel,
       }),
     })
 

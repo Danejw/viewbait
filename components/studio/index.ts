@@ -71,6 +71,7 @@ export {
   StudioGeneratorResolution,
   StudioGeneratorAspectAndResolution,
   StudioGeneratorVariations,
+  StudioGeneratorImageModel,
   StudioGeneratorFaces,
   StudioGeneratorSubmit,
 } from "@/components/studio/studio-generator";

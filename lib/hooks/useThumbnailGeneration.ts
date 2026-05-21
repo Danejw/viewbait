@@ -13,6 +13,7 @@
  */
 
 import { useCallback, useRef, useState, useTransition } from "react";
+import type { ImageModelChoice } from "@/lib/constants/image-models";
 import { generateThumbnail as generateThumbnailService } from "@/lib/services/thumbnails";
 import type { GenerateThumbnailOptions } from "@/lib/services/thumbnails";
 import type { Thumbnail } from "@/lib/types/database";
@@ -28,6 +29,7 @@ export interface GenerationRequest {
   selectedAspectRatio: string;
   selectedResolution: string;
   variations: number;
+  imageModel?: ImageModelChoice;
   styleReferences?: string[];
   faceCharacters?: Array<{ images: string[] }>;
   expression?: string | null;
@@ -119,6 +121,7 @@ function mapRequestToApiOptions(request: GenerationRequest): GenerateThumbnailOp
     emotion: request.expression || undefined,
     pose: request.pose && request.pose !== "none" && request.pose !== "None" ? request.pose : undefined,
     thumbnailText: request.thumbnailText.trim(),
+    imageModel: request.imageModel,
     project_id: request.project_id ?? undefined,
   };
 }
