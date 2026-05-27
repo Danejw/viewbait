@@ -32,7 +32,7 @@ export const revalidate = 30
  * GET /api/subscriptions
  * Get the current user's subscription
  */
-export async function GET(request: Request) {
+export async function GET() {
   try {
     const supabase = await createClient()
     const user = await requireAuth(supabase)

@@ -138,7 +138,7 @@ export async function POST(request: Request) {
                     }
                     amountCents = invoice.amount_paid || amountCents
                   }
-                } catch (err) {
+                } catch {
                   // Fallback to using subscription ID as identifier
                   paymentIntentId = `sub_${subscriptionId}`
                 }
