@@ -1,8 +1,9 @@
 /**
  * Subscriptions API Route
  * 
- * Handles GET (read subscription) and POST (create/update subscription) operations.
- * GET uses server client (RLS enforced), POST uses service role client.
+ * Handles GET (read subscription) and POST (safe free-tier bootstrap/actions).
+ * GET uses server client (RLS enforced), POST uses service role only for
+ * server-owned subscription actions and free-tier bootstrap.
  */
 
 import { createClient } from '@/lib/supabase/server'
@@ -14,14 +15,11 @@ import {
   resumeSubscription,
   type CustomerPortalFlowType,
 } from '@/lib/services/stripe'
-import {
-  validationErrorResponse,
-  databaseErrorResponse,
-} from '@/lib/server/utils/error-handler'
+import { databaseErrorResponse } from '@/lib/server/utils/error-handler'
 import { handleApiError } from '@/lib/server/utils/api-helpers'
 import { logError } from '@/lib/server/utils/logger'
 import { NextResponse } from 'next/server'
-import type { UserSubscription, UserSubscriptionInsert } from '@/lib/types/database'
+import type { UserSubscriptionInsert } from '@/lib/types/database'
 
 interface SubscriptionActionRequest {
   action?: 'pause' | 'resume' | 'manage_cancel' | 'manage_update'
@@ -67,7 +65,7 @@ export async function GET(request: Request) {
 
 /**
  * POST /api/subscriptions
- * Create or update subscription record (server-side only, uses service role)
+ * Create a free subscription record or run a subscription action.
  */
 export async function POST(request: Request) {
   try {
@@ -75,7 +73,7 @@ export async function POST(request: Request) {
     const user = await requireAuth(supabase)
 
     // Parse request body
-    const body = (await request.json()) as Partial<UserSubscriptionInsert> & SubscriptionActionRequest
+    const body = (await request.json()) as SubscriptionActionRequest
 
     if (body.action === 'pause') {
       const result = await pauseSubscription(user.id)
@@ -117,41 +115,20 @@ export async function POST(request: Request) {
       .single()
 
     if (existing) {
-      // Update existing subscription
-      const updateData: Partial<UserSubscriptionInsert> = {
-        ...body,
-        user_id: user.id, // Ensure user_id matches authenticated user
-      }
-
-      const { data: subscription, error: updateError } = await supabaseService
-        .from('user_subscriptions')
-        .update(updateData)
-        .eq('user_id', user.id)
-        .select()
-        .single()
-
-      if (updateError) {
-        logError(updateError, {
-          route: 'POST /api/subscriptions',
-          userId: user.id,
-          operation: 'update-subscription',
-        })
-        return databaseErrorResponse('Failed to update subscription')
-      }
-
-      return NextResponse.json({ subscription }, { status: 200 })
+      return NextResponse.json({ subscription: existing }, { status: 200 })
     } else {
-      // Create new subscription
+      // Create a free bootstrap subscription. Client requests cannot set billing
+      // fields, paid product IDs, or credits; Stripe webhooks own those updates.
       const insertData: UserSubscriptionInsert = {
         user_id: user.id,
-        status: body.status || 'free',
-        credits_total: body.credits_total ?? 10,
-        credits_remaining: body.credits_remaining ?? 10,
-        stripe_customer_id: body.stripe_customer_id || null,
-        subscription_id: body.subscription_id || null,
-        product_id: body.product_id || null,
-        current_period_start: body.current_period_start || null,
-        current_period_end: body.current_period_end || null,
+        status: 'free',
+        credits_total: 10,
+        credits_remaining: 10,
+        stripe_customer_id: null,
+        subscription_id: null,
+        product_id: null,
+        current_period_start: null,
+        current_period_end: null,
       }
 
       const { data: subscription, error: insertError } = await supabaseService

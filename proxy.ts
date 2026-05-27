@@ -7,7 +7,10 @@
 
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-import { isAllowedRedirect } from "@/lib/utils/redirect-allowlist";
+import {
+  getAllowedRedirect,
+  isAllowedRedirect,
+} from "@/lib/utils/redirect-allowlist";
 
 /** Cookie name for caching "onboarding completed" to avoid getUser + profile fetch on every /studio request. Optional: set STUDIO_ONBOARDING_COOKIE_SECRET to enable. */
 const STUDIO_ONBOARDING_COOKIE_NAME = "studio_onboarding_ok";
@@ -132,6 +135,12 @@ function isPublicRoute(pathname: string): boolean {
   return pathname === "/" || pathname.startsWith("/p/") || pathname.startsWith("/legal/");
 }
 
+export function getAuthenticatedAuthRedirectDestination(
+  redirectParam: string | null
+): string {
+  return getAllowedRedirect(redirectParam, "/studio");
+}
+
 export async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
 
@@ -202,7 +211,9 @@ export async function proxy(request: NextRequest) {
     !pathname.includes("/reset-password") &&
     !pathname.includes("/callback")
   ) {
-    const redirectTo = request.nextUrl.searchParams.get("redirect") || "/studio";
+    const redirectTo = getAuthenticatedAuthRedirectDestination(
+      request.nextUrl.searchParams.get("redirect")
+    );
     return NextResponse.redirect(new URL(redirectTo, request.url));
   }
 
