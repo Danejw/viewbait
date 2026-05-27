@@ -15,7 +15,7 @@ export interface FetchWithTimeoutOptions extends Omit<RequestInit, 'signal'> {
 /**
  * Fetch with optional timeout. Rejects with DOMException (AbortError) or Error on timeout.
  */
-export async function fetchWithTimeout(
+export function fetchWithTimeout(
   input: RequestInfo | URL,
   options: FetchWithTimeoutOptions = {}
 ): Promise<Response> {
@@ -24,14 +24,26 @@ export async function fetchWithTimeout(
     return fetch(input, init);
   }
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const response = await fetch(input, {
+
+  const request = new Promise<Response>((resolve, reject) => {
+    const timeoutId = setTimeout(() => {
+      controller.abort();
+      reject(new DOMException('Request timed out', 'AbortError'));
+    }, timeoutMs);
+
+    fetch(input, {
       ...init,
       signal: controller.signal,
-    });
-    return response;
-  } finally {
-    clearTimeout(timeoutId);
-  }
+    })
+      .then(resolve, reject)
+      .finally(() => clearTimeout(timeoutId))
+      .catch(() => undefined);
+  });
+
+  // Attach an internal handler immediately so tests and callers that attach
+  // their rejection handler after timers advance do not produce unhandled
+  // rejection noise. The original promise still rejects for the caller.
+  request.catch(() => undefined);
+
+  return request;
 }
