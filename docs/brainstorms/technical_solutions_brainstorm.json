@@ -1,0 +1,92 @@
+[
+  {
+    "id": "durable_ai_job_pipeline",
+    "type": "brainstorm",
+    "title": "Add Durable AI Job Pipeline",
+    "summary": "Move AI-heavy work to background jobs with progress updates for reliability and better UX.",
+    "details": {
+      "problem": "Long-running AI operations can time out, retry poorly, and provide limited progress feedback to users.",
+      "proposedSolution": "Introduce a persisted job model that enqueues work quickly and executes generation and analysis in workers with real-time progress updates.",
+      "benefits": [
+        "Fewer failures from timeouts and transient provider issues",
+        "Clear progress states for users (queued, running, uploading, ready)",
+        "Centralized retries, idempotency, and cost controls"
+      ],
+      "challenges": [
+        "Requires a worker runtime and new operational surface area",
+        "Credit charging and refunds must be precisely defined"
+      ],
+      "implementationSteps": [
+        "Add `ai_jobs` and `ai_job_events` tables with RLS and retention policy",
+        "Refactor AI routes to enqueue and return `job_id` instead of blocking",
+        "Implement a worker that processes jobs and writes progress and results",
+        "Update client hooks to poll or subscribe and render progress UI",
+        "Add idempotency keys so retries do not double charge credits"
+      ],
+      "estimatedEffort": "high",
+      "priority": "critical",
+      "relatedFeatures": ["Generate thumbnails", "Edit thumbnails", "Video analysis", "Heatmaps"],
+      "targetUsers": "All creators, especially power users generating many variations and teams running analysis workflows."
+    }
+  },
+  {
+    "id": "streamed_generation_checkpoints",
+    "type": "brainstorm",
+    "title": "Stream Progress With Checkpoints",
+    "summary": "Keep request-response APIs but add streaming updates and resumable checkpoints to reduce failures.",
+    "details": {
+      "problem": "Users experience opaque waiting during generation and lose progress when requests fail mid-upload or mid-variant creation.",
+      "proposedSolution": "Add SSE progress streaming and persist step checkpoints so retries can resume rather than restart expensive work.",
+      "benefits": [
+        "Faster perceived performance and better transparency",
+        "Lower wasted compute and fewer duplicate uploads",
+        "Incremental path that avoids introducing a full job system"
+      ],
+      "challenges": [
+        "Still limited by serverless timeouts in some deployments",
+        "Streaming and reconnect logic can be tricky across proxies"
+      ],
+      "implementationSteps": [
+        "Define generation steps and checkpoint persistence model per thumbnail",
+        "Implement SSE endpoint for generation progress events",
+        "Update generation route to emit events during AI call, uploads, and DB updates",
+        "Add client-side reconnect and fallback polling",
+        "Normalize failure modes and resume when a checkpoint exists"
+      ],
+      "estimatedEffort": "medium",
+      "priority": "high",
+      "relatedFeatures": ["Generate thumbnails", "Variant uploads", "Error normalization"],
+      "targetUsers": "Creators who want faster feedback during generation and fewer lost attempts."
+    }
+  },
+  {
+    "id": "distributed_rate_limiting",
+    "type": "brainstorm",
+    "title": "Implement Distributed Rate Limiting",
+    "summary": "Replace per-instance in-memory rate limits with a shared store to enforce global per-user throttles.",
+    "details": {
+      "problem": "Current in-memory rate limiting becomes weaker in multi-instance deployments, increasing abuse and cost risk on expensive routes.",
+      "proposedSolution": "Swap the limiter backend to a shared store (for example Redis) while keeping the same `enforceRateLimit` API for route handlers.",
+      "benefits": [
+        "Consistent enforcement across replicas",
+        "Better cost predictability for AI endpoints",
+        "Foundation for weighted limits by resolution and tier"
+      ],
+      "challenges": [
+        "Adds a new infrastructure dependency",
+        "Must fail safe for expensive operations during outages"
+      ],
+      "implementationSteps": [
+        "Add a shared store backend for the limiter (token bucket or sliding window)",
+        "Keep route call sites unchanged by refactoring only the limiter module",
+        "Add weighted costs (4K > 2K > 1K) for AI routes",
+        "Add dashboards or logs for throttling visibility"
+      ],
+      "estimatedEffort": "medium",
+      "priority": "high",
+      "relatedFeatures": ["Rate-limited API routes", "Generate", "Assistant chat"],
+      "targetUsers": "All users, especially during growth when traffic and abuse risk increase."
+    }
+  }
+]
+

@@ -1,0 +1,148 @@
+[
+  {
+    "id": "channel_brand_kit",
+    "type": "brainstorm",
+    "title": "Add Channel Brand Kits",
+    "summary": "Let users define reusable brand rules so every thumbnail stays consistent without extra decisions.",
+    "details": {
+      "problem": "Creators waste time re-deciding colors, text treatment, and composition rules for every thumbnail and series.",
+      "proposedSolution": "Create brand kits tied to channels or projects and apply their constraints automatically during generation and assistant guidance.",
+      "benefits": [
+        "Faster creation with consistent outputs",
+        "Stronger channel identity and recognizability",
+        "Better collaboration with shared rules"
+      ],
+      "challenges": [
+        "Balancing constraints with creative flexibility",
+        "Designing a simple UX that does not feel enterprise-heavy"
+      ],
+      "implementationSteps": [
+        "Add `brand_kits` table and associate kits to projects or YouTube channels",
+        "Update generation prompt builder to incorporate kit constraints consistently",
+        "Add UI to create, preview, and apply brand kits in the studio",
+        "Add assistant behaviors to recommend kits and enforce do-not rules"
+      ],
+      "estimatedEffort": "medium",
+      "priority": "high",
+      "relatedFeatures": ["Styles", "Palettes", "Projects", "Assistant chat"],
+      "targetUsers": "Creators running series and teams who need consistent thumbnails at speed."
+    }
+  },
+  {
+    "id": "youtube_experiment_scheduler",
+    "type": "brainstorm",
+    "title": "Schedule YouTube Thumbnail Experiments",
+    "summary": "Automate thumbnail swaps and performance windows so creators can A/B test without manual work.",
+    "details": {
+      "problem": "Manual A/B testing is tedious because swapping thumbnails and tracking timings is error-prone.",
+      "proposedSolution": "Allow users to select finalist variants and schedule swaps via YouTube API with logged time windows and a simple winner recommendation.",
+      "benefits": [
+        "Real experiments with minimal creator effort",
+        "Higher confidence in selecting final thumbnails",
+        "Clear upgrade story tied to measurable results"
+      ],
+      "challenges": [
+        "YouTube quota limits and API reliability",
+        "Attribution noise from external factors and algorithm changes"
+      ],
+      "implementationSteps": [
+        "Add experiment schedule model and cron-based executor with idempotency",
+        "Integrate with set-thumbnail and analytics endpoints to log windows",
+        "Build UI for selecting variants, cadence, and start time",
+        "Add reporting that explains results and limitations clearly"
+      ],
+      "estimatedEffort": "high",
+      "priority": "high",
+      "relatedFeatures": ["YouTube integration", "Experiments", "Set thumbnail", "Analytics"],
+      "targetUsers": "Growth-focused creators and teams who want systematic thumbnail testing."
+    }
+  },
+  {
+    "id": "thumbnail_critique_coach",
+    "type": "brainstorm",
+    "title": "Add Thumbnail Critique Coach",
+    "summary": "Score and critique thumbnails with actionable fixes and one-click variations that address top issues.",
+    "details": {
+      "problem": "Users can generate many options but struggle to pick the best thumbnail and understand why it wins.",
+      "proposedSolution": "Use vision analysis to provide structured critique and generate targeted variations that fix clarity, focus, and legibility issues.",
+      "benefits": [
+        "Improves outcomes for non-designers",
+        "Increases user trust through explanation",
+        "Reduces wasted credits by improving first-pass quality"
+      ],
+      "challenges": [
+        "Ensuring critique is consistent and not overly subjective",
+        "Designing feedback that feels helpful, not harsh"
+      ],
+      "implementationSteps": [
+        "Add a critique API route that returns a structured rubric and top fixes",
+        "Build a UI panel to display scores, notes, and recommended actions",
+        "Add one-click generation actions that apply specific fixes",
+        "Track acceptance and outcome metrics to refine prompts"
+      ],
+      "estimatedEffort": "medium",
+      "priority": "high",
+      "relatedFeatures": ["Assistant chat", "Edit", "Heatmaps", "Gallery"],
+      "targetUsers": "Creators who want guidance choosing a winner and improving design skills."
+    }
+  },
+  {
+    "id": "team_workspaces",
+    "type": "brainstorm",
+    "title": "Enable Shared Team Workspaces",
+    "summary": "Support creators and editors with shared assets, roles, and optional approval before publishing.",
+    "details": {
+      "problem": "Editors and teams cannot easily share faces, styles, and projects without duplicating setup or passing files.",
+      "proposedSolution": "Introduce workspace tenancy with roles and shared libraries, plus an approval workflow for YouTube publishing actions.",
+      "benefits": [
+        "Unlocks team and agency use cases",
+        "Reduces duplicated setup across collaborators",
+        "Improves accountability and version history"
+      ],
+      "challenges": [
+        "Requires tenancy and RLS changes across many tables",
+        "Migration path needed for existing single-user assets"
+      ],
+      "implementationSteps": [
+        "Add workspace tables and membership roles with strict RLS",
+        "Update assets (faces, styles, palettes, projects) to be workspace-owned",
+        "Add UI for workspace switching and member invites",
+        "Add optional approval gates for YouTube set-thumbnail actions"
+      ],
+      "estimatedEffort": "high",
+      "priority": "medium",
+      "relatedFeatures": ["Projects", "Sharing", "YouTube integration", "RLS policies"],
+      "targetUsers": "Creator plus editor teams and agencies managing multiple channels."
+    }
+  },
+  {
+    "id": "smart_prompt_builder_hooks",
+    "type": "brainstorm",
+    "title": "Build Smart Prompt Builder",
+    "summary": "Guide users to strong hook prompts through a fast set of questions and reusable recipes.",
+    "details": {
+      "problem": "Many prompts are too vague or too complex, causing inconsistent results and wasted credits.",
+      "proposedSolution": "Provide a guided hook builder that outputs a clean prompt and saves reusable hook recipes for recurring formats.",
+      "benefits": [
+        "Higher success rate on first generation",
+        "Less user frustration and fewer wasted credits",
+        "Reusable workflows that scale across a content calendar"
+      ],
+      "challenges": [
+        "Must feel faster than free-form typing",
+        "Needs to complement the conversation-first interface"
+      ],
+      "implementationSteps": [
+        "Define a small set of hook dimensions (emotion, subject, text, background, constraint)",
+        "Build a UI wizard that outputs prompt plus custom instructions",
+        "Save recipes and integrate them into the assistant and generator",
+        "Add analytics to measure improved first-pass satisfaction"
+      ],
+      "estimatedEffort": "medium",
+      "priority": "medium",
+      "relatedFeatures": ["Generator", "Assistant chat", "Styles", "Palettes"],
+      "targetUsers": "New users and repeat creators who want predictable, fast generation."
+    }
+  }
+]
+
