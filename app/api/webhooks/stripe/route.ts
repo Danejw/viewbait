@@ -317,7 +317,7 @@ async function handleSubscriptionUpdate(subscription: Stripe.Subscription): Prom
     // Reset credits based on app status transitions.
     let creditsToSet = existingSub.credits_remaining
     let creditsTotal = paidTierConfig.credits_per_month
-    let nextProductId = productId
+    let nextProductId: string | null = productId
 
     if (appStatus === 'paused_free') {
       creditsTotal = freeTierConfig.credits_per_month

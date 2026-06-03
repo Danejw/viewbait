@@ -138,7 +138,7 @@ function normalizeGenerationError(message: string): string {
  * This is a helper function used for both single and batch generation
  */
 async function generateSingleVariation(
-  supabase: ReturnType<typeof createClient>,
+  supabase: Awaited<ReturnType<typeof createClient>>,
   user: { id: string },
   thumbnailId: string,
   body: GenerateThumbnailRequest,

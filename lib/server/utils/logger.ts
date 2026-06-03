@@ -199,7 +199,7 @@ function formatLogEntry(
     entry.error = {
       message: redactPII(errorInfo.message),
       type: errorInfo.type,
-    }
+    } as { message: unknown; type: string; stack?: unknown }
     
     // Only include stack trace in development
     if (errorInfo.stack && process.env.NODE_ENV === 'development') {
