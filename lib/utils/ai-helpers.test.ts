@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { fetchImageAsBase64 } from '@/lib/utils/ai-helpers'
 
+vi.mock('@/lib/server/utils/logger', () => ({
+  logError: vi.fn(),
+}))
+
 describe('fetchImageAsBase64', () => {
   const originalFetch = globalThis.fetch
 
