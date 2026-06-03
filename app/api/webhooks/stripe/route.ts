@@ -138,7 +138,7 @@ export async function POST(request: Request) {
                     }
                     amountCents = invoice.amount_paid || amountCents
                   }
-                } catch (err) {
+                } catch {
                   // Fallback to using subscription ID as identifier
                   paymentIntentId = `sub_${subscriptionId}`
                 }
@@ -207,31 +207,41 @@ export async function POST(request: Request) {
         break
     }
 
+    if (!processingSuccess) {
+      logError(new Error(`Failed to process Stripe webhook event: ${event.type}`), {
+        route: 'POST /api/webhooks/stripe',
+        operation: 'webhook-processing-result',
+        eventId: event.id,
+      })
+      return NextResponse.json(
+        { error: 'Webhook processing failed' },
+        { status: 500 }
+      )
+    }
+
     // Record event after successful processing
     // Handle race conditions (unique constraint violation = already processed by another request)
-    if (processingSuccess) {
-      const { error: insertError } = await supabaseService
-        .from('stripe_webhook_events')
-        .insert({
-          event_id: event.id,
-          event_type: event.type,
-          data: event.data,
-        })
+    const { error: insertError } = await supabaseService
+      .from('stripe_webhook_events')
+      .insert({
+        event_id: event.id,
+        event_type: event.type,
+        data: event.data,
+      })
 
-      if (insertError) {
-        // If unique constraint violation, event was processed by another request
-        // This is fine - return success (idempotent)
-        if (insertError.code === '23505') {
-          // Unique violation - already processed
-          return NextResponse.json({ received: true, duplicate: true })
-        }
-        // Other database errors - log but don't fail the webhook
-        logError(insertError as Error, {
-          route: 'POST /api/webhooks/stripe',
-          operation: 'record-webhook-event',
-          eventId: event.id,
-        })
+    if (insertError) {
+      // If unique constraint violation, event was processed by another request
+      // This is fine - return success (idempotent)
+      if (insertError.code === '23505') {
+        // Unique violation - already processed
+        return NextResponse.json({ received: true, duplicate: true })
       }
+      // Other database errors - log but don't fail the webhook
+      logError(insertError as Error, {
+        route: 'POST /api/webhooks/stripe',
+        operation: 'record-webhook-event',
+        eventId: event.id,
+      })
     }
 
     return NextResponse.json({ received: true })
@@ -307,7 +317,7 @@ async function handleSubscriptionUpdate(subscription: Stripe.Subscription): Prom
     // Reset credits based on app status transitions.
     let creditsToSet = existingSub.credits_remaining
     let creditsTotal = paidTierConfig.credits_per_month
-    let nextProductId = productId
+    let nextProductId: string | null = productId
 
     if (appStatus === 'paused_free') {
       creditsTotal = freeTierConfig.credits_per_month

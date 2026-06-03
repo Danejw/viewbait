@@ -33,6 +33,7 @@ import {
 import { handleApiError } from '@/lib/server/utils/api-helpers'
 import { getEditCreditCost } from '@/lib/server/data/subscription-tiers'
 import { deleteThumbnailById } from '@/lib/server/data/thumbnails'
+import { cleanupThumbnailArtifacts } from '@/lib/server/utils/thumbnail-cleanup'
 
 export interface EditThumbnailRequest {
   thumbnailId: string
@@ -41,6 +42,49 @@ export interface EditThumbnailRequest {
   title?: string // Optional title for the new thumbnail (defaults to original)
   /** User image model choice: nano-banana-pro | nano-banana-2 | gpt-image-2 */
   imageModel?: string
+}
+
+interface RefundFailureWarning {
+  amount: number
+  reason: string
+  requestId: string
+}
+
+async function refundFailedEditCredits(
+  supabaseService: ReturnType<typeof createServiceClient>,
+  userId: string,
+  editCreditCost: number,
+  originalRequestId: string,
+  description: string,
+  operation: string
+): Promise<RefundFailureWarning | null> {
+  const refundIdempotencyKey = crypto.randomUUID()
+  const refundResult = await incrementCreditsAtomic(
+    supabaseService,
+    userId,
+    editCreditCost,
+    refundIdempotencyKey,
+    description,
+    'refund'
+  )
+
+  if (refundResult.success) {
+    return null
+  }
+
+  logError(new Error(`Credit refund failed: ${refundResult.reason}`), {
+    route: 'POST /api/edit',
+    userId,
+    operation,
+    idempotencyKey: refundIdempotencyKey,
+    originalIdempotencyKey: originalRequestId,
+  })
+
+  return {
+    amount: editCreditCost,
+    reason: refundResult.reason || 'UNKNOWN',
+    requestId: originalRequestId,
+  }
 }
 
 export async function POST(request: Request) {
@@ -326,8 +370,20 @@ Requirements:
         operation: 'create-new-thumbnail-version',
         originalThumbnailId: body.thumbnailId,
       })
+      const refundFailureWarning = await refundFailedEditCredits(
+        supabaseService,
+        user.id,
+        editCreditCost,
+        idempotencyKey,
+        'Refund for failed thumbnail edit: database insert failed',
+        'atomic-credit-refund-edit-insert'
+      )
       return NextResponse.json(
-        { error: 'Failed to create new thumbnail version', code: 'DATABASE_ERROR' },
+        {
+          error: 'Failed to create new thumbnail version',
+          code: 'DATABASE_ERROR',
+          ...(refundFailureWarning && { refundFailureWarning }),
+        },
         { status: 500 }
       )
     }
@@ -567,8 +623,21 @@ Requirements:
             operation: 'update-new-thumbnail-retry',
             thumbnailId: newThumbnailId,
           })
+          await cleanupThumbnailArtifacts(supabase, user.id, [newThumbnailId])
+          const refundFailureWarning = await refundFailedEditCredits(
+            supabaseService,
+            user.id,
+            editCreditCost,
+            idempotencyKey,
+            'Refund for failed thumbnail edit: database update failed',
+            'atomic-credit-refund-edit-update-retry'
+          )
           return NextResponse.json(
-            { error: 'Failed to update thumbnail record', code: 'DATABASE_ERROR' },
+            {
+              error: 'Failed to update thumbnail record',
+              code: 'DATABASE_ERROR',
+              ...(refundFailureWarning && { refundFailureWarning }),
+            },
             { status: 500 }
           )
         }
@@ -581,8 +650,21 @@ Requirements:
           operation: 'update-new-thumbnail',
           thumbnailId: newThumbnailId,
         })
+        await cleanupThumbnailArtifacts(supabase, user.id, [newThumbnailId])
+        const refundFailureWarning = await refundFailedEditCredits(
+          supabaseService,
+          user.id,
+          editCreditCost,
+          idempotencyKey,
+          'Refund for failed thumbnail edit: database update failed',
+          'atomic-credit-refund-edit-update'
+        )
         return NextResponse.json(
-          { error: 'Failed to update thumbnail record', code: 'DATABASE_ERROR' },
+          {
+            error: 'Failed to update thumbnail record',
+            code: 'DATABASE_ERROR',
+            ...(refundFailureWarning && { refundFailureWarning }),
+          },
           { status: 500 }
         )
       }
