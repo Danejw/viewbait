@@ -39,9 +39,9 @@ import {
 import { handleApiError } from '@/lib/server/utils/api-helpers'
 import { getProjectByIdForAccess } from '@/lib/server/data/projects'
 import { getSubscriptionRow } from '@/lib/server/data/subscription'
-import { deleteThumbnailById, deleteThumbnailsByIds } from '@/lib/server/data/thumbnails'
 import { createNotificationIfNew } from '@/lib/server/notifications/create'
 import { SIGNED_URL_EXPIRY_ONE_YEAR_SECONDS } from '@/lib/server/utils/url-refresh'
+import { cleanupThumbnailArtifacts } from '@/lib/server/utils/thumbnail-cleanup'
 
 export interface GenerateThumbnailRequest {
   title: string
@@ -696,7 +696,7 @@ export async function POST(request: Request) {
       .map(r => r.thumbnailId)
       .filter((id): id is string => !!id)
     if (failedThumbnailIds.length > 0) {
-      await deleteThumbnailsByIds(supabase, failedThumbnailIds)
+      await cleanupThumbnailArtifacts(supabase, user.id, failedThumbnailIds)
     }
 
     // Batch: deduct credits only for successful variations (after generation)
@@ -719,6 +719,11 @@ export async function POST(request: Request) {
       )
 
       if (!creditResult.success) {
+        const successfulThumbnailIds = successfulResults
+          .map(r => r.thumbnailId)
+          .filter((id): id is string => !!id)
+        await cleanupThumbnailArtifacts(supabase, user.id, successfulThumbnailIds)
+
         if (creditResult.reason === 'INSUFFICIENT') {
           return insufficientCreditsResponse(creditsRemaining, batchCreditCost)
         }
@@ -740,7 +745,7 @@ export async function POST(request: Request) {
       if (!singleResult.success) {
         // Clean up failed thumbnail record
         if (singleResult.thumbnailId) {
-          await deleteThumbnailById(supabase, singleResult.thumbnailId)
+          await cleanupThumbnailArtifacts(supabase, user.id, [singleResult.thumbnailId])
         }
         
         return NextResponse.json(
@@ -767,7 +772,7 @@ export async function POST(request: Request) {
       if (!creditResult.success) {
         // Clean up thumbnail record on credit deduction failure
         if (singleResult.thumbnailId) {
-          await deleteThumbnailById(supabase, singleResult.thumbnailId)
+          await cleanupThumbnailArtifacts(supabase, user.id, [singleResult.thumbnailId])
         }
         
         if (creditResult.reason === 'INSUFFICIENT') {
