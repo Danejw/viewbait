@@ -462,10 +462,8 @@ export function useGeneratorState(
     }
   }, [state.generatingItems.size, state.isGenerating]);
 
-  // Form validation
-  const validate = useCallback((): boolean => {
-    return state.thumbnailText.trim().length > 0;
-  }, [state.thumbnailText]);
+  // Form validation (title is optional)
+  const validate = useCallback((): boolean => true, []);
 
   const isValid = validate();
 
@@ -476,10 +474,7 @@ export function useGeneratorState(
       return;
     }
 
-    if (!options.thumbnailText.trim()) {
-      dispatch({ type: "SET_GENERATION_ERROR", payload: "Please enter thumbnail text" });
-      return;
-    }
+    const displayTitle = options.thumbnailText.trim() || "Thumbnail";
 
     // Validate resolution access
     const resolution = options.resolution as '1K' | '2K' | '4K';
@@ -519,7 +514,7 @@ export function useGeneratorState(
       const tempId = `generating-${baseTimestamp}-${i}`;
       const skeletonItem: Thumbnail = {
         id: tempId,
-        name: options.thumbnailText.trim(),
+        name: displayTitle,
         imageUrl: "",
         prompt: options.thumbnailText.trim(),
         generating: true,

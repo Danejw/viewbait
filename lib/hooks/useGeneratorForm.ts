@@ -81,9 +81,7 @@ export function useGeneratorForm(
     setFormSettings((prev) => ({ ...prev, customInstructions: instructions }));
   }, [setFormSettings]);
 
-  const validate = useCallback((): boolean => {
-    return thumbnailText.trim().length > 0;
-  }, [thumbnailText]);
+  const validate = useCallback((): boolean => true, []);
 
   const isValid = validate();
 

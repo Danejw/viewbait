@@ -147,13 +147,13 @@ export function StudioGeneratorThumbnailText() {
 
   return (
     <div className="mb-6">
-      <label className="mb-2 mt-4 block text-sm font-medium">Thumbnail Title</label>
+      <label className="mb-2 mt-4 block text-sm font-medium">Thumbnail Title (optional)</label>
       <div className="relative">
         <Input
           ref={thumbnailTextRef}
           value={thumbnailText}
           onChange={(e) => setThumbnailText(e.target.value)}
-          placeholder="Enter a title for your thumbnail..."
+          placeholder="Leave blank for a text-free thumbnail..."
           className="pr-10"
         />
         <Button
@@ -1429,7 +1429,7 @@ export function StudioGeneratorSubmit({
   hideSaveToProject = false,
 }: StudioGeneratorSubmitProps = {}) {
   const {
-    state: { isButtonDisabled, thumbnailText, variations, selectedResolution, activeProjectId, reRollDataJustApplied },
+    state: { isButtonDisabled, variations, selectedResolution, activeProjectId, reRollDataJustApplied },
     data: { projects, isSavingProjectSettings, settingsDifferFromProject },
     actions: { generateThumbnails, saveProjectSettings, pullProjectSettings, clearReRollDataApplied },
   } = useStudio();
@@ -1447,8 +1447,8 @@ export function StudioGeneratorSubmit({
     return () => clearTimeout(t);
   }, [reRollDataJustApplied, clearReRollDataApplied]);
 
-  // Disabled during tier-based cooldown or when text is empty (time-only debounce per tier)
-  const isDisabled = isButtonDisabled || !thumbnailText.trim();
+  // Disabled during tier-based cooldown (time-only debounce per tier)
+  const isDisabled = isButtonDisabled;
 
   const creditCost = getResolutionCost(selectedResolution as "1K" | "2K" | "4K");
   const totalCost = creditCost * variations;

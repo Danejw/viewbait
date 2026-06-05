@@ -582,7 +582,7 @@ export async function searchThumbnails(
  * Generate a new thumbnail using AI
  */
 export interface GenerateThumbnailOptions {
-  title: string
+  title?: string
   emotion?: string
   pose?: string
   style?: string

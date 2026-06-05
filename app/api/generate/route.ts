@@ -44,7 +44,7 @@ import { createNotificationIfNew } from '@/lib/server/notifications/create'
 import { SIGNED_URL_EXPIRY_ONE_YEAR_SECONDS } from '@/lib/server/utils/url-refresh'
 
 export interface GenerateThumbnailRequest {
-  title: string
+  title?: string
   emotion?: string
   pose?: string
   style?: string
@@ -398,10 +398,7 @@ export async function POST(request: Request) {
     // Parse request body
     const body: GenerateThumbnailRequest = await request.json()
     
-    // Validate required fields
-    if (!body.title || !body.title.trim()) {
-      return validationErrorResponse('Title is required')
-    }
+    const trimmedTitle = (body.title ?? body.thumbnailText ?? '').trim()
 
     // Validate variations parameter (1-4, default: 1)
     const variations = body.variations ?? 1
@@ -519,7 +516,7 @@ export async function POST(request: Request) {
     const baseThumbnailData = {
       user_id: user.id,
       project_id: projectIdForInsert,
-      title: body.title.trim(),
+      title: trimmedTitle,
       image_url: '', // Will be updated after storage upload
       style: body.style || null,
       palette: body.palette || null,
@@ -574,10 +571,13 @@ export async function POST(request: Request) {
       paletteName = body.palette
     }
 
-    // Parse title for main title and subtext (split on colon)
-    const titleParts = body.title.trim().split(':')
-    const mainTitle = titleParts[0].trim()
-    const subtext = titleParts.length > 1 ? titleParts.slice(1).join(':').trim() : null
+    const hasTitleText = trimmedTitle.length > 0
+    const titleParts = hasTitleText ? trimmedTitle.split(':') : []
+    const mainTitle = hasTitleText ? titleParts[0].trim() : null
+    const subtext =
+      hasTitleText && titleParts.length > 1
+        ? titleParts.slice(1).join(':').trim()
+        : null
 
     // Build image reference markers
     const imageMarkers = buildImageReferenceMarkers(referenceImages.length, faceCharacters)
@@ -603,11 +603,19 @@ export async function POST(request: Request) {
     // Build structured prompt data
     const promptData = {
       task: "thumbnail_generation",
-      title: {
-        main_title: mainTitle,
-        subtext: subtext,
-        instructions: "Use the title text EXACTLY as provided. The main_title should be prominent and the subtext (if provided) should be secondary/smaller. NO EXTRA TEXT. DO NOT CHANGE OR ADD TEXT."
-      },
+      title: hasTitleText
+        ? {
+            main_title: mainTitle,
+            subtext: subtext,
+            instructions:
+              'Use the title text EXACTLY as provided. The main_title should be prominent and the subtext (if provided) should be secondary/smaller. NO EXTRA TEXT. DO NOT CHANGE OR ADD TEXT.',
+          }
+        : {
+            main_title: null,
+            subtext: null,
+            instructions:
+              'DO NOT include any text, words, letters, numbers, captions, subtitles, watermarks with text, or typography in the image. The thumbnail must be purely visual with no overlaid or embedded text whatsoever.',
+          },
       style_requirements: {
         style: styleDescription || null,
         additional_notes: body.customStyle?.trim() || null,
@@ -714,7 +722,7 @@ export async function POST(request: Request) {
         batchCreditCost,
         batchIdempotencyKey,
         null,
-        `Generated ${successfulResults.length} ${requestedResolution} thumbnail(s): ${body.title.substring(0, 50)}`,
+        `Generated ${successfulResults.length} ${requestedResolution} thumbnail(s): ${trimmedTitle.substring(0, 50) || 'text-free'}`,
         'generation'
       )
 
@@ -760,7 +768,7 @@ export async function POST(request: Request) {
         creditCost,
         singleIdempotencyKey,
         singleResult.thumbnailId,
-        `Generated ${requestedResolution} thumbnail: ${body.title.substring(0, 50)}`,
+        `Generated ${requestedResolution} thumbnail: ${trimmedTitle.substring(0, 50) || 'text-free'}`,
         'generation'
       )
 

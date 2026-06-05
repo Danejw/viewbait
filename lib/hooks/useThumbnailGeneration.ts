@@ -159,10 +159,7 @@ export function useThumbnailGeneration(
   const generate = useCallback(async (request: GenerationRequest): Promise<GenerationResult[]> => {
     const { thumbnailText, variations, selectedResolution } = request;
     
-    if (!thumbnailText.trim()) {
-      setState(prev => ({ ...prev, error: "Please enter thumbnail text" }));
-      return [];
-    }
+    const displayTitle = thumbnailText.trim() || "Thumbnail";
 
     // Clear any existing timeout
     if (buttonTimeoutRef.current) {
@@ -175,7 +172,7 @@ export function useThumbnailGeneration(
     
     for (let i = 0; i < variations; i++) {
       const tempId = `generating-${baseTimestamp}-${i}`;
-      const skeleton = createSkeletonThumbnail(tempId, thumbnailText.trim(), selectedResolution);
+      const skeleton = createSkeletonThumbnail(tempId, displayTitle, selectedResolution);
       skeletonItems.push({ tempId, skeleton });
     }
 

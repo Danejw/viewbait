@@ -824,11 +824,6 @@ export function StudioProvider({ children }: { children: React.ReactNode }) {
   // Generate thumbnails action
   const generateThumbnails = useCallback(async () => {
     setState((s) => ({ ...s, reRollDataJustApplied: false }));
-    if (!state.thumbnailText.trim()) {
-      setState((s) => ({ ...s, generationError: "Please enter thumbnail text" }));
-      return;
-    }
-
     track("generate_started", { source: "manual", batch_size: state.variations });
     // Switch to Preview tab on mobile so user sees results feed and loading state
     setState((s) => ({ ...s, mobilePanel: "results" }));
