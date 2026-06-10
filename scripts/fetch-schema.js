@@ -104,9 +104,15 @@ async function fetchTablesViaSQL() {
  */
 async function fetchViaManagementAPI() {
   const https = require('https');
-  const ACCESS_TOKEN = process.env.SUPABASE_ACCESS_TOKEN || 'sbp_3c62169bd93781c729cba05986669d6b1b5a336e';
   
   return new Promise((resolve, reject) => {
+    const ACCESS_TOKEN = process.env.SUPABASE_ACCESS_TOKEN;
+    if (!ACCESS_TOKEN) {
+      console.error('Error: SUPABASE_ACCESS_TOKEN environment variable is required');
+      resolve([]);
+      return;
+    }
+
     // Get database metadata
     const options = {
       hostname: 'api.supabase.com',

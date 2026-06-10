@@ -34,12 +34,20 @@ describe("fetchWithTimeout", () => {
   it("rejects when timeout is exceeded", async () => {
     const fetchSpy = vi
       .spyOn(globalThis, "fetch")
-      .mockImplementation(() => new Promise<Response>(() => {}));
+      .mockImplementation(
+        (_input, init) =>
+          new Promise<Response>((_resolve, reject) => {
+            init?.signal?.addEventListener("abort", () => {
+              reject(new DOMException("The operation was aborted.", "AbortError"));
+            });
+          })
+      );
 
     const p = fetchWithTimeout("/api/slow", { timeoutMs: 100 });
+    const expectation = expect(p).rejects.toThrow();
     await vi.advanceTimersByTimeAsync(150);
 
-    await expect(p).rejects.toThrow();
+    await expectation;
     fetchSpy.mockRestore();
   });
 

@@ -8,8 +8,13 @@ const fs = require('fs');
 const path = require('path');
 
 const PROJECT_REF = 'eqxagfhgfgrcdbtmxepl';
-const ACCESS_TOKEN = process.env.SUPABASE_ACCESS_TOKEN || 'sbp_3c62169bd93781c729cba05986669d6b1b5a336e';
+const ACCESS_TOKEN = process.env.SUPABASE_ACCESS_TOKEN;
 const SUPABASE_URL = `https://${PROJECT_REF}.supabase.co`;
+
+if (!ACCESS_TOKEN) {
+  console.error('Error: SUPABASE_ACCESS_TOKEN environment variable is required');
+  process.exit(1);
+}
 
 const OUTPUT_DIR = path.join(__dirname, '..', 'supabase', 'tables');
 

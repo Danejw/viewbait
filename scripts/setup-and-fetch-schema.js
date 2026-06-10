@@ -13,7 +13,6 @@ require('dotenv').config({ path: path.join(__dirname, '..', '.env.local') });
 const PROJECT_REF = 'eqxagfhgfgrcdbtmxepl';
 const SUPABASE_URL = `https://${PROJECT_REF}.supabase.co`;
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const ACCESS_TOKEN = process.env.SUPABASE_ACCESS_TOKEN || 'sbp_3c62169bd93781c729cba05986669d6b1b5a336e';
 
 if (!SERVICE_ROLE_KEY) {
   console.error('❌ SUPABASE_SERVICE_ROLE_KEY not found');

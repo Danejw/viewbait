@@ -2,7 +2,7 @@
  * Unit tests for server logger PII and prompt redaction.
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { logError, logInfo } from '@/lib/server/utils/logger'
 
 describe('logger', () => {
