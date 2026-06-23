@@ -45,6 +45,10 @@ export function sanitizeErrorForClient(
     return 'Authentication required'
   }
 
+  if (errorMessage.includes('prepayment credits') || errorMessage.includes('billing#prepay')) {
+    return 'Image generation is unavailable because Gemini API credits are depleted. Add prepayment credits in Google AI Studio to restore generation.'
+  }
+
   if (errorMessage.includes('insufficient credits') || errorMessage.includes('credits')) {
     return 'Insufficient credits'
   }

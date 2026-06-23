@@ -109,12 +109,64 @@ interface SingleVariationResult {
   thumbnailId?: string
   imageUrl?: string
   error?: string
+  rawError?: string
+}
+
+function isGeminiBillingExhaustedError(message: string): boolean {
+  const lower = message.toLowerCase()
+  return (
+    lower.includes('prepayment credits') ||
+    lower.includes('billing#prepay') ||
+    (lower.includes('resource_exhausted') && lower.includes('depleted'))
+  )
+}
+
+function isRateLimitGenerationError(message: string): boolean {
+  if (isGeminiBillingExhaustedError(message)) return false
+  const lower = message.toLowerCase()
+  return (
+    lower.includes('429') ||
+    lower.includes('rate limit') ||
+    lower.includes('rate_limit') ||
+    lower.includes('ai service is busy')
+  )
+}
+
+function getGenerationFailureResponse(error: string): {
+  status: number
+  code: string
+  error: string
+} {
+  if (isGeminiBillingExhaustedError(error)) {
+    return {
+      status: 503,
+      code: 'AI_BILLING_EXHAUSTED',
+      error:
+        'Image generation is unavailable because Gemini API credits are depleted. Add prepayment credits in Google AI Studio to restore generation.',
+    }
+  }
+  const normalized = normalizeGenerationError(error)
+  if (isRateLimitGenerationError(error) || isRateLimitGenerationError(normalized)) {
+    return {
+      status: 429,
+      code: 'RATE_LIMITED',
+      error: normalized,
+    }
+  }
+  return {
+    status: 500,
+    code: 'GENERATION_FAILED',
+    error: normalized,
+  }
 }
 
 /**
  * Map known API/AI error messages to user-facing strings for consistent client display.
  */
 function normalizeGenerationError(message: string): string {
+  if (isGeminiBillingExhaustedError(message)) {
+    return 'Image generation is unavailable because Gemini API credits are depleted. Add prepayment credits in Google AI Studio to restore generation.'
+  }
   if (message.includes('No image data found') || message.includes('did not return an image')) {
     return 'Image generation failed: the AI did not return an image. Please try again.'
   }
@@ -383,6 +435,7 @@ async function generateSingleVariation(
       success: false,
       thumbnailId,
       error: normalizeGenerationError(rawMessage),
+      rawError: rawMessage,
     }
   }
 }
@@ -746,6 +799,9 @@ export async function POST(request: Request) {
       const singleResult = results[0]
       
       if (!singleResult.success) {
+        const failureResponse = getGenerationFailureResponse(
+          singleResult.rawError ?? singleResult.error ?? ''
+        )
         // Clean up failed thumbnail record
         if (singleResult.thumbnailId) {
           await deleteThumbnailById(supabase, singleResult.thumbnailId)
@@ -753,10 +809,10 @@ export async function POST(request: Request) {
         
         return NextResponse.json(
           {
-            error: singleResult.error || 'Failed to generate thumbnail',
-            code: 'GENERATION_FAILED',
+            error: failureResponse.error,
+            code: failureResponse.code,
           },
-          { status: 500 }
+          { status: failureResponse.status }
         )
       }
 
