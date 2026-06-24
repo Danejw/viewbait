@@ -13,6 +13,7 @@ const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024
 const IMAGE_FETCH_TIMEOUT_MS = 15_000
 const MAX_IMAGE_REDIRECTS = 3
 const ALLOWED_IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/gif'])
+const TRUSTED_IMAGE_HOSTS = new Set(['i.ytimg.com', 'img.youtube.com'])
 
 // Emotion mappings - not sensitive, used for transforming user input
 export const EMOTION_DESCRIPTIONS: Record<string, string> = {
@@ -122,6 +123,24 @@ function normalizeHostname(hostname: string): string {
   return hostname.toLowerCase().replace(/^\[|\]$/g, '').replace(/\.$/, '')
 }
 
+function getSupabaseStorageHost(): string | null {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  if (!supabaseUrl) return null
+
+  try {
+    return normalizeHostname(new URL(supabaseUrl).hostname)
+  } catch {
+    return null
+  }
+}
+
+function isTrustedImageHost(hostname: string): boolean {
+  if (TRUSTED_IMAGE_HOSTS.has(hostname)) return true
+
+  const supabaseHost = getSupabaseStorageHost()
+  return !!supabaseHost && (hostname === supabaseHost || hostname.endsWith(`.${supabaseHost}`))
+}
+
 function isPrivateIpv4(address: string): boolean {
   const parts = address.split('.').map((part) => Number(part))
   if (parts.length !== 4 || parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) {
@@ -171,6 +190,7 @@ async function isPublicHttpUrl(url: URL): Promise<boolean> {
 
   const hostname = normalizeHostname(url.hostname)
   if (!hostname) return false
+  if (!isTrustedImageHost(hostname)) return false
 
   if (isIP(hostname)) {
     return !isPrivateIpAddress(hostname)
