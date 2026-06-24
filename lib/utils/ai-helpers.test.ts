@@ -2,7 +2,6 @@
  * Unit tests for server-side AI image helper utilities.
  */
 
-import { lookup } from "node:dns/promises";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fetchImageAsBase64 } from "@/lib/utils/ai-helpers";
 
@@ -19,7 +18,7 @@ vi.mock("@/lib/server/utils/logger", () => ({
   logError: vi.fn(),
 }));
 
-const lookupMock = vi.mocked(lookup);
+const lookupMock = dnsMock.lookup;
 
 function imageResponse(body = "image-bytes", contentType = "image/png"): Response {
   return new Response(new Blob([body], { type: contentType }), {
@@ -56,9 +55,7 @@ describe("fetchImageAsBase64", () => {
   });
 
   it("blocks hostnames that resolve to private addresses before fetching", async () => {
-    lookupMock.mockResolvedValue([{ address: "10.0.0.7", family: 4 }] as Awaited<
-      ReturnType<typeof lookup>
-    >);
+    lookupMock.mockResolvedValue([{ address: "10.0.0.7", family: 4 }]);
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(imageResponse());
 
     const result = await fetchImageAsBase64("https://images.example.test/private.png");
@@ -69,9 +66,7 @@ describe("fetchImageAsBase64", () => {
   });
 
   it("rejects non-image responses", async () => {
-    lookupMock.mockResolvedValue([{ address: "93.184.216.34", family: 4 }] as Awaited<
-      ReturnType<typeof lookup>
-    >);
+    lookupMock.mockResolvedValue([{ address: "93.184.216.34", family: 4 }]);
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response("not an image", {
         status: 200,
@@ -85,9 +80,7 @@ describe("fetchImageAsBase64", () => {
   });
 
   it("rejects responses over the image size limit without reading the body", async () => {
-    lookupMock.mockResolvedValue([{ address: "93.184.216.34", family: 4 }] as Awaited<
-      ReturnType<typeof lookup>
-    >);
+    lookupMock.mockResolvedValue([{ address: "93.184.216.34", family: 4 }]);
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response("small body", {
         status: 200,
