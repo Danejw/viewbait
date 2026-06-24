@@ -6,8 +6,13 @@ import { lookup } from "node:dns/promises";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fetchImageAsBase64 } from "@/lib/utils/ai-helpers";
 
-vi.mock("node:dns/promises", () => ({
+const dnsMock = vi.hoisted(() => ({
   lookup: vi.fn(),
+}));
+
+vi.mock("node:dns/promises", () => ({
+  default: dnsMock,
+  lookup: dnsMock.lookup,
 }));
 
 vi.mock("@/lib/server/utils/logger", () => ({
