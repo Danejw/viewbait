@@ -1,0 +1,38 @@
+{
+  "organization": "My organization",
+  "timezone": "Pacific/Honolulu",
+  "time": "15:33 HST daily",
+  "channels": {
+    "linkedin": "69dc1dbc031bfa423cf8f229",
+    "twitter": "69dc1dd5031bfa423cf8f271"
+  },
+  "imageBase": "https://raw.githubusercontent.com/Danejw/viewbait/main/public/articles",
+  "scheduled": [
+    {
+      "article": "viewbait-image-gen-masterclass",
+      "date": "2026-07-07T15:33:00-10:00",
+      "linkedinPostId": "6a3b2706f3ce27b70789512a",
+      "twitterPostId": "6a3b271b9afd3ba031e6fc62"
+    }
+  ],
+  "ideasCreated": [
+    { "article": "extract-channel-style-from-youtube", "date": "2026-07-08T15:33:00-10:00", "linkedinIdeaId": "6a3b275408995fb7ab095ccc", "twitterIdeaId": "6a3b2755ff7884d6eaed9c1d" },
+    { "article": "ai-title-enhancement-for-thumbnails", "date": "2026-07-09T15:33:00-10:00", "linkedinIdeaId": "6a3b275908995fb7ab095cdf", "twitterIdeaId": "6a3b275a6b7b1db14549ace9" },
+    { "article": "custom-palettes-from-images", "date": "2026-07-10T15:33:00-10:00", "linkedinIdeaId": "6a3b2771c95ac3a288c26eb3" }
+  ],
+  "pending": [
+    { "article": "custom-palettes-from-images", "date": "2026-07-10T15:33:00-10:00", "channel": "twitter" },
+    { "article": "studio-assistant-guided-generation", "date": "2026-07-11T15:33:00-10:00", "channels": ["linkedin", "twitter"] },
+    { "article": "thumbnail-attention-heatmap", "date": "2026-07-12T15:33:00-10:00", "channels": ["linkedin", "twitter"] },
+    { "article": "channel-consistency-check", "date": "2026-07-13T15:33:00-10:00", "channels": ["linkedin", "twitter"] },
+    { "article": "youtube-connected-thumbnail-workflow", "date": "2026-07-14T15:33:00-10:00", "channels": ["linkedin", "twitter"] },
+    { "article": "thumbnail-projects-shared-review", "date": "2026-07-15T15:33:00-10:00", "channels": ["linkedin", "twitter"] },
+    { "article": "post-generation-thumbnail-edit", "date": "2026-07-16T15:33:00-10:00", "channels": ["linkedin", "twitter"] }
+  ],
+  "notes": [
+    "Buffer scheduled-post limit is 10 on current plan; queue was full after 2 ViewBait posts.",
+    "Remaining posts saved as Ideas where possible; API rate-limited before completion.",
+    "Convert Ideas to scheduled posts in Buffer when slots open or upgrade plan.",
+    "Full post text: scripts/buffer-plan.json"
+  ]
+}

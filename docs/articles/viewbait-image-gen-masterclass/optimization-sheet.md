@@ -18,7 +18,7 @@
 
 ## Internal links (suggested)
 
-- Building ViewBait into a full product: `../building-viewbait-into-a-full-product.md`
+- Building ViewBait into a full product: `../building-viewbait-into-a-full-product/article.md`
 - Studio: https://viewbait.app/studio
 
 ## Images (place in `images/`)

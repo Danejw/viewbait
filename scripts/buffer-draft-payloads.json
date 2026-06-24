@@ -1,0 +1,342 @@
+[
+  {
+    "slug": "viewbait-image-gen-masterclass",
+    "channel": "linkedin",
+    "channelId": "69dc1dbc031bfa423cf8f229",
+    "dueAt": "2026-07-07T15:33:00-10:00",
+    "text": "Production Thumbnail Generation with ViewBait\n\n\nThe app\nViewBait is a thumbnail studio for YouTube creators. You pick your title, face, style, colors, and format in a visual form. We handle the creative brief and image generation behind the scenes.\n\nThe problem\nGeneric AI tools asked us to write long prompts and hope. Faces came back wrong. Styles drifted from video to video. Failed generations still cost money. We spent more time fighting the tool than editing the video.\n\nThe solution\nWe built Visual Brief Studio. You work in a studio, not a chat box. Upload your face once, save a style when you nail it, and generate up to four variations in one run without writing a single prompt.\n\nHow it works\nPick your title (or leave it blank for a visual-only image), expression, palette, and aspect ratio. ViewBait turns those choices into precise instructions: exact title rules, your face references, and your brand look. Successful images land in your private gallery at full resolution. Credits apply only when a thumbnail actually generates. If one variation in a batch fails, the others can still succeed.\n\nThe result\nThumbnails stopped being a weekly argument. We repeat our face and style, compare options before publishing, and pay only for what we keep. Our feed looks like one channel again, not a pile of random experiments.\n\nBottom line\nWhen users need consistency, give them a form that speaks their language and a system that handles the model. That is how you turn AI from a guessing game into a weekly workflow. Try it at viewbait.app.",
+    "assets": [
+      {
+        "image": {
+          "url": "https://raw.githubusercontent.com/Danejw/viewbait/main/public/articles/viewbait-image-gen-masterclass/Ultra-Wide-Banner.png",
+          "metadata": {
+            "altText": "Production Thumbnail Generation with ViewBait - ViewBait.app"
+          }
+        }
+      }
+    ]
+  },
+  {
+    "slug": "viewbait-image-gen-masterclass",
+    "channel": "twitter",
+    "channelId": "69dc1dd5031bfa423cf8f271",
+    "dueAt": "2026-07-07T15:33:00-10:00",
+    "text": "Production Thumbnail Generation with ViewBait\n\nWhen users need consistency, give them a form that speaks their language and a system that handles the model. That is...\n\nhttps://viewbait.app",
+    "assets": [
+      {
+        "image": {
+          "url": "https://raw.githubusercontent.com/Danejw/viewbait/main/public/articles/viewbait-image-gen-masterclass/Ultra-Wide-Banner.png",
+          "metadata": {
+            "altText": "Production Thumbnail Generation with ViewBait - ViewBait.app"
+          }
+        }
+      }
+    ]
+  },
+  {
+    "slug": "extract-channel-style-from-youtube",
+    "channel": "linkedin",
+    "channelId": "69dc1dbc031bfa423cf8f229",
+    "dueAt": "2026-07-08T15:33:00-10:00",
+    "text": "Extract Channel Style from YouTube\n\n\nThe app\nViewBait helps YouTube creators generate thumbnails with their face, colors, and saved styles. Channel Style Mirror learns that look from real uploads instead of asking you to invent it from memory.\n\nThe problem\nOne great thumbnail does not capture the pattern across your feed. Creators wrote style prompts from guesswork, then regenerated until something felt close. Colors shifted. Text treatment changed. Credits burned while the channel slowly stopped looking like itself.\n\nThe solution\nWe built Channel Style Mirror. Browse real uploads, pick 2 to 10 thumbnails that represent how you want to look, and ViewBait distills the shared color, layout, lighting, and mood into a reusable style.\n\nHow it works\nConnect your channel on Pro, or paste any public channel URL on the Import tab. Select videos in the grid and hit Extract. The AI reads the set together, not one hero image. It saves a named style with reference images into your library. You rename or tweak the prompt once in the editor, then reuse it like any other preset. Saving custom styles requires Starter or above.\n\nThe result\nNew thumbnails start from your actual feed instead of a blank prompt. Creators extract once from five on-brand uploads and reuse that style on the next ten videos. Support questions shifted from \"how do I match my channel?\" to \"which videos should I pick?\"\n\nBottom line\nWhen users need consistency, let them point at what already works and distill the pattern. Sample beats singleton every time. See it at viewbait.app.",
+    "assets": [
+      {
+        "image": {
+          "url": "https://raw.githubusercontent.com/Danejw/viewbait/main/public/articles/extract-channel-style-from-youtube/Ultra-Wide-Banner.png",
+          "metadata": {
+            "altText": "Extract Channel Style from YouTube - ViewBait.app"
+          }
+        }
+      }
+    ]
+  },
+  {
+    "slug": "extract-channel-style-from-youtube",
+    "channel": "twitter",
+    "channelId": "69dc1dd5031bfa423cf8f271",
+    "dueAt": "2026-07-08T15:33:00-10:00",
+    "text": "Extract Channel Style from YouTube\n\nWhen users need consistency, let them point at what already works and distill the pattern. Sample beats singleton eve...\n\nhttps://viewbait.app",
+    "assets": [
+      {
+        "image": {
+          "url": "https://raw.githubusercontent.com/Danejw/viewbait/main/public/articles/extract-channel-style-from-youtube/Ultra-Wide-Banner.png",
+          "metadata": {
+            "altText": "Extract Channel Style from YouTube - ViewBait.app"
+          }
+        }
+      }
+    ]
+  },
+  {
+    "slug": "ai-title-enhancement-for-thumbnails",
+    "channel": "linkedin",
+    "channelId": "69dc1dbc031bfa423cf8f229",
+    "dueAt": "2026-07-09T15:33:00-10:00",
+    "text": "AI Title Enhancement for Thumbnails\n\n\nThe app\nViewBait is a thumbnail studio for YouTube creators. The text on your thumbnail is a first-class input, not an SEO footnote. Title Hook Lab helps you sharpen that hook before you spend credits on visuals.\n\nThe problem\nCreators typed a flat topic like \"budget camera review\" and hit Generate. The image was fine. The hook was not. They burned credits fixing visuals when the title on the canvas was the real problem.\n\nThe solution\nWe built Title Hook Lab. One click turns a rough topic into three clickable title suggestions. Pick one or more, then generate with that exact text on the thumbnail.\n\nHow it works\nHit Enhance on the thumbnail text field. The server returns three variations built for curiosity without misleading the viewer. Select the lines you like and generate. Each selected title becomes its own thumbnail with the same face, style, and colors, so you test the hook, not the whole design. Available on Starter tier and above, enforced in the UI and API.\n\nThe result\nCopy testing happens in seconds before image credits spend. Creators enhance, pick two titles, generate both, and compare in the live feed. Fewer \"wrong hook\" regenerations, better A/B decisions.\n\nBottom line\nWhen text and image ship together, improve the cheap layer first. That ordering saves money and makes comparison actually meaningful. Try it at viewbait.app.",
+    "assets": [
+      {
+        "image": {
+          "url": "https://raw.githubusercontent.com/Danejw/viewbait/main/public/articles/ai-title-enhancement-for-thumbnails/Ultra-Wide-Banner.png",
+          "metadata": {
+            "altText": "AI Title Enhancement for Thumbnails - ViewBait.app"
+          }
+        }
+      }
+    ]
+  },
+  {
+    "slug": "ai-title-enhancement-for-thumbnails",
+    "channel": "twitter",
+    "channelId": "69dc1dd5031bfa423cf8f271",
+    "dueAt": "2026-07-09T15:33:00-10:00",
+    "text": "AI Title Enhancement for Thumbnails\n\nWhen text and image ship together, improve the cheap layer first. That ordering saves money and makes comparison actu...\n\nhttps://viewbait.app",
+    "assets": [
+      {
+        "image": {
+          "url": "https://raw.githubusercontent.com/Danejw/viewbait/main/public/articles/ai-title-enhancement-for-thumbnails/Ultra-Wide-Banner.png",
+          "metadata": {
+            "altText": "AI Title Enhancement for Thumbnails - ViewBait.app"
+          }
+        }
+      }
+    ]
+  },
+  {
+    "slug": "custom-palettes-from-images",
+    "channel": "linkedin",
+    "channelId": "69dc1dbc031bfa423cf8f229",
+    "dueAt": "2026-07-10T15:33:00-10:00",
+    "text": "Custom Palettes from Images\n\n\nThe app\nViewBait generates YouTube thumbnails with saved styles, faces, and color palettes built for contrast at small sizes. Palette Capture lets you define those colors by hand or pull them from a reference image.\n\nThe problem\nHex pickers work but feel tedious when you already have a logo, brand sheet, or reference thumbnail with the right colors. People guessed swatches and regenerated until contrast felt okay at phone size.\n\nThe solution\nWe built Palette Capture. Create palettes manually or upload a reference image and let ViewBait extract dominant colors you can edit before saving.\n\nHow it works\nOpen My Palettes, upload an image, and the server returns suggested hex values plus an optional name. Tweak the strip, save, and reuse the palette in the generator or chat. Extracted and manual palettes save to the same library and look identical in the dropdown. Starter and above can create custom palettes. Free users browse defaults.\n\nThe result\nBrand colors land in the studio once and repeat across a series without color guesswork every upload. Custom palette creation often follows style extraction and face upload in the same onboarding session.\n\nBottom line\nWhen users already have a visual reference, extraction beats empty forms. Ship both paths and treat AI output as an editable draft. Try it at viewbait.app.",
+    "assets": [
+      {
+        "image": {
+          "url": "https://raw.githubusercontent.com/Danejw/viewbait/main/public/articles/custom-palettes-from-images/Ultra-Wide-Banner.png",
+          "metadata": {
+            "altText": "Custom Palettes from Images - ViewBait.app"
+          }
+        }
+      }
+    ]
+  },
+  {
+    "slug": "custom-palettes-from-images",
+    "channel": "twitter",
+    "channelId": "69dc1dd5031bfa423cf8f271",
+    "dueAt": "2026-07-10T15:33:00-10:00",
+    "text": "Custom Palettes from Images\n\nWhen users already have a visual reference, extraction beats empty forms. Ship both paths and treat AI output as an e...\n\nhttps://viewbait.app",
+    "assets": [
+      {
+        "image": {
+          "url": "https://raw.githubusercontent.com/Danejw/viewbait/main/public/articles/custom-palettes-from-images/Ultra-Wide-Banner.png",
+          "metadata": {
+            "altText": "Custom Palettes from Images - ViewBait.app"
+          }
+        }
+      }
+    ]
+  },
+  {
+    "slug": "studio-assistant-guided-generation",
+    "channel": "linkedin",
+    "channelId": "69dc1dbc031bfa423cf8f229",
+    "dueAt": "2026-07-11T15:33:00-10:00",
+    "text": "Studio Assistant Guided Generation\n\n\nThe app\nViewBait is a thumbnail studio for YouTube creators. Studio Form Sync is a guided chat that sits beside the visual form and pre-fills the same fields you would set by hand.\n\nThe problem\nSome creators think in sentences, not dropdowns. Raw prompt tools hide the settings. Blank forms hide the guidance. We needed a middle path: talk through what you want, then see and tweak every choice before you generate.\n\nThe solution\nWe built Studio Form Sync. You chat in plain language. The assistant updates the studio form in real time, surfaces the relevant sections, and never bypasses the controls you already trust.\n\nHow it works\nSwitch to chat mode in the generator. Describe your thumbnail intent. The assistant returns suggestions and structured form updates for title, style, face, palette, ratio, and variations. Switch back to manual mode anytime. Nothing is lost because both modes share the same form state.\n\nThe result\nNew users get guided setup without learning prompt syntax. Power users skip hunting toggles and fine-tune in manual after the assistant does the first pass. The chat lowers the learning curve without becoming a black box.\n\nBottom line\nWhen your product already has a strong visual form, the assistant should fill it, not replace it. Try it at viewbait.app.",
+    "assets": [
+      {
+        "image": {
+          "url": "https://raw.githubusercontent.com/Danejw/viewbait/main/public/articles/studio-assistant-guided-generation/Ultra-Wide-Banner.png",
+          "metadata": {
+            "altText": "Studio Assistant Guided Generation - ViewBait.app"
+          }
+        }
+      }
+    ]
+  },
+  {
+    "slug": "studio-assistant-guided-generation",
+    "channel": "twitter",
+    "channelId": "69dc1dd5031bfa423cf8f271",
+    "dueAt": "2026-07-11T15:33:00-10:00",
+    "text": "Studio Assistant Guided Generation\n\nWhen your product already has a strong visual form, the assistant should fill it, not replace it. Try it at viewbait....\n\nhttps://viewbait.app",
+    "assets": [
+      {
+        "image": {
+          "url": "https://raw.githubusercontent.com/Danejw/viewbait/main/public/articles/studio-assistant-guided-generation/Ultra-Wide-Banner.png",
+          "metadata": {
+            "altText": "Studio Assistant Guided Generation - ViewBait.app"
+          }
+        }
+      }
+    ]
+  },
+  {
+    "slug": "thumbnail-attention-heatmap",
+    "channel": "linkedin",
+    "channelId": "69dc1dbc031bfa423cf8f229",
+    "dueAt": "2026-07-12T15:33:00-10:00",
+    "text": "Thumbnail Attention Heatmap\n\n\nThe app\nViewBait generates YouTube thumbnails and connects to your channel on Pro. Attention Lens overlays a predicted heatmap on any thumbnail so you can sanity-check focal hierarchy before you publish.\n\nThe problem\nCreators judge thumbnails on a big screen. Viewers see them tiny and fast. Text, faces, and backgrounds fight each other, and nobody notices until after upload. Gut feel at desktop size is a weak pre-flight check.\n\nThe solution\nWe built Attention Lens, a one-click heatmap on any thumbnail card. It shows where viewers are likely to look first so you can fix layout before the video goes live.\n\nHow it works\nTap the heatmap icon on a generated thumbnail or a YouTube upload. ViewBait sends the exact image on screen to the model and returns an overlay you can toggle on and off. Results cache on the card so comparing finalists does not cost another call. Advanced and Pro only, hidden in the UI and enforced in the API.\n\nThe result\nCreators catch weak layouts during shortlisting, not from post-mortem analytics. Usage clusters on final candidates, which is exactly when a sanity check matters.\n\nBottom line\nGive users a pre-flight check on the asset they are already staring at. Judgment features belong on the decision surface, not in a separate report. See it at viewbait.app.",
+    "assets": [
+      {
+        "image": {
+          "url": "https://raw.githubusercontent.com/Danejw/viewbait/main/public/articles/thumbnail-attention-heatmap/Ultra-Wide-Banner.png",
+          "metadata": {
+            "altText": "Thumbnail Attention Heatmap - ViewBait.app"
+          }
+        }
+      }
+    ]
+  },
+  {
+    "slug": "thumbnail-attention-heatmap",
+    "channel": "twitter",
+    "channelId": "69dc1dd5031bfa423cf8f271",
+    "dueAt": "2026-07-12T15:33:00-10:00",
+    "text": "Thumbnail Attention Heatmap\n\nGive users a pre-flight check on the asset they are already staring at. Judgment features belong on the decision surf...\n\nhttps://viewbait.app",
+    "assets": [
+      {
+        "image": {
+          "url": "https://raw.githubusercontent.com/Danejw/viewbait/main/public/articles/thumbnail-attention-heatmap/Ultra-Wide-Banner.png",
+          "metadata": {
+            "altText": "Thumbnail Attention Heatmap - ViewBait.app"
+          }
+        }
+      }
+    ]
+  },
+  {
+    "slug": "channel-consistency-check",
+    "channel": "linkedin",
+    "channelId": "69dc1dbc031bfa423cf8f229",
+    "dueAt": "2026-07-13T15:33:00-10:00",
+    "text": "Channel Consistency Check for Thumbnails\n\n\nThe app\nViewBait connects to YouTube on Pro so creators browse uploads and generate thumbnails in context. Channel Fit Check scores whether a new thumbnail still looks like the rest of your channel.\n\nThe problem\nCreators feel when a thumbnail \"does not look like us\" but struggle to say why. A slightly different color grade here, a new font treatment there. By the time the browse page looks scattered, the damage is already published.\n\nThe solution\nWe built Channel Fit Check. Compare one video's thumbnail against up to ten others from your channel and get a 1 to 5 consistency score plus one or two plain cues like palette match or layout drift.\n\nHow it works\nOn the YouTube tab with your channel connected, tap consistency on any video card. ViewBait loads your thumbnail and sibling uploads from the grid, runs a vision comparison, and caches the result on the card. Low score means fix it before upload, not after analytics. Requires Pro with YouTube OAuth.\n\nThe result\nPro creators catch off-brand visuals during the upload workflow. Low scores on new uploads trigger a regenerate or style reset before publish instead of regret scrolling weeks later.\n\nBottom line\nRelative scoring against the user's own library beats generic design advice. Drift is a comparison problem, not a taste problem. Try it at viewbait.app.",
+    "assets": [
+      {
+        "image": {
+          "url": "https://raw.githubusercontent.com/Danejw/viewbait/main/public/articles/channel-consistency-check/Ultra-Wide-Banner.png",
+          "metadata": {
+            "altText": "Channel Consistency Check for Thumbnails - ViewBait.app"
+          }
+        }
+      }
+    ]
+  },
+  {
+    "slug": "channel-consistency-check",
+    "channel": "twitter",
+    "channelId": "69dc1dd5031bfa423cf8f271",
+    "dueAt": "2026-07-13T15:33:00-10:00",
+    "text": "Channel Consistency Check for Thumbnails\n\nRelative scoring against the user's own library beats generic design advice. Drift is a comparison problem, not a tas...\n\nhttps://viewbait.app",
+    "assets": [
+      {
+        "image": {
+          "url": "https://raw.githubusercontent.com/Danejw/viewbait/main/public/articles/channel-consistency-check/Ultra-Wide-Banner.png",
+          "metadata": {
+            "altText": "Channel Consistency Check for Thumbnails - ViewBait.app"
+          }
+        }
+      }
+    ]
+  },
+  {
+    "slug": "youtube-connected-thumbnail-workflow",
+    "channel": "linkedin",
+    "channelId": "69dc1dbc031bfa423cf8f229",
+    "dueAt": "2026-07-14T15:33:00-10:00",
+    "text": "YouTube Connected Thumbnail Workflow\n\n\nThe app\nViewBait generates YouTube thumbnails with faces, styles, and palettes. On Pro, YouTube Studio Bridge connects your channel inside the studio so thumbnail work starts from real uploads, not a blank form.\n\nThe problem\nCreators copied titles and notes from YouTube into ViewBait by hand. Context got lost between tabs. The thumbnail did not match what the video actually delivered, and publishing the winner meant another round of context switching.\n\nThe solution\nWe built YouTube Studio Bridge. Browse uploads, analyze the video, get 2 to 4 concept prompts grounded in the content, generate with that context, and optionally set the thumbnail on YouTube without leaving the app.\n\nHow it works\nConnect on Pro. Open a video, run analysis, pick a concept. ViewBait fills the generator text and custom instructions from the video summary. Generate variations, pick a winner, and if you granted thumbnail permission, publish it back to the video. OAuth tokens and analysis stay server-side. If scope is missing, the UI tells you exactly how to reconnect.\n\nThe result\nThumbnail work starts from the upload list, not a blank studio. Pro users who connect YouTube generate more thumbnails per session. Concept-to-generate is the highest-intent path in the YouTube view.\n\nBottom line\nWhen your product depends on external content, bring that content into the creation surface. Context should be one click, not a copy-paste chore. See it at viewbait.app.",
+    "assets": [
+      {
+        "image": {
+          "url": "https://raw.githubusercontent.com/Danejw/viewbait/main/public/articles/youtube-connected-thumbnail-workflow/Ultra-Wide-Banner.png",
+          "metadata": {
+            "altText": "YouTube Connected Thumbnail Workflow - ViewBait.app"
+          }
+        }
+      }
+    ]
+  },
+  {
+    "slug": "youtube-connected-thumbnail-workflow",
+    "channel": "twitter",
+    "channelId": "69dc1dd5031bfa423cf8f271",
+    "dueAt": "2026-07-14T15:33:00-10:00",
+    "text": "YouTube Connected Thumbnail Workflow\n\nWhen your product depends on external content, bring that content into the creation surface. Context should be one cl...\n\nhttps://viewbait.app",
+    "assets": [
+      {
+        "image": {
+          "url": "https://raw.githubusercontent.com/Danejw/viewbait/main/public/articles/youtube-connected-thumbnail-workflow/Ultra-Wide-Banner.png",
+          "metadata": {
+            "altText": "YouTube Connected Thumbnail Workflow - ViewBait.app"
+          }
+        }
+      }
+    ]
+  },
+  {
+    "slug": "thumbnail-projects-shared-review",
+    "channel": "linkedin",
+    "channelId": "69dc1dbc031bfa423cf8f229",
+    "dueAt": "2026-07-15T15:33:00-10:00",
+    "text": "Thumbnail Projects and Shared Review\n\n\nThe app\nViewBait generates thumbnails and saves them to your gallery. Review Gallery adds projects, shareable links, and comments so creators and small teams can pick a winner before anything goes live.\n\nThe problem\nPeople screenshot options and send them around. Comments land in five apps. Versions get mixed up. The file that goes live is not always the one the team agreed on. Gallery view solved personal history, but not campaign memory or second opinions.\n\nThe solution\nWe built Review Gallery. Group thumbnails into projects, share a view-only link, and collect comments on the cards before anything publishes.\n\nHow it works\nCreate a project for a video or campaign and assign your best variations. Copy a share link. Viewers open a clean gallery at a public URL without needing the full studio or an account. Share all thumbnails or favorites only for a tight shortlist. Signed-in owners and editors comment directly on each option. Editors can join through a separate flow when you want shared settings, not open mutation on view links.\n\nThe result\nFeedback stays attached to the image under debate. One link, one shortlist, comments on the cards. Teams pick a winner before YouTube sees anything.\n\nBottom line\nWhen your product outputs visual options, give users a view-only share path and put comments on the asset. Review is a feature, not a screenshot workflow. Try it at viewbait.app.",
+    "assets": [
+      {
+        "image": {
+          "url": "https://raw.githubusercontent.com/Danejw/viewbait/main/public/articles/thumbnail-projects-shared-review/Ultra-Wide-Banner.png",
+          "metadata": {
+            "altText": "Thumbnail Projects and Shared Review - ViewBait.app"
+          }
+        }
+      }
+    ]
+  },
+  {
+    "slug": "thumbnail-projects-shared-review",
+    "channel": "twitter",
+    "channelId": "69dc1dd5031bfa423cf8f271",
+    "dueAt": "2026-07-15T15:33:00-10:00",
+    "text": "Thumbnail Projects and Shared Review\n\nWhen your product outputs visual options, give users a view-only share path and put comments on the asset. Review is...\n\nhttps://viewbait.app",
+    "assets": [
+      {
+        "image": {
+          "url": "https://raw.githubusercontent.com/Danejw/viewbait/main/public/articles/thumbnail-projects-shared-review/Ultra-Wide-Banner.png",
+          "metadata": {
+            "altText": "Thumbnail Projects and Shared Review - ViewBait.app"
+          }
+        }
+      }
+    ]
+  },
+  {
+    "slug": "post-generation-thumbnail-edit",
+    "channel": "linkedin",
+    "channelId": "69dc1dbc031bfa423cf8f229",
+    "dueAt": "2026-07-16T15:33:00-10:00",
+    "text": "Post-Generation Thumbnail Edit\n\n\nThe app\nViewBait generates YouTube thumbnails and saves every success to your gallery. Thumbnail Refine lets you adjust a near-winner with a short instruction instead of starting from scratch.\n\nThe problem\nCreators regenerated entire batches to move text, brighten a background, or push an expression. They paid for four new images and often lost the composition they already liked. Most iterations are small edits, not blank-canvas jobs.\n\nThe solution\nWe built Thumbnail Refine. Open a saved thumbnail, describe one change in plain language, and get a new version derived from the original without restarting the whole form.\n\nHow it works\nHit Edit on a gallery card, enter a short instruction up to 500 characters, optionally add reference images, and submit. The server edits the existing image, stores a new thumbnail linked to the source, and charges credits only on success. Your original stays for side-by-side comparison. Same fairness rules as generation batches.\n\nThe result\nSmall fixes take one step. Edit sessions often follow generate sessions within minutes on the same thumbnail family. Iteration happens on near-winners instead of from a blank canvas every time.\n\nBottom line\nCreative tools need a refine path, not just generate again. Preserve what works and charge fairly for the delta. See it at viewbait.app.",
+    "assets": [
+      {
+        "image": {
+          "url": "https://raw.githubusercontent.com/Danejw/viewbait/main/public/articles/post-generation-thumbnail-edit/Ultra-Wide-Banner.png",
+          "metadata": {
+            "altText": "Post-Generation Thumbnail Edit - ViewBait.app"
+          }
+        }
+      }
+    ]
+  },
+  {
+    "slug": "post-generation-thumbnail-edit",
+    "channel": "twitter",
+    "channelId": "69dc1dd5031bfa423cf8f271",
+    "dueAt": "2026-07-16T15:33:00-10:00",
+    "text": "Post-Generation Thumbnail Edit\n\nCreative tools need a refine path, not just generate again. Preserve what works and charge fairly for the delta. See...\n\nhttps://viewbait.app",
+    "assets": [
+      {
+        "image": {
+          "url": "https://raw.githubusercontent.com/Danejw/viewbait/main/public/articles/post-generation-thumbnail-edit/Ultra-Wide-Banner.png",
+          "metadata": {
+            "altText": "Post-Generation Thumbnail Edit - ViewBait.app"
+          }
+        }
+      }
+    ]
+  }
+]

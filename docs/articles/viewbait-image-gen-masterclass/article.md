@@ -1,149 +1,108 @@
-# How ViewBait Creates Your Thumbnails
+# We Needed Thumbnails That Looked Like Us. So We Built a Better Way.
 
 **ViewBait.app** · [Open the studio](https://viewbait.app)  
 **Last updated:** June 2026
 
-You pick a title, a look, maybe your face. ViewBait returns a thumbnail built for clicks. This is how that process works, and why we designed it the way we did.
+If you make videos, you already know the problem. Every upload needs a thumbnail that stops the scroll — readable text, your face looking natural, a style that matches your channel. And you need that *again* for the next video, and the one after that.
+
+We built ViewBait because we lived that problem. Generic AI tools asked us to write long prompts and pray. Faces came out wrong. Styles drifted. Failed generations still cost money. None of it scaled.
+
+This article explains what we built instead, how it works, and what it actually does for creators like us.
 
 ---
 
-## At a glance
+## The problem we were trying to solve
 
-| | |
-|---|---|
-| **What you do** | Describe your thumbnail in plain language: text, style, colors, expression, aspect ratio. |
-| **What ViewBait does** | Translates your choices into a precise creative brief, generates the image, and saves it to your gallery. |
-| **What you get** | A high-resolution thumbnail ready for YouTube, plus smaller versions that load fast in your library. |
-| **What you do not do** | Write AI prompts, manage reference image order, or pay for images that failed to generate. |
+A good thumbnail is not decoration. It is the first argument your video makes. Viewers decide in a fraction of a second whether to click. That means every thumbnail needs three things at once: **clear text**, **a recognizable face**, and **a look that feels like your brand**.
+
+Doing that once is hard. Doing it consistently across dozens of videos is harder. We needed a system that used **real data** — our actual faces, our saved styles, our real titles — and turned that into thumbnails we could ship every week without starting from scratch.
 
 ---
 
-## Why thumbnail generation is harder than it looks
+## Why the usual AI approach breaks down
 
-A good YouTube thumbnail is not just a pretty picture. It needs readable text, a clear focal point, your face looking natural (not pasted on), and a style that matches your channel.
+Most image tools treat you like a prompt engineer. You type a paragraph, get one image, and hope it resembles you. When it does not, you start over.
 
-Generic AI tools ask you to type a long prompt and hope for the best. That breaks down fast when you want:
+That fails for predictable reasons:
 
-- **Your actual face** in the shot, not a random person
-- **The same visual style** across dozens of videos
-- **Several options at once** so you can pick the best one
-- **Fair billing** when the AI hiccups or times out
+- **Your face is not a stock photo.** The AI needs to know who you are, not guess.
+- **Your brand has a look.** Random styles make your channel feel scattered.
+- **One option is not enough.** Strong creators compare versions before they publish.
+- **Failures should not cost you.** When the AI hiccups, you should not pay for nothing.
 
-ViewBait is built around those real creator needs, not around demo-quality one-off images.
+We designed ViewBait around those four facts — not around demo-quality one-off images.
 
 ---
 
-## Your journey in the studio
+## Our solution: a studio, not a chat box
 
-```mermaid
-flowchart LR
-  A[You set title, style, and face] --> B[ViewBait builds the brief]
-  B --> C[AI generates your thumbnail]
-  C --> D[Saved to your gallery]
-  D --> E[Credits used only on success]
-```
+Instead of asking creators to speak AI, we built a visual studio. You choose what matters in plain language: your title, your expression, your colors, your format. ViewBait handles the rest behind the scenes.
+
+**What you do:** Pick a title (or leave it blank for a visual-only image), choose a style and color palette, select an expression, and set the format — 16:9 for YouTube, 9:16 for Shorts. You can generate two, three, or four variations in one run.
+
+**What ViewBait does:** Turns your choices into a precise creative brief, generates the image with your face and style references, and saves the result to your private gallery.
+
+**What you get:** A high-resolution thumbnail ready to upload, plus lighter versions so your library stays fast to browse.
+
+**What you never have to do:** Write AI prompts, sort reference photos by hand, or pay for images that never arrived.
+
+---
+
+## How it works, step by step
 
 ### 1. You describe the thumbnail
 
-In the studio you choose:
+The studio form is your entire input. Title, style, colors, pose, format, quality — all visual choices, no prompt syntax.
 
-- **Title text** (or no text at all for a visual-only thumbnail)
-- **Style** from presets or your saved custom looks
-- **Color palette** to keep branding consistent
-- **Expression and pose** (shocked, pointing, thumbs up, and more)
-- **Format** such as 16:9 for long-form YouTube or 9:16 for Shorts
-- **Quality** from standard to 4K, depending on your plan
-- **Variations** so you can compare 2, 3, or 4 options in one run
+### 2. ViewBait builds the brief
 
-You can also pick which AI model powers the generation: **Nano Banana Pro**, **Nano Banana 2**, or **GPT Image 2**. Each has a slightly different strength. You stay in control without learning prompt syntax.
+You do not see this part, and that is the point. ViewBait translates your choices into clear instructions: exact title wording (or an explicit "no text" rule), your saved style and palette, which face photos belong to which person, and which reference images are for look versus likeness. The AI gets specificity. You get simplicity.
 
-### 2. ViewBait turns your choices into a creative brief
+### 3. Your thumbnail is generated
 
-Behind the scenes, ViewBait does not send a vague sentence to the AI. It builds a detailed brief that covers:
+If you asked for multiple variations, they are created together so you compare options in one sitting — not four separate waiting sessions.
 
-- **Exact title rules.** If you added text, the main title and any subtitle are spelled out clearly. If you left text blank, the brief says no words, numbers, or captions anywhere in the image.
-- **Style and color.** Your saved style and palette are included so results feel on-brand.
-- **Your face.** Photos from your face library are grouped by person. The AI is told which images belong to the same character so your likeness stays consistent.
-- **Reference images.** If you attached style references, ViewBait labels them separately from face photos so the AI knows what to copy (lighting, layout) vs who to draw.
+### 4. It lands in your gallery
 
-You never see this brief. You just see better, more predictable results.
-
-### 3. The image is generated
-
-ViewBait sends your brief and reference photos to the model you selected. If you asked for multiple variations, they are created in parallel so you wait once, not four times.
-
-When reference images are involved, ViewBait uses the right generation mode for each model so faces and styles are composed naturally instead of looking like a bad cut-and-paste.
-
-### 4. Your thumbnail lands in the gallery
-
-Every successful image is saved to your private gallery at full resolution. ViewBait also creates lighter versions so scrolling through past thumbnails stays fast.
-
-If something goes wrong on one variation in a batch, the others can still succeed. You are not charged for the ones that failed.
+Every successful image is saved at full resolution. If one variation in a batch fails, the others can still succeed. **You are charged only for thumbnails that actually generate.**
 
 ---
 
-## The features that make a real difference
+## The features that matter in practice
 
-### Your face library
+**Your face library.** Upload reference photos once. Reuse them on every video. ViewBait places you in the scene with the expression you picked — not a stranger who vaguely looks like you.
 
-Upload reference photos once. Reuse them on every video. ViewBait can place you (or a co-host) in the scene with the expression and pose you picked. Multiple people in one thumbnail are supported when your plan allows it.
+**Styles you can repeat.** Found a look you love? Save it. Next video, one click applies the same mood and colors. Your channel starts to look like a channel, not a random feed.
 
-### Styles you can repeat
+**Variations for real decisions.** Generate up to four versions, compare them side by side, and pick the one with the most stop-the-scroll energy. The first draft is rarely the best draft.
 
-Found a look you love? Save it as a custom style. Next time you generate, one click applies the same mood, colors, and composition. You can even preview a style before committing to it.
+**Fair credits.** ViewBait checks your balance before starting. Credits are used only when a thumbnail lands in your gallery. A timeout or a failed variation does not eat your balance.
 
-### Variations for A/B testing
-
-Strong creators rarely ship the first draft. Generate up to four versions in one go, compare them side by side, and pick the one with the most stop-the-scroll energy.
-
-### Fair credits
-
-ViewBait checks that you have enough credits before starting. Credits are used **only when a thumbnail actually generates**. A timeout, a busy AI service, or a failed variation does not eat your balance.
-
-Higher resolutions use more credits. Your plan controls which formats and quality levels are available.
-
-### Clear errors, not jargon
-
-When generation fails, you get a plain message: try again in a moment, adjust your prompt, or check your plan. You will not see raw technical errors from third-party AI services.
+**Plain errors.** When something goes wrong, you get a clear message — try again, adjust your settings, or check your plan. No raw technical jargon from third-party services.
 
 ---
 
-## Beyond the main generator
+## What changed for us
 
-The same ideas power other parts of ViewBait:
+Before this approach, we spent more time fighting the tool than editing the video. Prompts were inconsistent. Faces were unreliable. Billing felt unfair when the AI failed.
 
-| Feature | What it does for you |
-|---|---|
-| **Style preview** | See what a saved style looks like before you use it on a full thumbnail |
-| **Thumbnail edit** | Tweak an existing image with a short instruction instead of starting over |
-| **Style from references** | Upload example thumbnails and let ViewBait learn a reusable style from them |
-| **AI assistant** | Describe what you want in chat and jump into the generator with settings pre-filled |
+With ViewBait, we work in a visual studio, reuse our face and brand, batch-test variations, and pay only for what we keep. The goal was never "generate an image." It was **publish videos that get clicked, week after week, without the thumbnail becoming a bottleneck.**
 
-Everything stays in one studio. Your gallery, faces, and styles connect so each video gets faster than the last.
+That is what it does for us. That is what it is built to do for you.
 
 ---
 
-## What good results look like
+## Tips that actually help
 
-**Before ViewBait's approach:** Creators wrestled with long prompts, inconsistent faces, one image per attempt, and unclear billing when the AI failed.
-
-**With ViewBait:** You work in a visual studio, reuse your face and brand, batch-test variations, and only pay for thumbnails that land in your gallery.
-
-The goal is simple: less time fighting the tool, more time publishing videos that get clicked.
-
----
-
-## Tips for your next generation
-
-1. **Split your title with a colon** if you want a big main line and smaller subtext (for example, `I Tried Every AI Tool: So You Don't Have To`).
-2. **Add 2–3 face photos per person** from different angles for a more accurate likeness.
-3. **Save styles** after a thumbnail you are proud of so your next ten videos match.
-4. **Run 2–4 variations** when you are unsure. Pick the winner, not the first draft.
-5. **Match aspect ratio to the platform** before you generate. 16:9 for standard YouTube, 9:16 for Shorts.
+1. **Split your title with a colon** for a big main line and smaller subtext — for example, *I Tried Every AI Tool: So You Don't Have To*.
+2. **Add two or three face photos per person** from different angles. More reference means a more accurate likeness.
+3. **Save styles** after a thumbnail you are proud of. Your next ten videos will thank you.
+4. **Run two to four variations** when you are unsure. Pick the winner, not the first draft.
+5. **Match aspect ratio before you generate.** 16:9 for standard YouTube, 9:16 for Shorts.
 
 ---
 
-## Try it yourself
+## Try it
 
 Open [viewbait.app](https://viewbait.app), sign in, and generate a thumbnail with a saved face and style. Run two variations and compare them in your gallery.
 
@@ -154,16 +113,39 @@ If you are new, your first successful thumbnail triggers a small celebration in 
 ## Questions creators ask
 
 **Do I need to write AI prompts?**  
-No. The studio form is your prompt. ViewBait handles the rest.
+No. The studio form is your prompt.
 
-**Why are there multiple AI models?**  
-Different models shine in different situations. You can switch from the model picker without changing anything else.
-
-**What if only 2 of 4 variations succeed?**  
+**What if only two of four variations succeed?**  
 You keep the two that worked. You are charged only for those two.
 
-**Can I generate without any text on the image?**  
+**Can I generate without text on the image?**  
 Yes. Leave the title empty for a purely visual thumbnail.
 
 **Where are my images stored?**  
 In your private gallery, tied to your account. Only you can access them.
+
+---
+
+## LinkedIn post (under 2,500 characters)
+
+Copy below for LinkedIn:
+
+---
+
+We make videos. That means we need a new thumbnail for every upload — readable text, our real faces, a look that matches our brand. Doing it once is hard. Doing it every week is harder.
+
+Generic AI tools were not built for that job. They ask you to write long prompts and hope. Faces come out wrong. Styles drift. Failed generations still cost money.
+
+So we built ViewBait.
+
+The idea is simple: you work in a visual studio, not a chat box. Pick your title, expression, colors, and format. Upload your face once and reuse it. Save a style when you nail it. Generate up to four variations in one run and pick the winner.
+
+Behind the scenes, ViewBait turns your choices into a precise creative brief — exact title rules, your face references, your brand look. You never write a prompt. You just get better, more predictable results.
+
+Credits are only used when a thumbnail actually lands in your gallery. If one variation fails, the others can still succeed. You are not paying for nothing.
+
+That is the problem we had: consistent, on-brand thumbnails with real data, without fighting the tool. That is what ViewBait solves.
+
+Try it at viewbait.app — generate two variations, compare them, and see if it fits your workflow.
+
+---
