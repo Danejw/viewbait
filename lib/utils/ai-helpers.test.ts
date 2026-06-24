@@ -28,12 +28,16 @@ function imageResponse(body = "image-bytes", contentType = "image/png"): Respons
 }
 
 describe("fetchImageAsBase64", () => {
+  const originalSupabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+
   beforeEach(() => {
     vi.clearAllMocks();
+    process.env.NEXT_PUBLIC_SUPABASE_URL = "https://project-ref.supabase.co";
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
+    process.env.NEXT_PUBLIC_SUPABASE_URL = originalSupabaseUrl;
   });
 
   it("returns embedded data URLs without fetching", async () => {
@@ -58,11 +62,35 @@ describe("fetchImageAsBase64", () => {
     lookupMock.mockResolvedValue([{ address: "10.0.0.7", family: 4 }]);
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(imageResponse());
 
-    const result = await fetchImageAsBase64("https://images.example.test/private.png");
+    const result = await fetchImageAsBase64(
+      "https://project-ref.supabase.co/storage/v1/object/sign/private.png"
+    );
 
     expect(result).toBeNull();
-    expect(lookupMock).toHaveBeenCalledWith("images.example.test", { all: true });
+    expect(lookupMock).toHaveBeenCalledWith("project-ref.supabase.co", { all: true });
     expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("blocks arbitrary public hosts before fetching", async () => {
+    lookupMock.mockResolvedValue([{ address: "93.184.216.34", family: 4 }]);
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(imageResponse());
+
+    const result = await fetchImageAsBase64("https://images.example.test/public.png");
+
+    expect(result).toBeNull();
+    expect(lookupMock).not.toHaveBeenCalled();
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("fetches allowed Supabase storage images", async () => {
+    lookupMock.mockResolvedValue([{ address: "93.184.216.34", family: 4 }]);
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(imageResponse("hello", "image/png"));
+
+    const result = await fetchImageAsBase64(
+      "https://project-ref.supabase.co/storage/v1/object/sign/reference.png"
+    );
+
+    expect(result).toEqual({ data: "aGVsbG8=", mimeType: "image/png" });
   });
 
   it("rejects non-image responses", async () => {
@@ -74,7 +102,9 @@ describe("fetchImageAsBase64", () => {
       })
     );
 
-    const result = await fetchImageAsBase64("https://images.example.test/file.txt");
+    const result = await fetchImageAsBase64(
+      "https://project-ref.supabase.co/storage/v1/object/sign/file.txt"
+    );
 
     expect(result).toBeNull();
   });
@@ -91,7 +121,9 @@ describe("fetchImageAsBase64", () => {
       })
     );
 
-    const result = await fetchImageAsBase64("https://images.example.test/huge.png");
+    const result = await fetchImageAsBase64(
+      "https://project-ref.supabase.co/storage/v1/object/sign/huge.png"
+    );
 
     expect(result).toBeNull();
   });
