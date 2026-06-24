@@ -93,6 +93,45 @@ describe("fetchImageAsBase64", () => {
     expect(result).toEqual({ data: "aGVsbG8=", mimeType: "image/png" });
   });
 
+  it("revalidates redirect destinations before fetching them", async () => {
+    lookupMock.mockResolvedValue([{ address: "93.184.216.34", family: 4 }]);
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(null, {
+        status: 302,
+        headers: { location: "https://images.example.test/redirected.png" },
+      })
+    );
+
+    const result = await fetchImageAsBase64(
+      "https://project-ref.supabase.co/storage/v1/object/sign/redirect.png"
+    );
+
+    expect(result).toBeNull();
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("follows redirects to another trusted public image URL", async () => {
+    lookupMock.mockResolvedValue([{ address: "93.184.216.34", family: 4 }]);
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        new Response(null, {
+          status: 302,
+          headers: {
+            location: "https://project-ref.supabase.co/storage/v1/object/sign/final.png",
+          },
+        })
+      )
+      .mockResolvedValueOnce(imageResponse("redirected", "image/png"));
+
+    const result = await fetchImageAsBase64(
+      "https://project-ref.supabase.co/storage/v1/object/sign/redirect.png"
+    );
+
+    expect(result).toEqual({ data: "cmVkaXJlY3RlZA==", mimeType: "image/png" });
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+  });
+
   it("rejects non-image responses", async () => {
     lookupMock.mockResolvedValue([{ address: "93.184.216.34", family: 4 }]);
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
