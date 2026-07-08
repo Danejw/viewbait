@@ -124,4 +124,20 @@ describe('callOpenAIImageGeneration', () => {
       callOpenAIImageGeneration('p', [], [], '1K', '16:9')
     ).rejects.toThrow('OPENAI_API_KEY')
   })
+
+  it('rejects more than 16 input images before calling OpenAI edits', async () => {
+    const fetchMock = vi.fn()
+    globalThis.fetch = fetchMock
+
+    const imageUrls = Array.from(
+      { length: 17 },
+      (_, index) => `data:image/png;base64,${Buffer.from(`image-${index}`).toString('base64')}`
+    )
+
+    await expect(
+      callOpenAIImageGeneration('test prompt', imageUrls, [], '1K', '16:9')
+    ).rejects.toThrow('OpenAI image edits support up to 16 input images')
+
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
 })

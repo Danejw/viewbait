@@ -97,9 +97,12 @@ function redactPII(data: unknown): unknown {
     
     for (const [key, value] of Object.entries(data)) {
       const lowerKey = key.toLowerCase()
+      const normalizedKey = lowerKey.replace(/[_-]/g, '')
       
       // Redact known PII fields
-      if (lowerKey.includes('email')) {
+      if (normalizedKey.includes('prompt') || normalizedKey === 'systeminstruction') {
+        sanitized[key] = '[REDACTED:PROMPT]'
+      } else if (lowerKey.includes('email')) {
         sanitized[key] = '[REDACTED:EMAIL]'
       } else if (lowerKey.includes('password') || lowerKey.includes('pwd') || lowerKey.includes('secret')) {
         sanitized[key] = '[REDACTED:PASSWORD]'
@@ -185,7 +188,8 @@ function formatLogEntry(
   // Add other context fields (redacted)
   for (const [key, value] of Object.entries(context)) {
     if (!['route', 'userId', 'operation'].includes(key)) {
-      entry[key] = redactPII(value)
+      const redactedField = redactPII({ [key]: value }) as Record<string, unknown>
+      entry[key] = redactedField[key]
     }
   }
 
@@ -195,7 +199,7 @@ function formatLogEntry(
     entry.error = {
       message: redactPII(errorInfo.message),
       type: errorInfo.type,
-    }
+    } as { message: unknown; type: string; stack?: unknown }
     
     // Only include stack trace in development
     if (errorInfo.stack && process.env.NODE_ENV === 'development') {

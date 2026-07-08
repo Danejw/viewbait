@@ -8,6 +8,25 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { getTierByProductId, getTierNameByProductId } from '@/lib/server/data/subscription-tiers'
 import type { TierConfig, TierName } from '@/lib/constants/subscription-tiers'
+import {
+  deriveAccessTierFromStatus,
+  type AppSubscriptionStatus,
+} from '@/lib/services/subscription-lifecycle'
+
+function normalizeSubscriptionStatus(
+  status: string | null | undefined,
+  productId: string | null | undefined
+): AppSubscriptionStatus {
+  if (status === 'canceled') {
+    return 'cancelled'
+  }
+
+  if (status) {
+    return status as AppSubscriptionStatus
+  }
+
+  return productId ? 'active' : 'free'
+}
 
 /**
  * Get tier configuration for a user by their user ID.
@@ -23,7 +42,7 @@ export async function getTierForUser(
 ): Promise<TierConfig> {
   const { data: subscription, error } = await supabase
     .from('user_subscriptions')
-    .select('product_id')
+    .select('product_id, status')
     .eq('user_id', userId)
     .maybeSingle()
 
@@ -31,7 +50,18 @@ export async function getTierForUser(
     return getTierByProductId(null)
   }
 
-  return getTierByProductId(subscription.product_id ?? null)
+  const productId = subscription.product_id ?? null
+  const resolvedTierName = await getTierNameByProductId(productId)
+  const accessTierName = deriveAccessTierFromStatus(
+    resolvedTierName,
+    normalizeSubscriptionStatus(subscription.status, productId)
+  )
+
+  if (accessTierName === 'free' && resolvedTierName !== 'free') {
+    return getTierByProductId(null)
+  }
+
+  return getTierByProductId(productId)
 }
 
 /**
@@ -48,13 +78,19 @@ export async function getTierNameForUser(
 ): Promise<TierName> {
   const { data: subscription, error } = await supabase
     .from('user_subscriptions')
-    .select('product_id')
+    .select('product_id, status')
     .eq('user_id', userId)
     .maybeSingle()
 
-  if (error || !subscription?.product_id) {
+  if (error || !subscription) {
     return 'free'
   }
 
-  return getTierNameByProductId(subscription.product_id)
+  const productId = subscription.product_id ?? null
+  const resolvedTierName = await getTierNameByProductId(productId)
+
+  return deriveAccessTierFromStatus(
+    resolvedTierName,
+    normalizeSubscriptionStatus(subscription.status, productId)
+  )
 }

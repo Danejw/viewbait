@@ -18,6 +18,7 @@ const MAX_OPENAI_EDGE = 3840
 const MAX_OPENAI_EDGE_ALT = 2160
 const MIN_OPENAI_PIXELS = 655_360
 const MAX_OPENAI_PIXELS = 8_294_400
+const MAX_OPENAI_EDIT_INPUT_IMAGES = 16
 const MIN_ASPECT = 1 / 3
 const MAX_ASPECT = 3
 
@@ -201,6 +202,10 @@ async function callOpenAIImageEditsMultipart(
   quality: OpenAIImageQuality,
   model: string = OPENAI_IMAGE_MODEL_ID
 ): Promise<GenerateThumbnailResult> {
+  if (images.length > MAX_OPENAI_EDIT_INPUT_IMAGES) {
+    throw new Error('OpenAI image edits support up to 16 input images')
+  }
+
   const form = new FormData()
   form.append('model', model)
   form.append('prompt', prompt)
@@ -234,6 +239,10 @@ export async function callOpenAIImageGeneration(
 
   const allUrls = [...referenceImages, ...faceImages]
   if (allUrls.length > 0) {
+    if (allUrls.length > MAX_OPENAI_EDIT_INPUT_IMAGES) {
+      throw new Error('OpenAI image edits support up to 16 input images')
+    }
+
     const images = await loadImagesFromUrls(allUrls)
     if (images.length === 0) {
       throw new Error('Failed to load reference images for OpenAI image edit')
@@ -273,5 +282,8 @@ export async function callOpenAIImageEdit(
   const size = resolutionToOpenAISize(resolution, aspectRatio)
   const quality = mapResolutionToQuality(resolution)
   const images = [originalImage, ...(referenceImages ?? [])]
+  if (images.length > MAX_OPENAI_EDIT_INPUT_IMAGES) {
+    throw new Error('OpenAI image edits support up to 16 input images')
+  }
   return callOpenAIImageEditsMultipart(editPrompt, images, size, quality, model)
 }

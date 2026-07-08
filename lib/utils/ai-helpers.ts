@@ -6,6 +6,7 @@
  */
 
 import { logError } from '@/lib/server/utils/logger'
+import { isIP } from 'node:net'
 
 // Emotion mappings - not sensitive, used for transforming user input
 export const EMOTION_DESCRIPTIONS: Record<string, string> = {
@@ -136,6 +137,14 @@ export async function fetchImageAsBase64(imageUrl: string): Promise<{ data: stri
     }
 
     // Handle regular URLs
+    if (!isSafeRemoteImageUrl(imageUrl)) {
+      logError(new Error('Blocked unsafe image URL'), {
+        operation: 'fetch-image-as-base64',
+        route: 'ai-helpers',
+      })
+      return null
+    }
+
     const response = await fetch(imageUrl)
     if (!response.ok) {
       logError(new Error(`Failed to fetch image: ${response.statusText}`), {
@@ -162,6 +171,73 @@ export async function fetchImageAsBase64(imageUrl: string): Promise<{ data: stri
     })
     return null
   }
+}
+
+function isSafeRemoteImageUrl(imageUrl: string): boolean {
+  let parsed: URL
+  try {
+    parsed = new URL(imageUrl)
+  } catch {
+    return false
+  }
+
+  if (parsed.protocol !== 'https:') {
+    return false
+  }
+
+  const hostname = parsed.hostname.toLowerCase()
+  if (
+    hostname === 'localhost' ||
+    hostname.endsWith('.localhost') ||
+    hostname === 'metadata.google.internal'
+  ) {
+    return false
+  }
+
+  const ipVersion = isIP(hostname)
+  if (ipVersion === 0) {
+    return true
+  }
+
+  return ipVersion === 4
+    ? !isBlockedIPv4(hostname)
+    : !isBlockedIPv6(hostname)
+}
+
+function isBlockedIPv4(ip: string): boolean {
+  const parts = ip.split('.').map(Number)
+  if (parts.length !== 4 || parts.some(part => !Number.isInteger(part) || part < 0 || part > 255)) {
+    return true
+  }
+
+  const [a, b] = parts
+  return (
+    a === 0 ||
+    a === 10 ||
+    a === 127 ||
+    (a === 169 && b === 254) ||
+    (a === 172 && b >= 16 && b <= 31) ||
+    (a === 192 && b === 168) ||
+    (a === 100 && b >= 64 && b <= 127) ||
+    (a === 198 && (b === 18 || b === 19)) ||
+    a >= 224
+  )
+}
+
+function isBlockedIPv6(ip: string): boolean {
+  const normalized = ip.toLowerCase()
+  return (
+    normalized === '::' ||
+    normalized === '::1' ||
+    normalized.startsWith('fc') ||
+    normalized.startsWith('fd') ||
+    normalized.startsWith('fe80') ||
+    normalized.startsWith('ff') ||
+    normalized.startsWith('::ffff:10.') ||
+    normalized.startsWith('::ffff:127.') ||
+    normalized.startsWith('::ffff:169.254.') ||
+    normalized.startsWith('::ffff:192.168.')
+  )
 }
 
 /**
