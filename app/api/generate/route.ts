@@ -5,7 +5,7 @@
  * Handles authentication, credit checks, and database operations.
  */
 
-import { createClient } from '@/lib/supabase/server'
+import { createClientForRequest } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { NextResponse } from 'next/server'
 import { type Resolution } from '@/lib/constants/subscription-tiers'
@@ -23,7 +23,7 @@ import { callOpenAIImageGeneration } from '@/lib/services/openai-image'
 import { getEmotionDescription, getPoseDescription } from '@/lib/utils/ai-helpers'
 import { logError } from '@/lib/server/utils/logger'
 import { generateThumbnailVariants } from '@/lib/server/utils/image-variants'
-import { requireAuth } from '@/lib/server/utils/auth'
+import { requireAuthForRequest } from '@/lib/server/utils/auth'
 import { enforceRateLimit } from '@/lib/server/utils/rate-limit'
 import { decrementCreditsAtomic } from '@/lib/server/utils/credits'
 import { isUUID, validateStyleIdentifier } from '@/lib/server/utils/uuid-validation'
@@ -190,7 +190,7 @@ function normalizeGenerationError(message: string): string {
  * This is a helper function used for both single and batch generation
  */
 async function generateSingleVariation(
-  supabase: ReturnType<typeof createClient>,
+  supabase: Awaited<ReturnType<typeof createClientForRequest>>,
   user: { id: string },
   thumbnailId: string,
   body: GenerateThumbnailRequest,
@@ -442,8 +442,8 @@ async function generateSingleVariation(
 
 export async function POST(request: Request) {
   try {
-    const supabase = await createClient()
-    const user = await requireAuth(supabase)
+    const supabase = await createClientForRequest(request)
+    const user = await requireAuthForRequest(supabase, request)
 
     const rateLimitRes = enforceRateLimit('generate', request, user.id)
     if (rateLimitRes) return rateLimitRes

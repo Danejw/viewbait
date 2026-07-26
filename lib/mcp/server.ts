@@ -1,4 +1,4 @@
-import { createSupabaseMcpApp } from 'yourindie-mcp';
+import { createSupabaseMcpApp, type SupabaseMcpTool } from 'yourindie-mcp';
 import { DEFAULT_MCP_PERMISSIONS, mcpTools } from '@/lib/mcp/tools';
 
 function required(name: string, value: string | undefined): string {
@@ -21,7 +21,7 @@ export const mcpApp = createSupabaseMcpApp({
     'NEXT_PUBLIC_SUPABASE_ANON_KEY',
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
   ),
-  tools: mcpTools,
+  tools: mcpTools as unknown as SupabaseMcpTool[],
   healthPath: false,
   expectedAudience:
     process.env.MCP_STRICT_AUDIENCE === 'false' ? undefined : resourceUrl,

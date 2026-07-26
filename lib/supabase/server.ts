@@ -6,6 +6,7 @@
  */
 
 import { createServerClient } from '@supabase/ssr'
+import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 
 /**
@@ -61,4 +62,40 @@ export async function createClient() {
       },
     }
   )
+}
+
+/**
+ * Creates the same user-scoped server client from an OAuth bearer token.
+ * The token is forwarded to Supabase, so auth.uid() and RLS remain authoritative.
+ */
+export function createBearerClient(accessToken: string) {
+  return createSupabaseClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+      global: {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      },
+    },
+  )
+}
+
+/**
+ * Uses OAuth bearer authentication when present, otherwise preserves the
+ * existing cookie-backed browser behavior.
+ */
+export async function createClientForRequest(request: Request) {
+  const authorization = request.headers.get('authorization')
+  if (authorization?.startsWith('Bearer ')) {
+    const accessToken = authorization.slice('Bearer '.length).trim()
+    if (accessToken) return createBearerClient(accessToken)
+  }
+
+  return createClient()
 }

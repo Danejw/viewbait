@@ -11,8 +11,8 @@ Framework: Next.js route handlers (`yourindie-mcp`)
 | 1. Package + generated Next routes | Done |
 | 2. Env vars documented (`.env.example`, `.env.mcp.example`) | Done — copy into Vercel / `.env.local` |
 | 3. Consent UI at `/oauth/consent` + auth redirect allowlist | Done |
-| 4. Tools: `list_projects`, `list_thumbnails` (RLS-scoped) | Done |
-| 5. Migration `20260725000000_mcp_oauth_permissions.sql` | Apply in Supabase (below) |
+| 4. Ten project, asset, thumbnail, generation, edit, and comparison tools | Done |
+| 5. MCP permission migrations through `20260726000000_mcp_oauth_tool_permissions.sql` | Apply in Supabase (below) |
 | 6. Dashboard OAuth Server + Custom Access Token hook | Manual (below) |
 | 7. Deploy + connect MCP client | After 5–6 |
 
@@ -39,7 +39,7 @@ For local smoke tests against a production-audience JWT, use `MCP_STRICT_AUDIENC
 
 ## 3. Apply migration and hook
 
-Apply `supabase/migrations/20260725000000_mcp_oauth_permissions.sql` (SQL editor or `supabase db push`).
+Apply migrations through `supabase/migrations/20260726000000_mcp_oauth_tool_permissions.sql` (SQL editor or `supabase db push`).
 
 Then **Authentication → Hooks → Custom Access Token** → select `public.custom_access_token_hook`.
 
@@ -49,7 +49,16 @@ After a client registers, grant permissions:
 
 ```sql
 insert into public.mcp_oauth_clients (client_id, permissions)
-values ('CLIENT_ID', array['projects:read', 'thumbnails:read'])
+values ('CLIENT_ID', array[
+  'account:read',
+  'projects:read',
+  'projects:write',
+  'assets:read',
+  'thumbnails:read',
+  'thumbnails:write',
+  'thumbnails:compare',
+  'generation:write'
+])
 on conflict (client_id) do update
   set permissions = excluded.permissions, updated_at = now();
 ```
@@ -60,12 +69,20 @@ Consent lives at `/oauth/consent`. Unsigned users are sent to `/auth?redirect=/o
 
 ## 5. Tools
 
-| Tool | Permission | Table |
-|------|------------|--------|
-| `list_projects` | `projects:read` | `projects` |
-| `list_thumbnails` | `thumbnails:read` | `thumbnails` |
+| Tool | Permission | Operation |
+|------|------------|-----------|
+| `get_account_context` | `account:read` | Account, plan, credits, and generation limits |
+| `list_projects` | `projects:read` | Paginated owned and editor projects |
+| `get_project_workspace` | `projects:read`, `thumbnails:read` | Project defaults, counts, and recent thumbnails |
+| `create_project` | `projects:write` | Create a project with optional defaults |
+| `update_project` | `projects:write` | Update owned project name or defaults |
+| `list_generation_assets` | `assets:read` | Styles, palettes, and saved faces |
+| `list_thumbnails` | `thumbnails:read` | Paginated owned thumbnails with filters |
+| `generate_thumbnails` | `generation:write` | Generate 1–4 thumbnails using normal credits and tier limits |
+| `edit_thumbnail` | `thumbnails:write` | Create an edited thumbnail version |
+| `compare_thumbnails` | `thumbnails:read`, `thumbnails:compare` | Multimodal creative comparison of 2–4 thumbnails |
 
-Access is enforced by tool `requiredPermissions` plus RLS (`mcp_has_permission` when `client_id` is present).
+Access is enforced by tool `requiredPermissions` plus OAuth-aware RLS. Generation and editing reuse the production API handlers, including credit accounting, plan limits, storage handling, and failure cleanup.
 
 ## 6. Verify after deploy
 

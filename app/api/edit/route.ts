@@ -5,7 +5,7 @@
  * Handles authentication, credit checks, and database updates.
  */
 
-import { createClient } from '@/lib/supabase/server'
+import { createClientForRequest } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { NextResponse } from 'next/server'
 import { resolveImageModel } from '@/lib/constants/image-models'
@@ -15,7 +15,7 @@ import type { Resolution } from '@/lib/constants/subscription-tiers'
 import { fetchImageAsBase64 } from '@/lib/utils/ai-helpers'
 import { logError } from '@/lib/server/utils/logger'
 import { generateThumbnailVariants } from '@/lib/server/utils/image-variants'
-import { requireAuth } from '@/lib/server/utils/auth'
+import { requireAuthForRequest } from '@/lib/server/utils/auth'
 import { refreshSignedUrl, SIGNED_URL_EXPIRY_ONE_YEAR_SECONDS } from '@/lib/server/utils/url-refresh'
 import { sanitizeErrorForClient } from '@/lib/utils/error-sanitizer'
 import { decrementCreditsAtomic, incrementCreditsAtomic } from '@/lib/server/utils/credits'
@@ -45,8 +45,8 @@ export interface EditThumbnailRequest {
 
 export async function POST(request: Request) {
   try {
-    const supabase = await createClient()
-    const user = await requireAuth(supabase)
+    const supabase = await createClientForRequest(request)
+    const user = await requireAuthForRequest(supabase, request)
 
     // Parse request body
     const body: EditThumbnailRequest = await request.json()
