@@ -32,10 +32,12 @@ For local smoke tests against a production-audience JWT, use `MCP_STRICT_AUDIENC
 ## 2. Enable Supabase OAuth (Dashboard)
 
 1. **Authentication → OAuth Server** — enable OAuth 2.1.
-2. Set **Authorization Path** to `/oauth/consent`.
-3. **Authentication → URL Configuration → Site URL** = `https://viewbait.app`.
-4. Enable **dynamic client registration** if ChatGPT/Claude should self-register.
-5. Migrate Auth JWT signing to an asymmetric key (ES256 or RS256).
+2. Set **Authorization Path** to exactly `/oauth/consent` (leading slash, no domain).
+3. **Authentication → URL Configuration → Site URL** must be the **app** origin, e.g. `https://viewbait.app` (or `https://www.viewbait.app` if that is canonical).  
+   If Site URL is still `https://YOUR_PROJECT.supabase.co`, authorize redirects to Supabase itself and you get a **404** JSON: `{"error":"requested path is invalid"}`.
+4. Add both `https://viewbait.app/**` and `https://www.viewbait.app/**` under Redirect URLs if you use both hosts.
+5. Enable **dynamic client registration** if ChatGPT/Claude should self-register.
+6. Migrate Auth JWT signing to an asymmetric key (ES256 or RS256).
 
 ## 3. Apply migration and hook
 

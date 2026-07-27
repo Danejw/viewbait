@@ -1,6 +1,5 @@
 'use client';
 
-import { createClient } from '@supabase/supabase-js';
 import {
   approveAuthorization,
   denyAuthorization,
@@ -8,6 +7,7 @@ import {
   type OAuthAuthorizationDetails,
 } from 'yourindie-mcp/consent';
 import { buildOAuthConsentAuthRedirect } from '@/lib/mcp/consent-redirect';
+import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ViewBaitLogo } from '@/components/ui/viewbait-logo';
@@ -20,14 +20,7 @@ function OAuthConsentContent() {
   const [details, setDetails] = useState<OAuthAuthorizationDetails | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const supabase = useMemo(
-    () =>
-      createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      ),
-    [],
-  );
+  const supabase = useMemo(() => createClient(), []);
 
   useEffect(() => {
     async function load() {
