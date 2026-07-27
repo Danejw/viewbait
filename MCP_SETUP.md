@@ -33,8 +33,8 @@ For local smoke tests against a production-audience JWT, use `MCP_STRICT_AUDIENC
 
 1. **Authentication → OAuth Server** — enable OAuth 2.1.
 2. Set **Authorization Path** to exactly `/oauth/consent` (leading slash, no domain).
-3. **Authentication → URL Configuration → Site URL** must be the **app origin only**, e.g. `https://www.viewbait.app` — **not** `.../studio` and **not** `*.supabase.co`.  
-   Supabase builds consent as `{Site URL}{Authorization Path}`. Site URL `.../studio` produces `/studio/oauth/consent` (404). Site URL on the Supabase host produces JSON 404 `requested path is invalid`.
+3. **Authentication → URL Configuration → Site URL** must be the **app** origin, e.g. `https://viewbait.app` (or `https://www.viewbait.app` if that is canonical).  
+   If Site URL is still `https://YOUR_PROJECT.supabase.co`, authorize redirects to Supabase itself and you get a **404** JSON: `{"error":"requested path is invalid"}`.
 4. Add both `https://viewbait.app/**` and `https://www.viewbait.app/**` under Redirect URLs if you use both hosts.
 5. Enable **dynamic client registration** if ChatGPT/Claude should self-register.
 6. Migrate Auth JWT signing to an asymmetric key (ES256 or RS256).
@@ -91,7 +91,16 @@ Access is enforced by tool `requiredPermissions` plus OAuth-aware RLS. Generatio
 - `https://viewbait.app/api/mcp` accepts MCP Streamable HTTP.
 - `https://viewbait.app/.well-known/oauth-protected-resource/api/mcp` returns protected-resource metadata.
 - Unauthenticated MCP request → `401` with `WWW-Authenticate`.
-- Consent page shows client name; Allow / Deny work.
-- MCP client only sees the signed-in user’s rows (RLS).
+- The OAuth consent page shows the requesting client and allows approval or denial.
+- A user can access only their own records through RLS.
+
+### Stuck on "Exchanging token…" (Cursor / ChatGPT)
+
+Consent **Allow** only issues an authorization code. The MCP client must then exchange it at Supabase’s token endpoint.
+
+1. Connect using exactly `https://viewbait.app/api/mcp` (not `www`, no trailing slash).
+2. After Allow, if the browser stays on ViewBait, click **Continue to …** (needed for `cursor://` callbacks some browsers block).
+3. Codes expire in ~10 minutes — retry Connect if you waited.
+4. In Supabase Auth logs, look for token endpoint `invalid_grant` / hook errors right after Allow.
 
 Connect MCP clients to: `https://viewbait.app/api/mcp`
