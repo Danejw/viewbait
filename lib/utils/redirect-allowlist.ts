@@ -6,13 +6,18 @@
  * Safe to use on both server and client.
  */
 
-const ALLOWED_PATHNAMES: readonly string[] = ['/', '/studio', '/onboarding']
+const ALLOWED_PATHNAMES: readonly string[] = [
+  '/',
+  '/studio',
+  '/onboarding',
+  '/oauth/consent',
+]
 
 /**
  * Returns true if the value is an allowed redirect destination.
  * - Rejects absolute URLs (http/https) and protocol-relative (//).
  * - Rejects paths that don't start with /.
- * - Allows pathnames: /, /studio, /onboarding, and /e/<slug> (editor link).
+ * - Allows pathnames: /, /studio, /onboarding, /oauth/consent, and /e/<slug> (editor link).
  */
 export function isAllowedRedirect(value: string): boolean {
   if (typeof value !== 'string' || !value.trim()) return false

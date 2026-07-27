@@ -47,9 +47,10 @@
 - **TypeScript:** Strict mode enabled
 
 ### Server Surface
-- **Default server surface:** Next.js route handlers (none implemented yet)
-- **DB:** Not configured yet (Supabase skills present but no client implementation found)
-- **Auth:** Not implemented yet
+- **Default server surface:** Next.js route handlers (`app/api/...`)
+- **MCP endpoint:** `https://viewbait.app/api/mcp` via `yourindie-mcp` (Next handlers + OAuth consent at `/oauth/consent`)
+- **DB:** Supabase Postgres with RLS; migrations under `supabase/migrations/`
+- **Auth:** Supabase Auth (app sessions + OAuth 2.1 for MCP)
 
 ### Tenancy
 - **Default tenancy:** Not confirmed (no evidence of multi-tenant patterns or org tables found)
@@ -64,7 +65,7 @@
 - **Performance/network score:** `npm run score` (app must be running). Prints 0–100 Lighthouse performance score; see [docs/audits/performance-score.md](../docs/audits/performance-score.md). Variants: `npm run score:landing`, `npm run score:studio`.
 
 ### Migration Workflow
-- Not implemented (no Supabase migrations or database setup found)
+- SQL migrations in `supabase/migrations/` (including MCP OAuth permissions migration)
 
 ### Observability
 - Not configured

@@ -84,7 +84,7 @@ async function verifyStudioOnboardingCookie(
 /**
  * Routes that require authentication
  */
-const PROTECTED_ROUTES = ["/studio", "/onboarding", "/e"];
+const PROTECTED_ROUTES = ["/studio", "/onboarding", "/e", "/oauth/consent"];
 
 /**
  * Routes that should redirect authenticated users away
@@ -202,7 +202,8 @@ export async function proxy(request: NextRequest) {
     !pathname.includes("/reset-password") &&
     !pathname.includes("/callback")
   ) {
-    const redirectTo = request.nextUrl.searchParams.get("redirect") || "/studio";
+    const rawRedirect = request.nextUrl.searchParams.get("redirect") || "/studio";
+    const redirectTo = isAllowedRedirect(rawRedirect) ? rawRedirect : "/studio";
     return NextResponse.redirect(new URL(redirectTo, request.url));
   }
 
