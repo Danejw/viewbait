@@ -7,6 +7,16 @@ const nextConfig: NextConfig = {
     // Run `npm run typecheck` (or typecheck:ci) separately to enforce type safety.
     ignoreBuildErrors: true,
   },
+  async redirects() {
+    return [
+      // Safety net if Supabase Site URL was ever set to .../studio
+      {
+        source: "/studio/oauth/consent",
+        destination: "/oauth/consent",
+        permanent: false,
+      },
+    ];
+  },
   async headers() {
     return [
       {
