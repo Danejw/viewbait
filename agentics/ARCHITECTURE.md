@@ -99,7 +99,8 @@
 - **API Routes**: External integrations, webhooks, public APIs, complex aggregations
 - **Server Actions**: User-initiated mutations, form handling, progressive enhancement
 - **Server Components**: Initial page data, SSR, public content
-- **Edge Functions**: Not used in this repo (use API routes instead)
+- **Edge Functions**: Not used for app/MCP server surface (use Next.js API routes instead). MCP lives at `/api/mcp`.
+- **MCP OAuth consent**: `/oauth/consent` (Authorization Path in Supabase OAuth Server)
 
 ---
 

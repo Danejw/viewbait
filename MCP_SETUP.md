@@ -1,0 +1,95 @@
+# ViewBAIT MCP setup
+
+Endpoint: `https://viewbait.app/api/mcp`  
+Auth: Supabase OAuth 2.1  
+Framework: Next.js route handlers (`yourindie-mcp`)
+
+## Status
+
+| Step | Status |
+|------|--------|
+| 1. Package + generated Next routes | Done |
+| 2. Env vars documented (`.env.example`, `.env.mcp.example`) | Done — copy into Vercel / `.env.local` |
+| 3. Consent UI at `/oauth/consent` + auth redirect allowlist | Done |
+| 4. Ten project, asset, thumbnail, generation, edit, and comparison tools | Done |
+| 5. MCP permission migrations through `20260726000000_mcp_oauth_tool_permissions.sql` | Apply in Supabase (below) |
+| 6. Dashboard OAuth Server + Custom Access Token hook | Manual (below) |
+| 7. Deploy + connect MCP client | After 5–6 |
+
+## 1. Environment
+
+Copy from `.env.mcp.example` into `.env.local` and Vercel:
+
+```bash
+MCP_RESOURCE_URL=https://viewbait.app/api/mcp
+MCP_STRICT_AUDIENCE=true
+NEXT_PUBLIC_SUPABASE_URL=...
+NEXT_PUBLIC_SUPABASE_ANON_KEY=...
+```
+
+For local smoke tests against a production-audience JWT, use `MCP_STRICT_AUDIENCE=false` temporarily. Production must keep strict audience on.
+
+## 2. Enable Supabase OAuth (Dashboard)
+
+1. **Authentication → OAuth Server** — enable OAuth 2.1.
+2. Set **Authorization Path** to `/oauth/consent`.
+3. **Authentication → URL Configuration → Site URL** = `https://viewbait.app`.
+4. Enable **dynamic client registration** if ChatGPT/Claude should self-register.
+5. Migrate Auth JWT signing to an asymmetric key (ES256 or RS256).
+
+## 3. Apply migration and hook
+
+Apply migrations through `supabase/migrations/20260726000000_mcp_oauth_tool_permissions.sql` (SQL editor or `supabase db push`).
+
+Then **Authentication → Hooks → Custom Access Token** → select `public.custom_access_token_hook`.
+
+This binds OAuth tokens to audience `https://viewbait.app/api/mcp` and adds `mcp_permissions`.
+
+After a client registers, grant permissions:
+
+```sql
+insert into public.mcp_oauth_clients (client_id, permissions)
+values ('CLIENT_ID', array[
+  'account:read',
+  'projects:read',
+  'projects:write',
+  'assets:read',
+  'thumbnails:read',
+  'thumbnails:write',
+  'thumbnails:compare',
+  'generation:write'
+])
+on conflict (client_id) do update
+  set permissions = excluded.permissions, updated_at = now();
+```
+
+## 4. Consent + login redirect
+
+Consent lives at `/oauth/consent`. Unsigned users are sent to `/auth?redirect=/oauth/consent?...` (allowlisted). Do not use absolute `next=` URLs.
+
+## 5. Tools
+
+| Tool | Permission | Operation |
+|------|------------|-----------|
+| `get_account_context` | `account:read` | Account, plan, credits, and generation limits |
+| `list_projects` | `projects:read` | Paginated owned and editor projects |
+| `get_project_workspace` | `projects:read`, `thumbnails:read` | Project defaults, counts, and recent thumbnails |
+| `create_project` | `projects:write` | Create a project with optional defaults |
+| `update_project` | `projects:write` | Update owned project name or defaults |
+| `list_generation_assets` | `assets:read` | Styles, palettes, and saved faces |
+| `list_thumbnails` | `thumbnails:read` | Paginated owned thumbnails with filters |
+| `generate_thumbnails` | `generation:write` | Generate 1–4 thumbnails using normal credits and tier limits |
+| `edit_thumbnail` | `thumbnails:write` | Create an edited thumbnail version |
+| `compare_thumbnails` | `thumbnails:read`, `thumbnails:compare` | Multimodal creative comparison of 2–4 thumbnails |
+
+Access is enforced by tool `requiredPermissions` plus OAuth-aware RLS. Generation and editing reuse the production API handlers, including credit accounting, plan limits, storage handling, and failure cleanup.
+
+## 6. Verify after deploy
+
+- `https://viewbait.app/api/mcp` accepts MCP Streamable HTTP.
+- `https://viewbait.app/.well-known/oauth-protected-resource/api/mcp` returns protected-resource metadata.
+- Unauthenticated MCP request → `401` with `WWW-Authenticate`.
+- Consent page shows client name; Allow / Deny work.
+- MCP client only sees the signed-in user’s rows (RLS).
+
+Connect MCP clients to: `https://viewbait.app/api/mcp`
