@@ -52,10 +52,15 @@ export function LandingNav({ setCursorVariant, scrollY: scrollYProp }: LandingNa
       {/* Mobile menu */}
       <div className={`mobile-menu ${menuOpen ? "open" : ""}`} aria-hidden={!menuOpen}>
         <nav style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
-          {["Product", "Pricing", "Creators"].map((link) => (
+          {[
+            { label: "Product", href: "/#product" },
+            { label: "Pricing", href: "/#pricing" },
+            { label: "Creators", href: "/#creators" },
+            { label: "MCP Docs", href: "/docs/mcp" },
+          ].map((link) => (
             <Link
-              key={link}
-              href={`#${link.toLowerCase()}`}
+              key={link.label}
+              href={link.href}
               onClick={handleNavClick}
               className="crt-text"
               style={{
@@ -67,7 +72,7 @@ export function LandingNav({ setCursorVariant, scrollY: scrollYProp }: LandingNa
                 borderBottom: "1px solid rgba(255,255,255,0.05)",
               }}
             >
-              {link}
+              {link.label}
             </Link>
           ))}
           <Link
@@ -190,10 +195,15 @@ export function LandingNav({ setCursorVariant, scrollY: scrollYProp }: LandingNa
         </Link>
 
         <div className="landing-nav-links hide-mobile" style={{ alignItems: "center", gap: "40px" }}>
-          {["Product", "Pricing", "Creators"].map((link) => (
+          {[
+            { label: "Product", href: "/#product" },
+            { label: "Pricing", href: "/#pricing" },
+            { label: "Creators", href: "/#creators" },
+            { label: "MCP Docs", href: "/docs/mcp" },
+          ].map((link) => (
             <Link
-              key={link}
-              href={`#${link.toLowerCase()}`}
+              key={link.label}
+              href={link.href}
               className="crt-text"
               style={{
                 color: "#666",
@@ -212,7 +222,7 @@ export function LandingNav({ setCursorVariant, scrollY: scrollYProp }: LandingNa
                 setCursorVariant?.("default");
               }}
             >
-              {link}
+              {link.label}
             </Link>
           ))}
 

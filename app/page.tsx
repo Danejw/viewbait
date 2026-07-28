@@ -1896,6 +1896,26 @@ export default function ViewBaitLanding() {
 
           <div style={{ display: "flex", gap: "24px", flexWrap: "wrap" }}>
             <Link
+              href="/docs/mcp"
+              className="crt-text"
+              style={{
+                color: "#444",
+                textDecoration: "none",
+                fontSize: "12px",
+                transition: "color 0.2s",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.color = "#888";
+                !isMobile && setCursorVariant("hover");
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.color = "#444";
+                !isMobile && setCursorVariant("default");
+              }}
+            >
+              MCP Docs
+            </Link>
+            <Link
               href="/legal/privacy"
               className="crt-text"
               style={{

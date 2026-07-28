@@ -113,6 +113,15 @@ export function LandingFooter({
 
         <div style={{ display: "flex", gap: "24px", flexWrap: "wrap" }}>
           <Link
+            href="/docs/mcp"
+            className="crt-text"
+            style={linkStyle}
+            onMouseEnter={handleMouseEnter}
+            onMouseLeave={handleMouseLeave}
+          >
+            MCP Docs
+          </Link>
+          <Link
             href="/legal/privacy"
             className="crt-text"
             style={linkStyle}
