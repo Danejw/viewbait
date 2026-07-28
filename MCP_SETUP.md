@@ -1,8 +1,10 @@
 # ViewBAIT MCP setup
 
-Endpoint: `https://viewbait.app/api/mcp`  
+Endpoint: `https://www.viewbait.app/api/mcp`  
 Auth: Supabase OAuth 2.1  
 Framework: Next.js route handlers (`yourindie-mcp`)
+
+> Use the **www** host. Apex `viewbait.app` 307-redirects to www, which breaks Cursor MCP OAuth discovery and leaves clients stuck on "Exchanging token…".
 
 ## Status
 
@@ -21,7 +23,7 @@ Framework: Next.js route handlers (`yourindie-mcp`)
 Copy from `.env.mcp.example` into `.env.local` and Vercel:
 
 ```bash
-MCP_RESOURCE_URL=https://viewbait.app/api/mcp
+MCP_RESOURCE_URL=https://www.viewbait.app/api/mcp
 MCP_STRICT_AUDIENCE=true
 NEXT_PUBLIC_SUPABASE_URL=...
 NEXT_PUBLIC_SUPABASE_ANON_KEY=...
@@ -45,7 +47,7 @@ Apply migrations through `supabase/migrations/20260726000000_mcp_oauth_tool_perm
 
 Then **Authentication → Hooks → Custom Access Token** → select `public.custom_access_token_hook`.
 
-This binds OAuth tokens to audience `https://viewbait.app/api/mcp` and adds `mcp_permissions`.
+This binds OAuth tokens to audience `https://www.viewbait.app/api/mcp` and adds `mcp_permissions`.
 
 After a client registers, grant permissions:
 
@@ -88,8 +90,8 @@ Access is enforced by tool `requiredPermissions` plus OAuth-aware RLS. Generatio
 
 ## 6. Verify after deploy
 
-- `https://viewbait.app/api/mcp` accepts MCP Streamable HTTP.
-- `https://viewbait.app/.well-known/oauth-protected-resource/api/mcp` returns protected-resource metadata.
+- `https://www.viewbait.app/api/mcp` accepts MCP Streamable HTTP (401 + `WWW-Authenticate`, not a 307).
+- `https://www.viewbait.app/.well-known/oauth-protected-resource/api/mcp` returns protected-resource metadata.
 - Unauthenticated MCP request → `401` with `WWW-Authenticate`.
 - The OAuth consent page shows the requesting client and allows approval or denial.
 - A user can access only their own records through RLS.
@@ -98,9 +100,10 @@ Access is enforced by tool `requiredPermissions` plus OAuth-aware RLS. Generatio
 
 Consent **Allow** only issues an authorization code. The MCP client must then exchange it at Supabase’s token endpoint.
 
-1. Connect using exactly `https://viewbait.app/api/mcp` (not `www`, no trailing slash).
+1. Connect using exactly `https://www.viewbait.app/api/mcp` (www required, no trailing slash). Apex redirects break OAuth.
 2. After Allow, if the browser stays on ViewBait, click **Continue to …** (needed for `cursor://` callbacks some browsers block).
 3. Codes expire in ~10 minutes — retry Connect if you waited.
 4. In Supabase Auth logs, look for token endpoint `invalid_grant` / hook errors right after Allow.
+5. Vercel env `MCP_RESOURCE_URL` and `custom_access_token_hook` `aud` must both be `https://www.viewbait.app/api/mcp`.
 
-Connect MCP clients to: `https://viewbait.app/api/mcp`
+Connect MCP clients to: `https://www.viewbait.app/api/mcp`

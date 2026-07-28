@@ -48,7 +48,7 @@
 
 ### Server Surface
 - **Default server surface:** Next.js route handlers (`app/api/...`)
-- **MCP endpoint:** `https://viewbait.app/api/mcp` via `yourindie-mcp` (Next handlers + OAuth consent at `/oauth/consent`)
+- **MCP endpoint:** `https://www.viewbait.app/api/mcp` via `yourindie-mcp` (Next handlers + OAuth consent at `/oauth/consent`; use www — apex 307 breaks Cursor OAuth)
 - **DB:** Supabase Postgres with RLS; migrations under `supabase/migrations/`
 - **Auth:** Supabase Auth (app sessions + OAuth 2.1 for MCP)
 
