@@ -1,0 +1,200 @@
+{
+  "$schema": "https://developers.openai.com/apps-sdk/schemas/chatgpt-app-submission.v1.json",
+  "schema_version": 1,
+  "app_info": {
+    "display_name": "ViewBAIT",
+    "subtitle": "Generate AI thumbnails",
+    "description": "ViewBAIT helps creators check account credits and plan limits, browse projects and generation assets, generate and edit YouTube-style thumbnails with their account credits, and compare thumbnail options with creative scores and next-step guidance.",
+    "category": "DESIGN"
+  },
+  "tools": {
+    "get_account_context": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Only reads the authenticated profile, subscription credits, and plan generation limits.",
+        "open_world_justification": "Does not write to public internet state or third-party systems; it only queries the user's private ViewBAIT account data.",
+        "destructive_justification": "Does not delete, overwrite, revoke access, or perform irreversible actions."
+      }
+    },
+    "list_projects": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Only lists owned and shared ViewBAIT projects without changing project data.",
+        "open_world_justification": "Operates only against the user's private ViewBAIT workspace records.",
+        "destructive_justification": "Does not delete, overwrite, revoke access, or perform irreversible actions."
+      }
+    },
+    "get_project_workspace": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Only retrieves a project, its saved defaults, thumbnail count, and recent thumbnails.",
+        "open_world_justification": "Does not publish or mutate external systems; it reads private project and thumbnail records.",
+        "destructive_justification": "Does not delete, overwrite, revoke access, or perform irreversible actions."
+      }
+    },
+    "create_project": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Creates a new private ViewBAIT project and may store optional generation defaults.",
+        "open_world_justification": "Writes only to the authenticated user's private ViewBAIT database, not public internet state.",
+        "destructive_justification": "Creates new project records and does not delete or irreversibly overwrite existing projects."
+      }
+    },
+    "update_project": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Updates an owned project's name and/or saved generation defaults.",
+        "open_world_justification": "Changes remain inside the user's private ViewBAIT workspace and are not published externally.",
+        "destructive_justification": "Performs bounded owned-project metadata updates and does not delete projects or revoke access."
+      }
+    },
+    "list_generation_assets": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Only lists available styles, palettes, and saved face references for generation.",
+        "open_world_justification": "Does not write to public internet state or third-party systems.",
+        "destructive_justification": "Does not delete, overwrite, revoke access, or perform irreversible actions."
+      }
+    },
+    "list_thumbnails": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Only lists owned thumbnails with optional project and favorite filters.",
+        "open_world_justification": "Reads private thumbnail records and does not publish or mutate external systems.",
+        "destructive_justification": "Does not delete, overwrite, revoke access, or perform irreversible actions."
+      }
+    },
+    "generate_thumbnails": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Creates new thumbnail assets, uploads them to storage, and deducts account credits through the generation pipeline.",
+        "open_world_justification": "Calls external image-generation providers and stores resulting images for the authenticated user.",
+        "destructive_justification": "Creates new thumbnail versions and cleans up failed inserts; it does not delete existing successful thumbnails or revoke access."
+      }
+    },
+    "edit_thumbnail": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Creates a new edited thumbnail version from an owned original and deducts account credits.",
+        "open_world_justification": "Sends the edit request to external image-generation providers and stores the new image for the user.",
+        "destructive_justification": "Leaves the original thumbnail intact and creates a new version instead of deleting or overwriting the source."
+      }
+    },
+    "compare_thumbnails": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": true,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Reads owned thumbnails and returns a creative comparison without modifying thumbnail or project records.",
+        "open_world_justification": "Sends thumbnail images to an external multimodal model to produce comparison scores and recommendations.",
+        "destructive_justification": "Does not delete, overwrite, revoke access, or perform irreversible actions."
+      }
+    }
+  },
+  "test_cases": [
+    {
+      "description": "Check account plan, credits, and generation limits before creating thumbnails.",
+      "user_prompt": "What is my ViewBAIT plan, how many credits do I have left, and what resolutions can I generate?",
+      "file_attachment_urls": null,
+      "tools_triggered": "get_account_context",
+      "expected_output": "Returns account identity, credit balance, plan name, and allowed generation capabilities such as resolutions and max variations.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Browse available projects and open one workspace for recent thumbnails.",
+      "user_prompt": "List my ViewBAIT projects, then open the most recently updated one and show its recent thumbnails.",
+      "file_attachment_urls": null,
+      "tools_triggered": "list_projects,get_project_workspace",
+      "expected_output": "Lists accessible projects, then returns the selected project's defaults, thumbnail count, and recent thumbnail details.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Generate a new set of thumbnail options for a video title.",
+      "user_prompt": "Generate 2 ViewBAIT thumbnails for a video titled \"I Tried Building a Tiny House\" in 16:9 at 1K with bold readable text.",
+      "file_attachment_urls": null,
+      "tools_triggered": "generate_thumbnails",
+      "expected_output": "Creates up to two thumbnail results with image URLs, success status, and updated credit usage information.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Edit an existing owned thumbnail with a focused change request.",
+      "user_prompt": "Take my latest ViewBAIT thumbnail and edit it to make the face more surprised and increase text contrast for mobile.",
+      "file_attachment_urls": null,
+      "tools_triggered": "list_thumbnails,edit_thumbnail",
+      "expected_output": "Finds an owned thumbnail, creates a new edited version with a new image URL, and reports credits used and remaining.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Compare multiple thumbnail candidates and recommend a winner.",
+      "user_prompt": "Compare my two most recent ViewBAIT thumbnails and tell me which is more likely to earn a click on mobile, with concrete next steps.",
+      "file_attachment_urls": null,
+      "tools_triggered": "list_thumbnails,compare_thumbnails",
+      "expected_output": "Returns a winner thumbnail id, rationale, per-candidate creative scores, and recommended next steps without claiming measured CTR.",
+      "expected_output_url": null
+    }
+  ],
+  "negative_test_cases": [
+    {
+      "description": "Do not trigger for unrelated calendar scheduling requests.",
+      "user_prompt": "What meetings do I have tomorrow and can you reschedule my 3pm?",
+      "file_attachment_urls": null,
+      "tools_triggered": null,
+      "expected_output": "The app should not be invoked because calendar access is outside ViewBAIT's thumbnail workflows.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Do not trigger for outbound email or messaging requests.",
+      "user_prompt": "Email my collaborators the latest marketing brief and ping them on Slack.",
+      "file_attachment_urls": null,
+      "tools_triggered": null,
+      "expected_output": "The app should not be invoked because sending email or chat messages is outside its supported tools.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Do not trigger for YouTube upload or analytics requests.",
+      "user_prompt": "Upload this video to YouTube and show me last week's channel CTR analytics.",
+      "file_attachment_urls": null,
+      "tools_triggered": null,
+      "expected_output": "The app should not be invoked because publishing videos and reading YouTube analytics are outside ViewBAIT MCP capabilities.",
+      "expected_output_url": null
+    }
+  ]
+}
