@@ -26,6 +26,13 @@ const nextConfig: NextConfig = {
           { key: "Cache-Control", value: "no-cache, no-store, must-revalidate" },
         ],
       },
+      {
+        source: "/.well-known/openai-apps-challenge",
+        headers: [
+          { key: "Content-Type", value: "text/plain; charset=utf-8" },
+          { key: "Content-Disposition", value: "inline" },
+        ],
+      },
     ];
   },
 };
