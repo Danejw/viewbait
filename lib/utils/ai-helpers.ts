@@ -5,7 +5,15 @@
  * Emotion/pose mappings and helper functions.
  */
 
+import { lookup } from 'node:dns/promises'
+import { isIP } from 'node:net'
 import { logError } from '@/lib/server/utils/logger'
+
+const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024
+const IMAGE_FETCH_TIMEOUT_MS = 15_000
+const MAX_IMAGE_REDIRECTS = 3
+const ALLOWED_IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/gif'])
+const TRUSTED_IMAGE_HOSTS = new Set(['i.ytimg.com', 'img.youtube.com'])
 
 // Emotion mappings - not sensitive, used for transforming user input
 export const EMOTION_DESCRIPTIONS: Record<string, string> = {
@@ -111,6 +119,109 @@ export function getResolutionDimensions(resolution: '1K' | '2K' | '4K', aspectRa
   return { width, height }
 }
 
+function normalizeHostname(hostname: string): string {
+  return hostname.toLowerCase().replace(/^\[|\]$/g, '').replace(/\.$/, '')
+}
+
+function getSupabaseStorageHost(): string | null {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  if (!supabaseUrl) return null
+
+  try {
+    return normalizeHostname(new URL(supabaseUrl).hostname)
+  } catch {
+    return null
+  }
+}
+
+function isTrustedImageHost(hostname: string): boolean {
+  if (TRUSTED_IMAGE_HOSTS.has(hostname)) return true
+
+  const supabaseHost = getSupabaseStorageHost()
+  return !!supabaseHost && (hostname === supabaseHost || hostname.endsWith(`.${supabaseHost}`))
+}
+
+function isPrivateIpv4(address: string): boolean {
+  const parts = address.split('.').map((part) => Number(part))
+  if (parts.length !== 4 || parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) {
+    return true
+  }
+
+  const [first, second] = parts
+  return (
+    first === 0 ||
+    first === 10 ||
+    first === 127 ||
+    (first === 100 && second >= 64 && second <= 127) ||
+    (first === 169 && second === 254) ||
+    (first === 172 && second >= 16 && second <= 31) ||
+    (first === 192 && second === 168) ||
+    first >= 224
+  )
+}
+
+function isPrivateIpv6(address: string): boolean {
+  const normalized = address.toLowerCase()
+  return (
+    normalized === '::' ||
+    normalized === '::1' ||
+    normalized.startsWith('fc') ||
+    normalized.startsWith('fd') ||
+    normalized.startsWith('fe8') ||
+    normalized.startsWith('fe9') ||
+    normalized.startsWith('fea') ||
+    normalized.startsWith('feb')
+  )
+}
+
+function isPrivateIpAddress(address: string): boolean {
+  if (address.toLowerCase().startsWith('::ffff:')) {
+    return isPrivateIpAddress(address.slice(7))
+  }
+
+  const version = isIP(address)
+  if (version === 4) return isPrivateIpv4(address)
+  if (version === 6) return isPrivateIpv6(address)
+  return true
+}
+
+async function isPublicHttpUrl(url: URL): Promise<boolean> {
+  if (url.protocol !== 'https:') return false
+
+  const hostname = normalizeHostname(url.hostname)
+  if (!hostname) return false
+  if (!isTrustedImageHost(hostname)) return false
+
+  if (isIP(hostname)) {
+    return !isPrivateIpAddress(hostname)
+  }
+
+  const addresses = await lookup(hostname, { all: true })
+  return addresses.length > 0 && addresses.every((entry) => !isPrivateIpAddress(entry.address))
+}
+
+async function fetchSafeImageUrl(url: URL, redirectsRemaining: number): Promise<Response | null> {
+  if (!(await isPublicHttpUrl(url))) {
+    return null
+  }
+
+  const response = await fetch(url.toString(), {
+    headers: { 'User-Agent': 'ViewBait-AI-Image-Fetch/1' },
+    redirect: 'manual',
+    signal: AbortSignal.timeout(IMAGE_FETCH_TIMEOUT_MS),
+  })
+
+  if (response.status >= 300 && response.status < 400) {
+    const location = response.headers.get('location')
+    if (!location || redirectsRemaining <= 0) {
+      return null
+    }
+    return fetchSafeImageUrl(new URL(location, url), redirectsRemaining - 1)
+  }
+
+  return response
+}
+
 /**
  * Fetch image from URL and convert to base64
  * Handles both regular URLs and data URLs (base64 encoded images)
@@ -135,8 +246,27 @@ export async function fetchImageAsBase64(imageUrl: string): Promise<{ data: stri
       return { data: base64Data, mimeType }
     }
 
+    let parsedUrl: URL
+    try {
+      parsedUrl = new URL(imageUrl)
+    } catch {
+      logError(new Error('Invalid image URL'), {
+        operation: 'fetch-image-as-base64',
+        route: 'ai-helpers',
+      })
+      return null
+    }
+
     // Handle regular URLs
-    const response = await fetch(imageUrl)
+    const response = await fetchSafeImageUrl(parsedUrl, MAX_IMAGE_REDIRECTS)
+    if (!response) {
+      logError(new Error('Image URL is not allowed'), {
+        operation: 'fetch-image-as-base64',
+        route: 'ai-helpers',
+      })
+      return null
+    }
+
     if (!response.ok) {
       logError(new Error(`Failed to fetch image: ${response.statusText}`), {
         operation: 'fetch-image-as-base64',
@@ -146,15 +276,37 @@ export async function fetchImageAsBase64(imageUrl: string): Promise<{ data: stri
       return null
     }
 
+    const contentType = response.headers.get('content-type')?.split(';')[0]?.trim().toLowerCase() || ''
+    if (!ALLOWED_IMAGE_TYPES.has(contentType)) {
+      logError(new Error('Fetched URL did not return a supported image type'), {
+        operation: 'fetch-image-as-base64',
+        route: 'ai-helpers',
+      })
+      return null
+    }
+
+    const contentLength = Number(response.headers.get('content-length'))
+    if (Number.isFinite(contentLength) && contentLength > MAX_IMAGE_SIZE_BYTES) {
+      logError(new Error('Fetched image exceeds size limit'), {
+        operation: 'fetch-image-as-base64',
+        route: 'ai-helpers',
+      })
+      return null
+    }
+
     const arrayBuffer = await response.arrayBuffer()
+    if (arrayBuffer.byteLength > MAX_IMAGE_SIZE_BYTES) {
+      logError(new Error('Fetched image exceeds size limit'), {
+        operation: 'fetch-image-as-base64',
+        route: 'ai-helpers',
+      })
+      return null
+    }
+
     const buffer = Buffer.from(arrayBuffer)
     const base64 = buffer.toString('base64')
-    
-    // Determine mime type from response or URL
-    const contentType = response.headers.get('content-type') || 'image/png'
-    const mimeType = contentType.split(';')[0].trim()
 
-    return { data: base64, mimeType }
+    return { data: base64, mimeType: contentType }
   } catch (error) {
     logError(error, {
       operation: 'fetch-image-as-base64',
