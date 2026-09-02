@@ -186,7 +186,7 @@ On subscription events, uses `getTierByProductId(productId)` to get `credits_per
 
 **File:** [app/api/cron/cleanup-free-tier-thumbnails/route.ts](viewbait/app/api/cron/cleanup-free-tier-thumbnails/route.ts)
 
-Identifies free-tier users by `user_subscriptions.product_id IS NULL` and deletes thumbnails older than 30 days (per free-tier retention).
+Identifies free-tier users by `user_subscriptions.product_id IS NULL` and deletes **watermarked** thumbnails older than 30 days. Paid-era thumbnails (`has_watermark = false`) are kept after cancel/downgrade, because cancellation nulls `product_id` and would otherwise wipe former paid libraries.
 
 ---
 
