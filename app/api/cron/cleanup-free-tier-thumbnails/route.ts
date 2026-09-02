@@ -1,7 +1,8 @@
 /**
  * Cleanup Free Tier Thumbnails Cron Job
  * 
- * Automated daily job to delete free tier thumbnails older than 30 days.
+ * Automated daily job to delete free-era thumbnails older than 30 days.
+ * Paid-era rows (has_watermark=false) are retained after cancel/downgrade.
  * This ensures compliance with the privacy policy (legal/privacy.md line 290).
  * 
  * Authentication: Requires x-cron-secret header matching CRON_SECRET env var
@@ -11,6 +12,10 @@
 import { NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { logInfo, logError, logWarn } from '@/lib/server/utils/logger'
+import {
+  getFreeTierRetentionCutoff,
+  shouldDeleteThumbnailForFreeTierRetention,
+} from '@/lib/server/utils/free-tier-thumbnail-retention'
 
 /**
  * Extract storage path from image URL
@@ -43,7 +48,7 @@ async function deleteThumbnailFromStorage(
   userId: string,
   thumbnailId: string
 ): Promise<boolean> {
-  let storagePath = extractStoragePath(imageUrl, userId, thumbnailId)
+  const storagePath = extractStoragePath(imageUrl, userId, thumbnailId)
   
   if (storagePath) {
     // Try to delete using extracted path
@@ -154,14 +159,17 @@ export async function POST(request: Request) {
     
     const freeTierUserIds = freeTierSubscriptions.map(sub => sub.user_id)
     
-    // Step 2: Query thumbnails for free tier users older than 30 days
-    const cutoffDate = new Date()
-    cutoffDate.setDate(cutoffDate.getDate() - 30)
+    // Step 2: Query free-era thumbnails older than 30 days.
+    // Filter on has_watermark=true so paid-era assets survive cancel/downgrade.
+    // Cancellation nulls product_id, which would otherwise treat former paid
+    // users as free and delete their entire library.
+    const cutoffDate = getFreeTierRetentionCutoff()
     
     const { data: thumbnails, error: queryError } = await supabase
       .from('thumbnails')
-      .select('id, user_id, image_url, created_at')
+      .select('id, user_id, image_url, created_at, has_watermark')
       .in('user_id', freeTierUserIds)
+      .eq('has_watermark', true)
       .lt('created_at', cutoffDate.toISOString())
     
     if (queryError) {
@@ -202,6 +210,22 @@ export async function POST(request: Request) {
         const imageUrl = thumbnail.image_url
         const createdAt = thumbnail.created_at
         const ageInDays = getAgeInDays(createdAt)
+
+        if (
+          !shouldDeleteThumbnailForFreeTierRetention({
+            hasWatermark: thumbnail.has_watermark,
+            createdAt,
+          })
+        ) {
+          logWarn('Skipped thumbnail that is not free-era retention eligible', {
+            route: 'POST /api/cron/cleanup-free-tier-thumbnails',
+            operation: 'skip-paid-era-thumbnail',
+            thumbnailId,
+            userId,
+            ageInDays,
+          })
+          continue
+        }
         
         // Delete from storage
         const storageDeleted = await deleteThumbnailFromStorage(
