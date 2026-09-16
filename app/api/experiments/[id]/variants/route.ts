@@ -17,6 +17,7 @@ import { handleApiError } from '@/lib/server/utils/api-helpers'
 import { logError, logInfo } from '@/lib/server/utils/logger'
 import { NextResponse } from 'next/server'
 import type { GenerateThumbnailRequest } from '@/app/api/generate/route'
+import { replaceExperimentVariant } from '@/lib/server/data/experiment-variants'
 
 export interface GenerateVariantsRequest {
   title: string
@@ -117,6 +118,18 @@ export async function POST(
     const user = await requireAuth(supabase)
     const { id } = await params
 
+    let body: GenerateVariantsRequest
+    try {
+      body = await request.json()
+    } catch {
+      return validationErrorResponse('Invalid JSON body')
+    }
+
+    // Validate required fields before touching existing variants
+    if (!body?.title || !body.title.trim()) {
+      return validationErrorResponse('title is required')
+    }
+
     // Verify experiment exists and belongs to user
     const { data: experiment, error: expError } = await supabase
       .from('experiments')
@@ -136,37 +149,6 @@ export async function POST(
         operation: 'fetch-experiment',
       })
       return databaseErrorResponse('Failed to fetch experiment')
-    }
-
-    // Check for existing variants and delete them before generating new ones (prevents unique constraint violation)
-    const { data: existingVariants } = await supabase
-      .from('experiment_variants')
-      .select('label')
-      .eq('experiment_id', id)
-
-    if (existingVariants && existingVariants.length > 0) {
-      const { error: deleteError } = await supabase
-        .from('experiment_variants')
-        .delete()
-        .eq('experiment_id', id)
-
-      if (deleteError) {
-        logError(deleteError, {
-          route: 'POST /api/experiments/[id]/variants',
-          userId: user.id,
-          experimentId: id,
-          operation: 'delete-existing-variants',
-        })
-        // Continue anyway - might still work if variants don't conflict
-      }
-    }
-
-    // Parse request body
-    const body: GenerateVariantsRequest = await request.json()
-
-    // Validate required fields
-    if (!body.title || !body.title.trim()) {
-      return validationErrorResponse('title is required')
     }
 
     // Create variant prompts
@@ -208,11 +190,11 @@ export async function POST(
 
         if (!generateResponse.ok) {
           let errorMessage = 'Generation failed'
-          let errorData: any = {}
+          let errorData: { error?: string; message?: string } = {}
           try {
             errorData = await generateResponse.json()
             errorMessage = errorData.error || errorData.message || `HTTP ${generateResponse.status}`
-          } catch (e) {
+          } catch {
             errorMessage = `HTTP ${generateResponse.status}: ${generateResponse.statusText}`
           }
           logError(new Error(errorMessage), {
@@ -228,7 +210,7 @@ export async function POST(
           continue
         }
 
-        let generateData: any = {}
+        let generateData: { imageUrl?: string; thumbnailId?: string } = {}
         try {
           generateData = await generateResponse.json()
         } catch (e) {
@@ -258,18 +240,17 @@ export async function POST(
           continue
         }
 
-        // Create variant record
-        const { data: variant, error: variantError } = await supabase
-          .from('experiment_variants')
-          .insert({
-            experiment_id: id,
-            label: labels[i],
-            title_text: variantPrompts[i].thumbnailText || body.title,
-            thumbnail_asset_url: imageUrl,
-            thumbnail_id: thumbnailId,
-          })
-          .select()
-          .single()
+        // Replace variant in place so a failed regeneration cannot wipe A/B/C
+        const { data: variant, error: variantError } = await replaceExperimentVariant(
+          supabase,
+          {
+            experimentId: id,
+            label: labels[i] as 'A' | 'B' | 'C',
+            titleText: variantPrompts[i].thumbnailText || body.title,
+            thumbnailAssetUrl: imageUrl,
+            thumbnailId: thumbnailId,
+          }
+        )
 
         if (variantError) {
           logError(variantError, {
