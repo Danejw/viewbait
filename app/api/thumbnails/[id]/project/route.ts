@@ -8,7 +8,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
-import { getProjectById } from '@/lib/server/data/projects'
+import { getProjectByIdForAccess } from '@/lib/server/data/projects'
 import { logError } from '@/lib/server/utils/logger'
 import { requireAuth } from '@/lib/server/utils/auth'
 import {
