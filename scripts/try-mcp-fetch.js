@@ -5,7 +5,12 @@
 const https = require('https');
 
 const PROJECT_REF = 'eqxagfhgfgrcdbtmxepl';
-const ACCESS_TOKEN = 'sbp_3c62169bd93781c729cba05986669d6b1b5a336e';
+const ACCESS_TOKEN = process.env.SUPABASE_ACCESS_TOKEN;
+
+if (!ACCESS_TOKEN) {
+  console.error('Error: SUPABASE_ACCESS_TOKEN environment variable is required');
+  process.exit(1);
+}
 
 function makeRequest(path) {
   return new Promise((resolve, reject) => {
